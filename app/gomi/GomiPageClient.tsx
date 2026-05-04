@@ -18,7 +18,7 @@ import {
 import { ja } from "date-fns/locale";
 import DistrictSelector from "@/components/DistrictSelector";
 import SubscribeButton from "@/components/SubscribeButton";
-import { getDistrictId } from "@/config/storage";
+import { getDistrictId, setDistrictId } from "@/config/storage";
 import { resolveSchedule } from "@/lib/gomi/schedule";
 import { GOMI_CATEGORY_LABELS } from "@/lib/gomi/types";
 import type { District, SpecialOverlay, GomiOccurrence } from "@/lib/gomi/types";
@@ -293,7 +293,14 @@ export default function GomiPageClient({ districts, overlays }: Props) {
 
       <DistrictSelector
         open={selectorOpen}
-        onSelect={(id) => setDistrictIdState(id)}
+        initialDistrictId={districtId}
+        onSelect={(id) => {
+          // /gomi's "change district" button always pins the picked id to
+          // the active profile so the page itself reflects the selection
+          // without a /settings round-trip.
+          setDistrictId(id);
+          setDistrictIdState(id);
+        }}
         onClose={() => setSelectorOpen(false)}
       />
     </div>
