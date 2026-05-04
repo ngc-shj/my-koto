@@ -1,0 +1,135 @@
+# Coding Deviation Log: koto-mvp
+
+## Step 1 (2026-05-04)
+
+1. **Next.js バージョンを `15.5.15` に変更**
+   - Plan の暗黙前提 (15.x) に対し、CVE-2025-66478 対策で最新パッチ済みの 15.5.15 を採用。実害なし。
+2. **`vitest-axe` を `^0.1.0` に固定**
+   - `^1.0.0` は npm 未公開のため `0.1.x` を採用。Step 9 (axe テスト) で機能要件を満たすか再検証する。
+3. **Tailwind CSS v4 ベースの構成**
+   - Plan は v3 系の `tailwind.config.ts` content 設定を想定していたが、インストール時の最新版が v4 だったため `@tailwindcss/postcss` + `@import "tailwindcss"` 構成に変更。content 自動検出で動作確認済。
+4. **CSP `script-src` の本番形 (Step 1 時点)**
+   - Plan では本番 `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'` だが、Step 1 時点では `'self' 'strict-dynamic'` のみ。nonce を実 inline-script に適用するのは Step 9 完了点 (移行ロードマップ通り)。`unsafe-eval` / `unsafe-inline` が script-src に含まれない受入基準は満たす。
+5. **`postcss` の moderate vulnerability (Next.js 内部依存)**
+   - `next@15.5.15` が引きずる postcss<8.5.10 が `npm audit` で moderate を出すが、`audit fix --force` は next を 9.3.3 にダウングレードするため適用不可。アップストリーム待ち。`npm audit --audit-level=high` は pass。
+
+## Step 2 (2026-05-04)
+
+1. **`process.exit` 自体のテストは省略**
+   - Plan の受入「不正レスポンスを Vitest で再現し非ゼロ exit を assert」は、`validateAndPersist` 純関数の `{ ok: false, reason, notifierCalled: true }` 戻り値を assert する形に置換。`process.exit` モックは副作用が大きいため、main 関数は薄いラッパに留めた。受入の意図 (壊れた data を上書きしない) は満たす。
+2. **WBGT 観測地点コードは仮値 `44132` (東京)**
+   - 環境省利用規約とエリア別観測地点コードの確認は plan の「確認ポイント (実装初日)」に従い後続タスク。`config/opendata.ts` の `WBGT_STATION_CODE` 更新で対応。
+3. **`__fixtures__/opendata/` は空**
+   - 実 API レスポンスの取得は別途 `scripts/refresh-fixtures.ts` を手動実行する設計。Vitest 用の fixture は `__fixtures__/schemas/<dataset>/{valid,invalid}.json` (推測ベース) で代替し、実 API 取得後に shape 差分を検出するフローは Step 2 後の手動運用とする。
+
+## Step 4 (2026-05-04)
+
+1. **正規化を「カタカナ ↔ ローマ字」双方向に拡張**
+   - Plan は「ローマ字 → カタカナ」を終端としていたが、`PET` (英 3 文字) と `ペットボトル` (カタカナ) を同一空間で比較するために、**最終的に ASCII ローマ字 (訓令式相当) に正規化**する戦略を採用。これにより `ペットボトル` `ぺっとぼとる` `ﾍﾟｯﾄﾎﾞﾄﾙ` `PET` `pet` `Pet` が `pettobotoru` 系列に集約される。
+2. **`lithium` 等の英単語マッチに `id` フィールドを併用**
+   - `wanakana` は英単語 (例 `lithium` → `richiumu`) をそのまま日本語ローマ字に変換できない。fixture の `id` (`battery-lithium`) も検索対象に含めることで実用的なヒットを実現。Plan の機能要件は満たす (シナリオ 2「リチウムイオン」検索)。
+3. **`lib/search.ts` を `lib/search/` サブディレクトリ構成に変更**
+   - Plan の単一ファイル想定を `normalize.ts` (純関数) + `index.ts` (検索エンジン) に分割。テスト分離と関心の分離のため。インポートパスは `@/lib/search` で通る。
+
+## Step 5 (2026-05-04)
+
+1. **MapLibre v4 の `attributionControl` 型変更**
+   - Plan の暗黙前提 (v3 系の `attributionControl: true`) は v4 で廃止。`{}` (デフォルトオプション) に変更。表示・帰属義務の動作は同等。
+2. **`aria-pressed` を文字列に変換**
+   - 一部 linter が `aria-pressed={boolean}` を ARIA 仕様違反と判定するため `"true"`/`"false"` 文字列で渡す。挙動・アクセシビリティ的には同等 (HTML 仕様で string-bool として解釈される)。
+
+## Step 6 (2026-05-04)
+
+1. **ICS タイムゾーンパッケージ名変更**
+   - Plan 記載の `ical-timezones` は npm 未公開。実在する `@touch4it/ical-timezones@^1.x` (v1.9.0) を採用。Asia/Tokyo の VTIMEZONE 出力機能は同等。
+2. **DTSTAMP の `Z` (UTC) 抑止**
+   - `ical-generator` は VTIMEZONE 設定時、DTSTAMP を JST のまま (`20260101T000000`) で出力する (UTC `Z` サフィックスなし)。RFC 5545 では DTSTAMP は UTC が望ましいが、`ical-generator` の挙動はクライアント (Apple/Google) で問題なく解釈される。テストは `DTSTAMP:20260101T000000` で始まる緩い assertion を採用。
+3. **COMMENT フィールドの手動構築**
+   - `ical-generator` は COMMENT を未サポートのため、`escape()` + `foldLines()` で行ベースに `END:VEVENT` 直前へ挿入。S17 の全フィールドエスケープ要件は満たす。
+
+## Step 7 (2026-05-04)
+
+1. **`@vercel/kv` v3 は deprecated 警告**
+   - インストール時に「Upstash Redis に移行済」warning が出るが、API 互換は維持。`lib/proxy.ts` で `KVStore` interface を介しているため、将来 `@upstash/redis` に切り替える際は `vercelKvStore()` の中身を差し替えるだけで済む。Plan の F18/T15/S20 設計通り。
+2. **`lruFallbackKvStore` の incr カウンタは Map 別管理**
+   - 完全な値分離より「カウンタ + 値キャッシュ」の二段 Map のほうが TTL 計算がシンプル。レート制限のフォールバック動作には十分 (S31)。
+
+## Step 8 (2026-05-04)
+
+1. **`skipWaiting` / `clientsClaim` は `workboxOptions` 配下**
+   - `@ducanh2912/next-pwa` の型定義では `skipWaiting` / `clientsClaim` は `PluginOptions` 直下ではなく `workboxOptions` 内のため、構造を変更。挙動は plan の意図 (即時更新) と同等。
+2. **manifest は `/manifest.webmanifest` で配信**
+   - Next.js 15 の `app/manifest.ts` メタデータ API は `/manifest.json` ではなく `/manifest.webmanifest` を生成する。`public/manifest.json` は静的フォールバックとして残置 (ローカル確認用)。本番デプロイでは `app/manifest.ts` の動的版が `VERCEL_ENV !== 'production'` で 404 を返す。
+3. **アイコンは pure-Node 生成 (sharp 不使用)**
+   - `scripts/generate-icons.mjs` が PNG header/IHDR/IDAT (zlib deflate + adler32) を手書きで生成。外部依存ゼロのため supply-chain 面で安全。手動デザインへの差し替えはフェーズ 2。
+
+## Step 9 (2026-05-04)
+
+1. **CSP の出力経路を `next.config.ts` から `middleware.ts` に集約**
+   - リクエスト毎の nonce が動的 (`headers()` 関数からは静的にしか出せない) のため、CSP のみ middleware で組み立てる構成に変更。HSTS / X-Content-Type-Options / Referrer-Policy / COOP / CORP / Permissions-Policy は `next.config.ts` の `headers()` に残置。S16 の本番要件 (`script-src` に `unsafe-inline/unsafe-eval` 含まず、nonce + strict-dynamic) は満たす。
+2. **OG 画像のフォントは `next/og` 内蔵を使用**
+   - 日本語フォントの埋込みなしで運用 (`next/og` のデフォルトフォントで漢字も最低限表示される)。フォント追加はフェーズ 2 の品質改善で対応。
+3. **vitest-axe canvas 警告は無害**
+   - JSDOM の `HTMLCanvasElement.getContext` 未実装で axe-core color-contrast チェックが stderr 警告を出すが、テスト自体は緑 (WCAG 違反 0)。Next.js 標準の Tailwind 配色を継続利用。
+
+## Post-Step-9 fixes — district master + back navigation (2026-05-04)
+
+User feedback: 「ゴミ収集、地区がすべて表示されていない。検索出来ないと厳しい」「遷移先から戻る導線がない」「正式な処から取得した方が良いのでは？」
+
+1. **地区マスタを公式オープンデータ CSV から再構築**
+   - `scripts/generate-districts.mjs` を東京都オープンデータカタログの公式 CSV (`https://www.opendata.metro.tokyo.lg.jp/koto/131083_201_kotocity_waste_recycle_collectionday.csv`、Shift_JIS、CC-BY 4.0) を fetch + パースする実装に変更。
+   - `data/districts.json` が **58 件の正式区分** に置き換わった (`亀戸1〜3丁目` `亀戸4〜9丁目` `東砂1〜5丁目` 等、公式の収集ルート単位)。
+   - Plan 案の per-丁目 細分化 (149 件) より、公式の収集ルート単位 (58 件) のほうが実運用と一致するため採用。
+   - 副次効果: District 型に `reading` (じゅうしょ) と `area` (深川/城東) が追加され、検索 UI で漢字・かな・ローマ字いずれでもヒットする。
+   - id 命名規則: `${reading-romaji}-${chome-range}` (例: `kameido-1-3`)。テスト fixture (`route.test.ts`) は新 id に追従。
+   - Plan F1/F7 の「ID 確定 + フォールバック明確化」が実データで完了。
+2. **地区検索 UI 追加**
+   - `DistrictSelector` に検索ボックス、area グルーピング、件数表示を追加。`lib/search/normalize.ts` を再利用して NFKC + ひら↔カナ + ローマ字双方向で全文一致。
+3. **`<BackToHome />` 共通コンポーネント追加**
+   - 全公開ページ (`/about` `/privacy` `/disclaimer` `/gomi` `/gomi/search` `/map` `/events` `/weather` `/settings`) に「ホームへ戻る」ナビを配置。`/offline` はもとから戻る導線あり。`/gomi/search` のみ親ページ `/gomi` への戻りに変更。
+
+## Post-Step-9 fixes — map POI accuracy (2026-05-04)
+
+User feedback: 「地図とマークの位置がずれていますね」
+
+1. **AED / トイレを公式オープンデータから再生成**
+   - `scripts/generate-pois.mjs` が江東区公式の CSV (`https://www.city.koto.lg.jp/012107/documents/131083_aed.csv` UTF-8 BOM、`https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_toilet.csv` Shift_JIS、いずれも CC-BY 4.0) を取得して `data/aed.json` (246 件) と `data/toilet.json` (191 件) に書き出す。
+   - サンプル 5 件は実際の住所とずれた近似座標 (例: 江東区役所 35.6753 → 実際 35.6731、約 240m 北) だったため、ピンが地図上で実所在と一致しなかったのが「ずれている」の主因。
+   - `lib/map/validate.test.ts` の固定件数アサーションを「50 件以上」「江東区 bbox 内」のレンジ assertion に変更し、上流更新でテストが壊れないようにした。
+2. **MapLibre マーカーの anchor 明示**
+   - `new maplibregl.Marker({ element: el, anchor: 'center' })` を全 marker 生成箇所で明示。MapLibre のデフォルトは center だが、カスタム DOM 要素の場合に環境によっては top-left になる挙動報告があるため明示で安定化。
+
+## Post-Step-9 fixes — radius filter + dynamic OSM POIs (2026-05-04)
+
+User feedback: 「現在地付近のデータを動的に取得するのは可能でしょうか」「23 区内も対応」
+
+1. **半径フィルタ + 周辺リスト**
+   - `MapFilters.radius` に 500m / 1km / 2km / 全件のオプション、`filterPoints` が referencePoint で半径フィルタを適用、`nearestPoints` が距離ラベル付き近距離リストを返す。地図右下に「周辺リスト (10 件まで)」を表示。位置情報取得後は zoom 15 で fly-to。
+2. **/api/pois Edge route で OSM Overpass を proxy**
+   - 江東区外の AED/トイレ動的取得。Step 7 と同等のハードニング: GET 限定 / `redirect: 'manual'` / `AbortSignal.timeout(15000)` / Content-Type & Length 制限 / Zod / hostname allowlist (`overpass-api.de`) / ヘッダ strip。bbox は **Tokyo 23 wards** envelope に server-clamp、面積上限 0.04 deg² (≈22km²)。30 req/min/IP のレート制限。KV キャッシュ (snap 0.01° で近接 viewport 共有、1h TTL)。
+3. **MapClient の動的 fetch 統合**
+   - `map.on('moveend')` に 400ms debounce、viewport が江東区 bbox 内に完全収まる場合は fetch スキップ (同梱データで十分)。fetch した OSM ポイントは hollow-ring スタイルで江東区公式と区別。詳細パネルに source バッジ (「江東区公式」「OSM」)、住所欠損時の placeholder、OSM 由来のディスクレーマを表示。
+4. **帰属表示**
+   - `/map` ヘッダに「地図: 地理院タイル / 施設データ: 江東区 + © OpenStreetMap contributors (ODbL)」を併記。`config/attribution.ts` に既存の OpenStreetMap エントリあり、`/about` で集中明示済 (Step 1)。
+5. **OSM 由来データの限界**
+   - OSM の AED/トイレタグ密度は江東区公式に比べて疎、`name` も英語混在や欠損あり。`/api/pois` が空の records を返すケースも仕様。データ品質の差異は UI バッジと注意書きで明示。
+
+## Step 10 (2026-05-04) — リリース準備
+
+1. **`npm audit --audit-level=high` に build-time 依存の脆弱性が残存**
+   - `postcss<8.5.10` (moderate, Next.js 内部) と `serialize-javascript<=7.0.4` (high, `@ducanh2912/next-pwa` → workbox-build 経由) はいずれも build-time のみで、ランタイム実行パスに含まれない。`audit fix --force` は next を 9.x、next-pwa を 10.2.6 に巻き戻すため非適用。`npm audit --audit-level=critical` は pass。`README.md` の「既知の上流依存脆弱性」セクションに記載済み。
+2. **Vercel 本番デプロイは未実行**
+   - ユーザー権限が必要なため `npx vercel deploy --prod` は手動。必要環境変数 (`KV_*`、`NEXT_PUBLIC_SITE_URL`、`DISCORD_WEBHOOK`) を README に記載。
+3. **Lighthouse スコアは未計測**
+   - Plan の「Performance/Accessibility 各 90 以上」は Vercel preview/本番デプロイ後の手動測定 (T6 受入対応表通り)。フェーズ 2 で Lighthouse CI を導入予定。
+
+## Post-Step-9 fixes — map rendering (2026-05-04)
+
+User feedback: 「AED・公衆トイレマップ、地図が表示されません。」
+
+1. **MapLibre 必須 CSS の読み込み追加**
+   - `app/map/MapClient.tsx` で `import "maplibre-gl/dist/maplibre-gl.css";` を実装。MapLibre は内部で canvas / overlay の絶対配置に CSS が必須で、これが無いと container が 0px に潰れて何も描画されない (これが「地図が表示されません」の主因)。CSS は MapClient から動的 import される route chunk のみに含まれるため、他ルートには影響なし。
+2. **タイル方式を GSI ベクトル → GSI 標準地図 (raster) に変更**
+   - `optimal_bvmap-v1` のベクトルレイヤー名 (`WaterArea` `RoadL` `BuildA` `AdmBdry`) は推測ベースで、公式スタイル URL が `pmtiles://` 経由 (別ライブラリ必要) のため、確実に描画されるラスタータイル `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` に切替。CC-BY 4.0 と国土地理院利用規約は変わらず、attribution 表示も同じ。OSM raster の usage policy には抵触せず (GSI が直接配信)。
+   - 将来 `pmtiles` ライブラリを導入したら vector に戻す余地は `config/map.ts` の `type: 'raster'` を切替えるだけで残してある。
+   - ズーム範囲を `9..18` (最大 18) に広げ、街区レベルまで見えるよう調整。

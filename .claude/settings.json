@@ -7,7 +7,16 @@
       "WebFetch(domain:catalog.data.metro.tokyo.lg.jp)",
       "WebFetch(domain:www.city.koto.lg.jp)",
       "WebFetch(domain:portal.data.metro.tokyo.lg.jp)",
-      "WebFetch(domain:www.wbgt.env.go.jp)"
+      "WebFetch(domain:www.wbgt.env.go.jp)",
+      "WebFetch(domain:ja.wikipedia.org)",
+      "Bash(sed -i.bak 's/kameido-1/kameido-1-3/g' \"app/api/ics/gomi/[district]/route.test.ts\")",
+      "Bash(rtk grep *)",
+      "WebFetch(domain:gsi-cyberjapan.github.io)",
+      "Bash(rtk npm *)",
+      "Bash(rtk ps *)",
+      "Read(//var/folders/vb/tjf174hj1835lfyj9vw5066c0000gn/T/tri-SfRYSo/**)",
+      "Read(//private/var/folders/vb/tjf174hj1835lfyj9vw5066c0000gn/T/tri-SfRYSo/**)",
+      "Bash(sed -i.bak 's/\"kameido-1\"/\"test-kameido\"/g; s/\"kameido-1\\\\b/\"test-kameido/g' lib/gomi/schedule.test.ts)"
     ]
   }
 }

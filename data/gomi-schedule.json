@@ -1,0 +1,38 @@
+[
+  {
+    "date": "2025-12-31",
+    "districts": [
+      "aomi", "ariake", "ishijima", "uminomori", "umibe", "eitai", "edagawa",
+      "etchujima", "ougibashi", "ojima-1-2", "ojima-3-7", "ojima-8-9",
+      "kameido-1-3", "kameido-4-9", "kitasuna-1-5", "kitasuna-6-7", "kiba",
+      "kiyosumi", "saga", "sarue", "shiohama-1", "shiohama-2", "shiomi",
+      "shinonome", "shirakawa-1-3", "shirakawa-4", "shin-ohashi", "shinkiba",
+      "shinsuna", "sumiyoshi", "sengoku", "senda", "takabashi", "tatsumi",
+      "toyo", "tokiwa", "tomioka", "toyosu", "higashisuna-1-5",
+      "higashisuna-6-8", "hirano-1-3", "hirano-4", "fukagawa-1", "fukagawa-2",
+      "fukuzumi", "fuyuki", "furuishiba", "botan", "minamisuna-1-5",
+      "minamisuna-2-4", "miyoshi-1-3", "miyoshi-4", "mouri", "morishita-1-4",
+      "morishita-5", "monzen-nakacho", "yumenoshima", "wakasu"
+    ],
+    "categories": [],
+    "note": "New Year's Eve — no collection (sample placeholder)"
+  },
+  {
+    "date": "2026-01-01",
+    "districts": [
+      "aomi", "ariake", "ishijima", "uminomori", "umibe", "eitai", "edagawa",
+      "etchujima", "ougibashi", "ojima-1-2", "ojima-3-7", "ojima-8-9",
+      "kameido-1-3", "kameido-4-9", "kitasuna-1-5", "kitasuna-6-7", "kiba",
+      "kiyosumi", "saga", "sarue", "shiohama-1", "shiohama-2", "shiomi",
+      "shinonome", "shirakawa-1-3", "shirakawa-4", "shin-ohashi", "shinkiba",
+      "shinsuna", "sumiyoshi", "sengoku", "senda", "takabashi", "tatsumi",
+      "toyo", "tokiwa", "tomioka", "toyosu", "higashisuna-1-5",
+      "higashisuna-6-8", "hirano-1-3", "hirano-4", "fukagawa-1", "fukagawa-2",
+      "fukuzumi", "fuyuki", "furuishiba", "botan", "minamisuna-1-5",
+      "minamisuna-2-4", "miyoshi-1-3", "miyoshi-4", "mouri", "morishita-1-4",
+      "morishita-5", "monzen-nakacho", "yumenoshima", "wakasu"
+    ],
+    "categories": [],
+    "note": "New Year's Day — no collection (sample placeholder)"
+  }
+]
