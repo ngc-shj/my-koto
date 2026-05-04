@@ -1,0 +1,81 @@
+name: Data Sync
+
+on:
+  schedule:
+    # Run at 18:00 UTC = 03:00 JST
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: data-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Mask Discord webhook URL
+        run: echo "::add-mask::$DISCORD_WEBHOOK"
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check failure flag (same-day deduplication)
+        id: check-flag
+        uses: actions/cache@v4
+        with:
+          path: .cache/discord-notified
+          key: discord-notified-${{ github.run_id }}
+          restore-keys: |
+            discord-notified-${{ github.ref_name }}-${{ github.run_id }}
+
+      - name: Fetch open data
+        id: fetch
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          UA_OVERRIDE: "koto-city-bot/1.0 (+https://example.com/about)"
+        run: npx tsx scripts/fetch-opendata.ts
+
+      - name: Create Pull Request
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: sync open data"
+          title: "chore: sync open data (${{ github.run_id }})"
+          body: |
+            Automated open data sync.
+
+            - AED, Toilet, Gomi, Events, WBGT data updated.
+            - Triggered by: ${{ github.event_name }}
+            - Run ID: ${{ github.run_id }}
+          branch: "data-sync/run-${{ github.run_id }}"
+          delete-branch: true
+          add-paths: "data/*.json"
+
+      - name: Notify Discord on failure
+        if: failure() && steps.fetch.outcome == 'failure'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"[koto-city] Data sync failed. See: $RUN_URL\"}"

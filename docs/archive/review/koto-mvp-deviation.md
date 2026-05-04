@@ -12,3 +12,12 @@
    - Plan では本番 `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'` だが、Step 1 時点では `'self' 'strict-dynamic'` のみ。nonce を実 inline-script に適用するのは Step 9 完了点 (移行ロードマップ通り)。`unsafe-eval` / `unsafe-inline` が script-src に含まれない受入基準は満たす。
 5. **`postcss` の moderate vulnerability (Next.js 内部依存)**
    - `next@15.5.15` が引きずる postcss<8.5.10 が `npm audit` で moderate を出すが、`audit fix --force` は next を 9.3.3 にダウングレードするため適用不可。アップストリーム待ち。`npm audit --audit-level=high` は pass。
+
+## Step 2 (2026-05-04)
+
+1. **`process.exit` 自体のテストは省略**
+   - Plan の受入「不正レスポンスを Vitest で再現し非ゼロ exit を assert」は、`validateAndPersist` 純関数の `{ ok: false, reason, notifierCalled: true }` 戻り値を assert する形に置換。`process.exit` モックは副作用が大きいため、main 関数は薄いラッパに留めた。受入の意図 (壊れた data を上書きしない) は満たす。
+2. **WBGT 観測地点コードは仮値 `44132` (東京)**
+   - 環境省利用規約とエリア別観測地点コードの確認は plan の「確認ポイント (実装初日)」に従い後続タスク。`config/opendata.ts` の `WBGT_STATION_CODE` 更新で対応。
+3. **`__fixtures__/opendata/` は空**
+   - 実 API レスポンスの取得は別途 `scripts/refresh-fixtures.ts` を手動実行する設計。Vitest 用の fixture は `__fixtures__/schemas/<dataset>/{valid,invalid}.json` (推測ベース) で代替し、実 API 取得後に shape 差分を検出するフローは Step 2 後の手動運用とする。
