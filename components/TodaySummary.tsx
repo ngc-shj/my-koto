@@ -12,6 +12,11 @@ import { resolveSchedule } from "@/lib/gomi/schedule";
 import type { Event } from "@/lib/events/types";
 import { getActiveProfile, type Profile } from "@/lib/profiles";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
+import {
+  WbgtDataSchema,
+  type WbgtData,
+} from "@/lib/opendata/schemas/wbgt";
+import { classifyWbgt } from "@/lib/wbgt/bands";
 
 type Props = {
   districts: District[];
@@ -23,6 +28,14 @@ type WeatherState =
   | { status: "loading" }
   | { status: "success"; data: WeatherResponse }
   | { status: "error" };
+
+// WBGT readiness for the home glance row. We don't expose loading explicitly
+// because the row is single-line and we only render it once a usable value
+// arrives — no in-place spinner clutter.
+type WbgtState =
+  | { status: "idle" }
+  | { status: "ready"; reading: WbgtData["readings"][number] }
+  | { status: "unavailable" };
 
 const CATEGORY_DOT: Record<string, string> = {
   burnable: "bg-red-500",
@@ -41,6 +54,7 @@ export default function TodaySummary({
 }: Props) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [weather, setWeather] = useState<WeatherState>({ status: "loading" });
+  const [wbgt, setWbgt] = useState<WbgtState>({ status: "idle" });
   // `today` lives in state so the SSR-rendered placeholder uses the same
   // anchor as subsequent re-renders. Initialised once on mount.
   const [today, setToday] = useState<Date | null>(null);
@@ -61,6 +75,29 @@ export default function TodaySummary({
       .catch((err: unknown) => {
         if (err instanceof Error && err.name === "AbortError") return;
         setWeather({ status: "error" });
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    // WBGT is a glance-only row — failure is silent (the section just
+    // renders nothing) since the user can still read the weather forecast
+    // and dedicated /weather page surfaces a louder error if they care.
+    const controller = new AbortController();
+    void fetch("/api/wbgt", { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const raw = (await res.json()) as unknown;
+        const parsed = WbgtDataSchema.safeParse(raw);
+        if (!parsed.success || parsed.data.readings.length === 0) {
+          setWbgt({ status: "unavailable" });
+          return;
+        }
+        setWbgt({ status: "ready", reading: parsed.data.readings[0] });
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setWbgt({ status: "unavailable" });
       });
     return () => controller.abort();
   }, []);
@@ -149,6 +186,8 @@ export default function TodaySummary({
 
       <WeatherSection state={weather} />
 
+      <WbgtSection state={wbgt} />
+
       <EventsSection events={nextEvents} today={today} />
     </div>
   );
@@ -230,6 +269,32 @@ function WeatherSection({ state }: { state: WeatherState }) {
             })}
           </ul>
         ) : null}
+      </div>
+    </section>
+  );
+}
+
+function WbgtSection({ state }: { state: WbgtState }) {
+  // Render nothing while we're waiting on the upstream and on outright
+  // unavailability — the home is at-a-glance, so a failed WBGT row is
+  // worse than no row.
+  if (state.status !== "ready") return null;
+  const { reading } = state;
+  const band = classifyWbgt(reading.wbgt);
+  return (
+    <section className="px-4 py-3 flex items-start gap-3">
+      <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0 mt-0.5">
+        暑さ指数
+      </span>
+      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-medium text-gray-800">
+          {reading.wbgt.toFixed(1)} ℃
+        </span>
+        <span
+          className={`text-xs px-2 py-0.5 rounded-full font-bold ${band.tone}`}
+        >
+          {band.label}
+        </span>
       </div>
     </section>
   );

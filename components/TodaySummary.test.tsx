@@ -6,17 +6,34 @@ import { createProfile } from "@/lib/profiles";
 import type { District, SpecialOverlay } from "@/lib/gomi/types";
 import type { Event } from "@/lib/events/types";
 
-// Stub /api/weather so the weather section renders deterministically.
-function mockWeather(payload: unknown, status = 200): void {
-  global.fetch = vi.fn(() =>
-    Promise.resolve(
-      new Response(JSON.stringify(payload), {
-        status,
+// Stub fetch so the weather + wbgt sections render deterministically. The
+// component fires both requests concurrently; we route by URL substring.
+function mockApi(opts: {
+  weather?: unknown;
+  wbgt?: unknown;
+  weatherStatus?: number;
+  wbgtStatus?: number;
+}): void {
+  global.fetch = vi.fn((input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("/api/wbgt")) {
+      return Promise.resolve(
+        new Response(JSON.stringify(opts.wbgt ?? {}), {
+          status: opts.wbgtStatus ?? 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify(opts.weather ?? {}), {
+        status: opts.weatherStatus ?? 200,
         headers: { "Content-Type": "application/json" },
       }),
-    ),
-  ) as typeof fetch;
+    );
+  }) as typeof fetch;
 }
+
+const EMPTY_WBGT = { fetchedAt: "", readings: [] };
 
 const TOYOSU: District = {
   id: "toyosu",
@@ -55,7 +72,7 @@ beforeEach(() => {
 
 describe("TodaySummary", () => {
   it("prompts to set a profile when none is active", async () => {
-    mockWeather(validDailyWeather);
+    mockApi({ weather: validDailyWeather, wbgt: EMPTY_WBGT });
     render(
       <TodaySummary
         districts={districts}
@@ -73,7 +90,7 @@ describe("TodaySummary", () => {
 
   it("renders the active profile name and district when one is set", async () => {
     createProfile({ name: "家", districtId: "toyosu" });
-    mockWeather(validDailyWeather);
+    mockApi({ weather: validDailyWeather, wbgt: EMPTY_WBGT });
     render(
       <TodaySummary
         districts={districts}
@@ -87,7 +104,7 @@ describe("TodaySummary", () => {
 
   it("renders weather for today and tomorrow", async () => {
     createProfile({ name: "家", districtId: "toyosu" });
-    mockWeather(validDailyWeather);
+    mockApi({ weather: validDailyWeather, wbgt: EMPTY_WBGT });
     render(
       <TodaySummary
         districts={districts}
@@ -103,7 +120,7 @@ describe("TodaySummary", () => {
 
   it("shows the empty event state when no events overlap today", async () => {
     createProfile({ name: "家", districtId: "toyosu" });
-    mockWeather(validDailyWeather);
+    mockApi({ weather: validDailyWeather, wbgt: EMPTY_WBGT });
     render(
       <TodaySummary
         districts={districts}
@@ -116,9 +133,50 @@ describe("TodaySummary", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the WBGT row with the correct band when a reading is available", async () => {
+    createProfile({ name: "家", districtId: "toyosu" });
+    mockApi({
+      weather: validDailyWeather,
+      wbgt: {
+        fetchedAt: "2026/08/01 12:00",
+        readings: [
+          {
+            station: "44132",
+            datetime: "2026-08-01T12:00:00+09:00",
+            wbgt: 32.5,
+          },
+        ],
+      },
+    });
+    render(
+      <TodaySummary
+        districts={districts}
+        overlays={overlays}
+        upcomingEvents={[]}
+      />,
+    );
+    expect(await screen.findByText(/32\.5 ℃/)).toBeInTheDocument();
+    expect(screen.getByText("危険")).toBeInTheDocument();
+  });
+
+  it("hides the WBGT row when the upstream returns no readings", async () => {
+    createProfile({ name: "家", districtId: "toyosu" });
+    mockApi({ weather: validDailyWeather, wbgt: EMPTY_WBGT });
+    render(
+      <TodaySummary
+        districts={districts}
+        overlays={overlays}
+        upcomingEvents={[]}
+      />,
+    );
+    // Wait for the weather row to settle so we know the effects have run.
+    await screen.findByText(/18°〜25°C/);
+    expect(screen.queryByText("暑さ指数")).not.toBeInTheDocument();
+  });
+
   it("renders up to 2 upcoming events", async () => {
     createProfile({ name: "家", districtId: "toyosu" });
-    mockWeather(validDailyWeather);
+    mockApi({ weather: validDailyWeather, wbgt: EMPTY_WBGT });
     const future = new Date();
     future.setDate(future.getDate() + 5);
     const futureStr = future.toISOString().slice(0, 10);
