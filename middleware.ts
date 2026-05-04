@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateNonce, buildCsp } from "@/lib/csp";
+import { buildCsp, buildReportingEndpoints, generateNonce } from "@/lib/csp/policy";
 
 export function middleware(request: NextRequest) {
   const nonce = generateNonce();
@@ -16,6 +16,13 @@ export function middleware(request: NextRequest) {
 
   // Set CSP on the response so browsers enforce it.
   response.headers.set("Content-Security-Policy", csp);
+
+  // Pair the `report-to` CSP directive with a Reporting-Endpoints header
+  // pointing at our /api/csp-report sink. Production only — the dev CSP
+  // omits the directive so dev breakage doesn't generate noise reports.
+  if (env === "production") {
+    response.headers.set("Reporting-Endpoints", buildReportingEndpoints());
+  }
 
   // Pass nonce to Server Components via a forwarded request header.
   // app/layout.tsx reads x-nonce from headers() to inject it into <Script> tags.

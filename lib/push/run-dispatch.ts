@@ -12,6 +12,7 @@ import {
   type PushKv,
 } from "./storage";
 import { buildPayload, readJstClock } from "./dispatch";
+import { saveLastDispatch } from "./last-dispatch";
 import type { Sender } from "./sender";
 
 export type DispatchSummary = {
@@ -62,7 +63,7 @@ export async function runDispatch(deps: {
     }
   }
 
-  return {
+  const summary: DispatchSummary = {
     hour: clock.hour,
     tomorrow: tomorrowIso,
     attempted,
@@ -70,6 +71,18 @@ export async function runDispatch(deps: {
     expired,
     failed,
   };
+
+  // Persist the latest run summary for /status. Failure is non-fatal —
+  // missing the summary write would mean /status shows "no recent run"
+  // until the next cron tick, but the actual notifications already went
+  // out and that's the user-visible work.
+  try {
+    await saveLastDispatch(kv, { ...summary, finishedAt: now.getTime() });
+  } catch {
+    /* ignore */
+  }
+
+  return summary;
 }
 
 function formatLocalIso(date: Date): string {
