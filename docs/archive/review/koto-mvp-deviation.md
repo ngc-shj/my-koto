@@ -53,3 +53,12 @@
    - インストール時に「Upstash Redis に移行済」warning が出るが、API 互換は維持。`lib/proxy.ts` で `KVStore` interface を介しているため、将来 `@upstash/redis` に切り替える際は `vercelKvStore()` の中身を差し替えるだけで済む。Plan の F18/T15/S20 設計通り。
 2. **`lruFallbackKvStore` の incr カウンタは Map 別管理**
    - 完全な値分離より「カウンタ + 値キャッシュ」の二段 Map のほうが TTL 計算がシンプル。レート制限のフォールバック動作には十分 (S31)。
+
+## Step 8 (2026-05-04)
+
+1. **`skipWaiting` / `clientsClaim` は `workboxOptions` 配下**
+   - `@ducanh2912/next-pwa` の型定義では `skipWaiting` / `clientsClaim` は `PluginOptions` 直下ではなく `workboxOptions` 内のため、構造を変更。挙動は plan の意図 (即時更新) と同等。
+2. **manifest は `/manifest.webmanifest` で配信**
+   - Next.js 15 の `app/manifest.ts` メタデータ API は `/manifest.json` ではなく `/manifest.webmanifest` を生成する。`public/manifest.json` は静的フォールバックとして残置 (ローカル確認用)。本番デプロイでは `app/manifest.ts` の動的版が `VERCEL_ENV !== 'production'` で 404 を返す。
+3. **アイコンは pure-Node 生成 (sharp 不使用)**
+   - `scripts/generate-icons.mjs` が PNG header/IHDR/IDAT (zlib deflate + adler32) を手書きで生成。外部依存ゼロのため supply-chain 面で安全。手動デザインへの差し替えはフェーズ 2。

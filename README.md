@@ -31,6 +31,18 @@ npm run test
 npm run build
 ```
 
+## PWA アイコンの生成
+
+`public/icons/` 以下の PNG アイコンはプレースホルダです。
+外部依存なしの純 Node.js スクリプトで生成します:
+
+```bash
+node scripts/generate-icons.mjs
+```
+
+本番用アイコンに差し替える場合は、192x192 と 512x512 の PNG を用意して
+`public/icons/` に配置してください (maskable 版は同サイズで安全ゾーン 80% 対応)。
+
 ## --ignore-scripts の運用例外
 
 `.npmrc` に `ignore-scripts=true` を設定しています。
