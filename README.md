@@ -21,6 +21,10 @@
   ヘッダ strip)
 - **PWA** — Service Worker (build ID 付き cache name)、機内モードで `/offline`、
   Vercel preview では manifest を 404 にして本番との混同を防止
+- **プッシュ通知 (Web Push)** — 翌日のごみ収集を前日の指定時刻 (JST 18-22 時)
+  に通知。設定画面でオプトイン制。VAPID 鍵で署名、購読情報は Vercel KV に
+  保存。配信は GitHub Actions cron (`.github/workflows/push-dispatch.yml`)
+  から `/api/push/dispatch` を叩く方式 (Vercel Hobby は cron が日次までのため)
 - **CSP** — 本番は `script-src 'self' 'nonce-XXX' 'strict-dynamic'` (unsafe-eval/inline なし)。
   middleware で nonce を生成 (`crypto.getRandomValues`、128bit Base64URL)。
   HSTS / COOP / CORP / Permissions-Policy 全て付与
@@ -90,9 +94,38 @@ npx vercel deploy --prod
 
 | 変数 | 用途 |
 |------|------|
-| `KV_URL` / `KV_REST_API_URL` / `KV_REST_API_TOKEN` / `KV_REST_API_READ_ONLY_TOKEN` | Vercel KV (天気プロキシ・OSM POI のキャッシュ + レート制限) |
+| `KV_URL` / `KV_REST_API_URL` / `KV_REST_API_TOKEN` / `KV_REST_API_READ_ONLY_TOKEN` | Vercel KV (天気プロキシ・OSM POI のキャッシュ + レート制限・Push 購読の永続化) |
 | `NEXT_PUBLIC_SITE_URL` | OG 画像生成・CORS の origin (本番ドメイン) |
 | `DISCORD_WEBHOOK` | データ取得失敗の通知 (任意) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push 公開鍵 (`pushManager.subscribe` の `applicationServerKey`) |
+| `VAPID_PRIVATE_KEY` | Web Push 秘密鍵 (`/api/push/dispatch` のみで使用) |
+| `VAPID_SUBJECT` | VAPID 連絡先 (`mailto:` URL、Push サービスからの通知を受け取るアドレス) |
+| `PUSH_DISPATCH_SECRET` | `/api/push/dispatch` の Bearer トークン。GitHub Actions と一致させる |
+
+GitHub Actions 側 (`.github/workflows/push-dispatch.yml`) の Secrets:
+
+- `PUSH_DISPATCH_ENDPOINT` — `https://<site>/api/push/dispatch` の絶対 URL
+- `PUSH_DISPATCH_SECRET` — Vercel 側と同一値
+
+## Web Push のセットアップ
+
+VAPID 鍵を生成 (1 度だけ):
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+公開鍵を `NEXT_PUBLIC_VAPID_PUBLIC_KEY`、秘密鍵を `VAPID_PRIVATE_KEY` として
+Vercel 環境変数に設定します。`VAPID_SUBJECT` には連絡先 `mailto:...` を、
+`PUSH_DISPATCH_SECRET` には十分なエントロピを持つランダム文字列を設定:
+
+```bash
+openssl rand -hex 32
+```
+
+iOS Safari は PWA を「ホーム画面に追加」した状態でのみ Web Push に対応します
+(iOS 16.4 以降)。`/settings` の通知 UI は標準ブラウザでは「ホーム画面に追加してください」
+と案内します。
 
 `config/site.ts` のサイト名・カラーは中立色 (`#475569` slate) で江東区シンボル色を避けています。
 

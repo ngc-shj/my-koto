@@ -67,6 +67,24 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-2">
+        <h2 className="text-lg font-semibold">プッシュ通知</h2>
+        <p className="text-gray-700">
+          設定画面からプッシュ通知を有効にした場合のみ、ブラウザが発行するプッシュ購読情報
+          (端末ごとに異なる Push サービスのエンドポイント URL と公開鍵)
+          をサーバーに保存します。氏名・住所・メールアドレスなどの個人情報は含みません。
+        </p>
+        <p className="text-gray-700">
+          通知時刻になると、選択された地区の翌日のごみ収集情報をサーバーから
+          ブラウザベンダーの Push サービス
+          (Apple、Google、Mozilla 等。お使いの環境により異なります)
+          を経由して送信します。本サービスから外部の解析・広告事業者への送信は行いません。
+        </p>
+        <p className="text-gray-700">
+          通知を無効にすると、購読情報はサーバーから即時に削除されます。
+        </p>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="text-lg font-semibold">アクセス解析</h2>
         <p className="text-gray-700">
           本サービスはアクセス解析ツールを使用していません。
