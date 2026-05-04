@@ -613,6 +613,85 @@ koto-city/
 - [ ] Vercel Hobby + Vercel KV 無料枠が想定アクセス量で収まることを確認
 - [ ] Open-Meteo の利用規約 (CC-BY 4.0) と帰属表示文言を `config/attribution.ts` に固定
 
+## Implementation Checklist (Step 2-1)
+
+新規プロジェクトのため既存共有ユーティリティはゼロ (`scan-shared-utils.sh` 実行確認済)。実装は plan の「ディレクトリ構成」を新規作成しながら進める。各 Step の具体的な作業ファイル:
+
+### Step 1 — プロジェクト初期化 + セキュリティ基盤
+- `package.json`, `tsconfig.json`, `next.config.ts`, `tailwind.config.ts`, `postcss.config.js`
+- `.eslintrc.json`, `.prettierrc`, `renovate.json`
+- `app/layout.tsx`, `app/page.tsx`, `app/about/page.tsx`, `app/privacy/page.tsx`, `app/disclaimer/page.tsx`, `app/not-found.tsx`, `app/error.tsx`, `app/offline/page.tsx`, `app/robots.ts`, `app/sitemap.ts`
+- `middleware.ts` (nonce 発行)
+- `lib/csp.ts` (`generateNonce()` CSPRNG ヘルパ、Vitest 対象)
+- `components/Attribution.tsx` (Client), `components/DataFreshness.tsx` (Client), `components/GeolocationConsent.tsx` (Client)
+- `config/site.ts`, `config/geo.ts`, `config/attribution.ts`
+- 受入: `curl -I` で本番 CSP に `unsafe-eval` が含まれない、`/about` `/privacy` `/disclaimer` が 200
+
+### Step 2 — データ取得スクリプト + Zod
+- `lib/opendata/schemas/{aed,toilet,gomi,events,wbgt,weather}.ts`
+- `lib/opendata/normalize.ts` (値域チェック含む)
+- `scripts/fetch-opendata.ts`, `scripts/refresh-fixtures.ts`
+- `__fixtures__/opendata/*.json`, `__fixtures__/README.md`
+- `.github/workflows/data-sync.yml`
+- `config/opendata.ts` (データセット ID), `config/proxy-allowlist.ts` (上流ホスト)
+- 受入: スキーマ違反で旧 data 保持 + 非ゼロ exit + Discord called の Vitest
+
+### Step 3 — ゴミ収集カレンダー
+- `app/gomi/page.tsx`, `app/api/ics/gomi/[district]/route.ts`
+- `data/districts.json`, `data/gomi-schedule.json`
+- `config/districts.ts` (allowlist), `config/storage.ts`
+- 受入: district 二段階検証の Vitest + 手動
+
+### Step 4 — ゴミ品目検索
+- `app/gomi/search/page.tsx`
+- `lib/search.ts` (NFKC + ひら↔カナ + ローマ字 = wanakana)
+- `data/gomi-dictionary.json`, `__fixtures__/dictionary-labels.json`
+- 受入: ペットボトル正規化 5 入力テーブル駆動 Vitest
+
+### Step 5 — AED/トイレマップ
+- `app/map/page.tsx`
+- `lib/distance.ts` (純関数、Vitest)
+- `config/map.ts` (国土地理院ベクトルタイル URL + attribution)
+- `data/aed.json`, `data/toilet.json`
+
+### Step 6 — イベントカレンダー + ICS
+- `app/events/page.tsx`, `app/api/ics/events/route.ts`
+- `lib/ics.ts` (ical-generator + ical-timezones、`now()` `uuid()` 引数注入)
+- `data/events.json` (build 時 import)
+- 受入: VTIMEZONE / STATUS:CANCELLED / 全テキストエスケープ / CRLF / UID 決定論性 / LOCATION injection ネガティブ Vitest
+
+### Step 7 — 天気 (Edge proxy)
+- `app/api/weather/route.ts` (薄ラッパ)
+- `lib/opendata/weather.ts` (純関数、Vitest)
+- `lib/proxy.ts` (`KVStore` interface + Vercel KV アダプタ + In-memory fake + LRU フォールバック)
+- 受入: 純関数 Vitest + KV fake で 60/61 req レート制限 Vitest + 実機 curl XFF 偽装
+
+### Step 8 — PWA 化 + SW バージョニング
+- `next.config.ts` に next-pwa 設定
+- `public/manifest.json` (id/scope/start_url)
+- `public/icons/*`
+- 受入: Lighthouse PWA / `/offline` / SW CSP 違反なし / preview manifest 出し分け
+
+### Step 9 — 共有・SEO・アクセシビリティ + CSP nonce 完了
+- `app/api/og/route.tsx` (`next/og`)
+- `app/sitemap.ts`, `app/robots.ts` 仕上げ
+- `middleware.ts` の nonce 適用を本番 `script-src` で完全切替
+- 受入: 全公開ルートの axe テスト緑、本番 CSP nonce 化、OG 画像 200
+
+### Step 10 — リリース準備
+- `README.md` (非公式宣言・出典・運用ルール・kill switch ロードマップ)
+- Vercel 本番デプロイ
+- 受入: Lighthouse Performance/Accessibility 90+、`npm audit --audit-level=high` pass
+
+### 共通リソース (Step 1 で先行整備)
+- `lib/datetime.ts` (date-fns-tz Asia/Tokyo)
+- `lib/i18n/messages.ts` (`as const`)
+
+### 並行禁止 (cross-step duplicate 防止)
+- `KVStore` interface は Step 7 のみで定義、他 Step は import
+- `<Attribution>` `<DataFreshness>` は Step 1 で定義、他 Step は使用のみ
+- `config/*.ts` 定数は定義 Step 以外で再宣言禁止
+
 ## 運用ガイド (README に転記)
 
 - 観測性ツール (Sentry / Vercel Analytics) 導入の判断条件: (a) PII フィルタ ON、(b) 同意 UI、(c) CSP `connect-src` 追加、(d) プライバシーポリシー更新、すべて満たした場合のみ
