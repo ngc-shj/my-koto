@@ -4,14 +4,24 @@ import aedFixture from "@/data/aed.json";
 import toiletFixture from "@/data/toilet.json";
 
 describe("parseAedData", () => {
-  it("validates and normalizes the sample aed.json fixture", () => {
+  it("validates and normalizes the official aed.json fixture", () => {
     const points = parseAedData(aedFixture);
-    expect(points).toHaveLength(5);
+    // The upstream Koto-ku open data CSV currently exposes ~246 AED sites;
+    // assert a non-trivial count rather than a magic number so a refresh
+    // doesn't break the test on every upstream update.
+    expect(points.length).toBeGreaterThan(50);
     expect(points[0].type).toBe("aed");
     expect(typeof points[0].lat).toBe("number");
     expect(typeof points[0].lng).toBe("number");
     expect(points[0].name).toBeTruthy();
     expect(points[0].address).toBeTruthy();
+    // Sanity-check coordinates land inside Koto-ku's bounding envelope.
+    for (const p of points) {
+      expect(p.lat).toBeGreaterThan(35.5);
+      expect(p.lat).toBeLessThan(35.8);
+      expect(p.lng).toBeGreaterThan(139.7);
+      expect(p.lng).toBeLessThan(139.9);
+    }
   });
 
   it("throws on invalid aed data", () => {
@@ -22,13 +32,19 @@ describe("parseAedData", () => {
 });
 
 describe("parseToiletData", () => {
-  it("validates and normalizes the sample toilet.json fixture", () => {
+  it("validates and normalizes the official toilet.json fixture", () => {
     const points = parseToiletData(toiletFixture);
-    expect(points).toHaveLength(5);
+    expect(points.length).toBeGreaterThan(50);
     expect(points[0].type).toBe("toilet");
     expect(typeof points[0].lat).toBe("number");
     expect(typeof points[0].lng).toBe("number");
     expect(points[0].accessibility).toBeDefined();
+    for (const p of points) {
+      expect(p.lat).toBeGreaterThan(35.5);
+      expect(p.lat).toBeLessThan(35.8);
+      expect(p.lng).toBeGreaterThan(139.7);
+      expect(p.lng).toBeLessThan(139.9);
+    }
   });
 
   it("throws on invalid toilet data", () => {

@@ -133,7 +133,7 @@ export default function MapClient({ points, initialFilters }: Props) {
       el.textContent = point.type === "aed" ? "A" : "T";
       el.addEventListener("click", () => setSelectedPoint(point));
 
-      const marker = new maplibregl.Marker({ element: el })
+      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([point.lng, point.lat])
         .addTo(map);
       markersRef.current.push(marker);
@@ -164,7 +164,7 @@ export default function MapClient({ points, initialFilters }: Props) {
         box-shadow: 0 0 0 2px #7c3aed;
       `;
       el.setAttribute("aria-label", "現在地");
-      userMarkerRef.current = new maplibregl.Marker({ element: el })
+      userMarkerRef.current = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([userLocation.lng, userLocation.lat])
         .addTo(map);
 
