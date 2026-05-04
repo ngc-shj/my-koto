@@ -46,3 +46,10 @@
    - `ical-generator` は VTIMEZONE 設定時、DTSTAMP を JST のまま (`20260101T000000`) で出力する (UTC `Z` サフィックスなし)。RFC 5545 では DTSTAMP は UTC が望ましいが、`ical-generator` の挙動はクライアント (Apple/Google) で問題なく解釈される。テストは `DTSTAMP:20260101T000000` で始まる緩い assertion を採用。
 3. **COMMENT フィールドの手動構築**
    - `ical-generator` は COMMENT を未サポートのため、`escape()` + `foldLines()` で行ベースに `END:VEVENT` 直前へ挿入。S17 の全フィールドエスケープ要件は満たす。
+
+## Step 7 (2026-05-04)
+
+1. **`@vercel/kv` v3 は deprecated 警告**
+   - インストール時に「Upstash Redis に移行済」warning が出るが、API 互換は維持。`lib/proxy.ts` で `KVStore` interface を介しているため、将来 `@upstash/redis` に切り替える際は `vercelKvStore()` の中身を差し替えるだけで済む。Plan の F18/T15/S20 設計通り。
+2. **`lruFallbackKvStore` の incr カウンタは Map 別管理**
+   - 完全な値分離より「カウンタ + 値キャッシュ」の二段 Map のほうが TTL 計算がシンプル。レート制限のフォールバック動作には十分 (S31)。

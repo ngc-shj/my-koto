@@ -1,4 +1,5 @@
 import { messages } from "@/lib/i18n/messages";
+import WeatherWidget from "@/components/WeatherWidget";
 
 export default function HomePage() {
   return (
@@ -7,6 +8,10 @@ export default function HomePage() {
         <h1 className="text-3xl font-bold text-slate-700">{messages.brand.title}</h1>
         <p className="mt-2 text-gray-600">{messages.brand.tagline}</p>
       </header>
+
+      <div className="mb-6">
+        <WeatherWidget />
+      </div>
 
       <nav className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <a

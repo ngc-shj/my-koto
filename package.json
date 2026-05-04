@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@touch4it/ical-timezones": "^1.9.0",
+    "@vercel/functions": "^3.5.0",
+    "@vercel/kv": "^3.0.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "ical-generator": "^7.2.0",
