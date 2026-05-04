@@ -13,9 +13,13 @@ export type LayerId =
   | "toilet"
   | "shelter"
   | "assembly_point"
-  | "water_supply";
+  | "water_supply"
+  | "park"
+  | "library"
+  | "child_center"
+  | "nursery";
 
-export type LayerCategory = "civic" | "disaster";
+export type LayerCategory = "civic" | "disaster" | "family";
 
 export type OsmTag = { readonly key: string; readonly value: string };
 
@@ -94,6 +98,57 @@ export const LAYERS: readonly LayerConfig[] = [
       { key: "amenity", value: "drinking_water" },
     ],
     defaultName: "給水拠点",
+  },
+  {
+    id: "park",
+    label: "公園",
+    shortLabel: "公園",
+    category: "family",
+    color: "#16a34a", // green-600
+    letter: "公",
+    osmTags: [
+      { key: "leisure", value: "park" },
+      { key: "leisure", value: "garden" },
+    ],
+    defaultName: "公園",
+  },
+  {
+    id: "library",
+    label: "図書館",
+    shortLabel: "図書館",
+    category: "family",
+    color: "#92400e", // amber-800
+    letter: "図",
+    osmTags: [{ key: "amenity", value: "library" }],
+    defaultName: "図書館",
+  },
+  {
+    id: "child_center",
+    label: "児童館",
+    shortLabel: "児童館",
+    category: "family",
+    color: "#db2777", // pink-600
+    letter: "児",
+    // 児童館 maps to community_centre in Tokyo OSM. The :for=child variant
+    // is rare; we still classify the broader tag and accept the lower
+    // precision because Koto-ku's bundled CSV dominates this layer.
+    osmTags: [{ key: "amenity", value: "community_centre" }],
+    defaultName: "児童館",
+  },
+  {
+    id: "nursery",
+    label: "保育園",
+    shortLabel: "保育園",
+    category: "family",
+    color: "#ea580c", // orange-600
+    letter: "保",
+    // OSM tags 保育園 and 幼稚園 alike as kindergarten. The bundled Koto
+    // CSV is authoritative; OSM is approximate fallback only.
+    osmTags: [
+      { key: "amenity", value: "kindergarten" },
+      { key: "amenity", value: "childcare" },
+    ],
+    defaultName: "保育園",
   },
 ];
 

@@ -43,6 +43,7 @@ const RADIUS_OPTIONS: { label: string; value: RadiusOption }[] = [
 const CATEGORY_LABELS: Record<LayerCategory, string> = {
   civic: "公共施設",
   disaster: "防災",
+  family: "子育て・暮らし",
 };
 
 function formatDistance(meters: number): string {

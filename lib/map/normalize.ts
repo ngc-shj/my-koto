@@ -3,7 +3,8 @@ import type { ToiletRecord } from "@/lib/opendata/schemas/toilet";
 import type { ShelterRecord } from "@/lib/opendata/schemas/shelter";
 import type { AssemblyPointRecord } from "@/lib/opendata/schemas/assembly-point";
 import type { WaterSupplyRecord } from "@/lib/opendata/schemas/water-supply";
-import type { HazardFlags, MapPoint } from "./types";
+import type { KotoFacilityRecord } from "@/lib/opendata/schemas/koto-facility";
+import type { HazardFlags, MapPoint, PointType } from "./types";
 
 // Truthy check for Japanese affirmative cell values.
 function isTruthy(val: string | undefined): boolean {
@@ -94,6 +95,44 @@ export function normalizeAssemblyPoint(
           twenty_four_hour: false,
         }
       : undefined,
+  };
+}
+
+// Generic normaliser for Koto-ku 公共施設 datasets (公園・図書館・児童館・
+// 保育園) that share the 自治体推奨データセット 38列 schema. The `kind`
+// argument selects the resulting layer id and the bundled JSON file the
+// record came from — there is otherwise no schema-level discriminator.
+export function normalizeKotoFacility(
+  kind: Extract<PointType, "park" | "library" | "child_center" | "nursery">,
+  record: KotoFacilityRecord,
+  index: number,
+): MapPoint {
+  // バリアフリー情報 is a free-text field (Koto's CSV uses both `;` and
+  // full-width separators); treat any non-empty value as "has accessibility
+  // info available" rather than parsing the prose. The detail panel
+  // surfaces the string verbatim so users can read the upstream wording.
+  const accessibilityRaw = record.バリアフリー情報?.trim() ?? "";
+  return {
+    id: `${kind}-${index}`,
+    type: kind,
+    source: "koto-official",
+    name: record.名称,
+    address: record.住所,
+    lat: parseFloat(record.緯度),
+    lng: parseFloat(record.経度),
+    phone: record.電話番号,
+    hours: record.利用可能日時特記事項,
+    detail: accessibilityRaw || undefined,
+    note: record.備考,
+    accessibility:
+      accessibilityRaw.length > 0
+        ? {
+            barrier_free: /多目的|スロープ|車椅子|バリアフリー/.test(
+              accessibilityRaw,
+            ),
+            twenty_four_hour: false,
+          }
+        : undefined,
   };
 }
 

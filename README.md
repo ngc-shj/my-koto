@@ -40,6 +40,30 @@
 
 本サービスは上記オープンデータを一部加工して利用しています。
 
+### 取得元 URI 一覧
+
+`scripts/generate-pois.ts` および `scripts/generate-districts.mjs` が
+fetch する CSV は以下の URI です。Tokyo Met dataset (避難所・避難場所・給水拠点)
+は CKAN package_show API で resource URL を解決するため、ファイル名のローテーション
+にスクリプト側が追従します。
+
+| レイヤ / 用途 | 取得元 |
+|---------------|--------|
+| 江東区 ゴミ収集 (区域) | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_collection_district.csv` |
+| 江東区 AED | `https://www.city.koto.lg.jp/012107/documents/131083_aed.csv` |
+| 江東区 公衆トイレ | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_toilet.csv` |
+| 江東区 公園 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-17_parks.csv` |
+| 江東区 図書館 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-25_libraries.csv` |
+| 江東区 児童館 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-9_childrensclubhouses.csv` |
+| 江東区 区立保育園 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-10_municipal_childrens_daycare_centers.csv` |
+| 東京都 避難所 (CKAN) | dataset `t000003d0000000093` → `evacuation_center.csv` |
+| 東京都 避難場所 (CKAN) | dataset `t000003d0000000093` → `evacuation_area.csv` |
+| 東京都 給水拠点 (CKAN) | dataset `t000019d0000000001` → `kyoten_<yyyymmdd>.csv` |
+| 天気予報 | `https://api.open-meteo.com/v1/forecast` |
+| 地図タイル (国土地理院) | `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` |
+| OSM 補完 (Overpass) | `https://overpass-api.de/api/interpreter` |
+| WBGT 観測 (環境省) | `https://www.wbgt.env.go.jp/` (station 44132) |
+
 ## 開発環境セットアップ
 
 ```bash

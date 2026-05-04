@@ -31,7 +31,11 @@ type LayerKey =
   | "toilet"
   | "shelter"
   | "assembly_point"
-  | "water_supply";
+  | "water_supply"
+  | "park"
+  | "library"
+  | "child_center"
+  | "nursery";
 
 type SourceSpec = {
   // Either a fixed URL ('static') or a CKAN-resolved one ('ckan').
@@ -100,6 +104,50 @@ const SOURCES: Record<LayerKey, SourceSpec> = {
     out: join(ROOT, "data", "water_supply.json"),
     encoding: "shift-jis",
     parser: "water_supply",
+  },
+  park: {
+    resolve: {
+      kind: "static",
+      url: "https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-17_parks.csv",
+    },
+    cache: join(FIXTURE_DIR, "koto-park.csv"),
+    out: join(ROOT, "data", "park.json"),
+    encoding: "shift-jis",
+    parser: "park",
+  },
+  library: {
+    resolve: {
+      kind: "static",
+      url: "https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-25_libraries.csv",
+    },
+    cache: join(FIXTURE_DIR, "koto-library.csv"),
+    out: join(ROOT, "data", "library.json"),
+    encoding: "shift-jis",
+    parser: "library",
+  },
+  child_center: {
+    resolve: {
+      kind: "static",
+      url: "https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-9_childrensclubhouses.csv",
+    },
+    cache: join(FIXTURE_DIR, "koto-child-center.csv"),
+    out: join(ROOT, "data", "child_center.json"),
+    encoding: "shift-jis",
+    parser: "child_center",
+  },
+  nursery: {
+    resolve: {
+      kind: "static",
+      // 区立 (municipal) only — private 認可 is published in a separate
+      // CSV with looser data quality (PDF URLs in time fields). Phase 2
+      // ships municipal nurseries first; private/認証/認可外 are tracked
+      // for a follow-up if/when their schema stabilises.
+      url: "https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-10_municipal_childrens_daycare_centers.csv",
+    },
+    cache: join(FIXTURE_DIR, "koto-nursery.csv"),
+    out: join(ROOT, "data", "nursery.json"),
+    encoding: "shift-jis",
+    parser: "nursery",
   },
 };
 
@@ -243,6 +291,23 @@ function makeAssemblyPointRecord(row: Record<string, string>) {
   };
 }
 
+function makeKotoFacilityRecord(row: Record<string, string>) {
+  // Shared 38列 schema for 公園・図書館・児童館・保育園. Some Koto cells
+  // contain trailing full-width spaces (e.g. URL); trim them once at the
+  // boundary so downstream code sees clean strings.
+  return {
+    名称: (row["名称"] ?? "").trim(),
+    住所: (row["住所"] ?? "").trim(),
+    緯度: row["緯度"] ?? "",
+    経度: row["経度"] ?? "",
+    電話番号: (row["電話番号"] ?? "").trim(),
+    利用可能日時特記事項: (row["利用可能日時特記事項"] ?? "").trim(),
+    バリアフリー情報: (row["バリアフリー情報"] ?? "").trim(),
+    URL: (row["URL"] ?? "").trim(),
+    備考: (row["備考"] ?? "").trim(),
+  };
+}
+
 function makeWaterSupplyRecord(row: Record<string, string>) {
   return {
     名称: pickFirst(row, ["施設名", "名称"]),
@@ -269,6 +334,10 @@ const PARSERS: Record<LayerKey, (row: Record<string, string>) => unknown> = {
   shelter: makeShelterRecord,
   assembly_point: makeAssemblyPointRecord,
   water_supply: makeWaterSupplyRecord,
+  park: makeKotoFacilityRecord,
+  library: makeKotoFacilityRecord,
+  child_center: makeKotoFacilityRecord,
+  nursery: makeKotoFacilityRecord,
 };
 
 const KOTO_FILTER: Record<LayerKey, string | null> = {
@@ -277,6 +346,10 @@ const KOTO_FILTER: Record<LayerKey, string | null> = {
   shelter: "所在地住所",
   assembly_point: "所在地住所",
   water_supply: "所在地",
+  park: null,
+  library: null,
+  child_center: null,
+  nursery: null,
 };
 
 async function build(layer: LayerKey): Promise<void> {
@@ -306,6 +379,10 @@ async function main(): Promise<void> {
     "shelter",
     "assembly_point",
     "water_supply",
+    "park",
+    "library",
+    "child_center",
+    "nursery",
   ];
   for (const layer of layers) {
     await build(layer);

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseAedData,
   parseAssemblyPointData,
+  parseKotoFacilityData,
   parseShelterData,
   parseToiletData,
   parseWaterSupplyData,
@@ -11,6 +12,10 @@ import toiletFixture from "@/data/toilet.json";
 import shelterFixture from "@/data/shelter.json";
 import assemblyPointFixture from "@/data/assembly_point.json";
 import waterSupplyFixture from "@/data/water_supply.json";
+import parkFixture from "@/data/park.json";
+import libraryFixture from "@/data/library.json";
+import childCenterFixture from "@/data/child_center.json";
+import nurseryFixture from "@/data/nursery.json";
 
 describe("parseAedData", () => {
   it("validates and normalizes the official aed.json fixture", () => {
@@ -186,5 +191,61 @@ describe("parseWaterSupplyData", () => {
     expect(point.facilityType).toBe("浄水場・給水所");
     expect(point.detail).toContain("浄水場・給水所");
     expect(point.detail).toContain("20000");
+  });
+});
+
+describe("parseKotoFacilityData", () => {
+  it.each([
+    ["park", parkFixture],
+    ["library", libraryFixture],
+    ["child_center", childCenterFixture],
+    ["nursery", nurseryFixture],
+  ] as const)(
+    "validates and normalizes the bundled %s fixture",
+    (kind, fixture) => {
+      const points = parseKotoFacilityData(kind, fixture);
+      expect(points.length).toBeGreaterThan(0);
+      for (const p of points) {
+        expect(p.type).toBe(kind);
+        expect(p.source).toBe("koto-official");
+        expect(p.lat).toBeGreaterThan(35.5);
+        expect(p.lat).toBeLessThan(35.8);
+      }
+    },
+  );
+
+  it("derives barrier_free=true when accessibility text mentions multi-purpose toilet", () => {
+    const raw = {
+      result: {
+        records: [
+          {
+            名称: "テスト児童館",
+            住所: "東京都江東区",
+            緯度: "35.67",
+            経度: "139.81",
+            バリアフリー情報: "多目的トイレ有り;スロープ有り",
+          },
+        ],
+      },
+    };
+    const [point] = parseKotoFacilityData("child_center", raw);
+    expect(point.accessibility?.barrier_free).toBe(true);
+  });
+
+  it("leaves accessibility undefined when the field is empty", () => {
+    const raw = {
+      result: {
+        records: [
+          {
+            名称: "テスト公園",
+            住所: "東京都江東区",
+            緯度: "35.67",
+            経度: "139.81",
+          },
+        ],
+      },
+    };
+    const [point] = parseKotoFacilityData("park", raw);
+    expect(point.accessibility).toBeUndefined();
   });
 });

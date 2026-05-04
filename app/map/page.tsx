@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import {
   parseAedData,
   parseAssemblyPointData,
+  parseKotoFacilityData,
   parseShelterData,
   parseToiletData,
   parseWaterSupplyData,
@@ -21,6 +22,10 @@ import toiletRaw from "@/data/toilet.json";
 import shelterRaw from "@/data/shelter.json";
 import assemblyPointRaw from "@/data/assembly_point.json";
 import waterSupplyRaw from "@/data/water_supply.json";
+import parkRaw from "@/data/park.json";
+import libraryRaw from "@/data/library.json";
+import childCenterRaw from "@/data/child_center.json";
+import nurseryRaw from "@/data/nursery.json";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -61,6 +66,10 @@ export default async function MapPage({
     ...parseShelterData(shelterRaw),
     ...parseAssemblyPointData(assemblyPointRaw),
     ...parseWaterSupplyData(waterSupplyRaw),
+    ...parseKotoFacilityData("park", parkRaw),
+    ...parseKotoFacilityData("library", libraryRaw),
+    ...parseKotoFacilityData("child_center", childCenterRaw),
+    ...parseKotoFacilityData("nursery", nurseryRaw),
   ];
 
   const layers: Partial<Record<LayerId, boolean>> = {};
