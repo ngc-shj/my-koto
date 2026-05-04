@@ -4,7 +4,10 @@ import { EventRecordSchema } from "@/lib/opendata/schemas/events";
 import { EventSchema } from "@/lib/events/types";
 import type { Event } from "@/lib/events/types";
 import Attribution from "@/components/Attribution";
+import ShareButton from "@/components/ShareButton";
 import EventsClient from "./EventsClient";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
 export const metadata: Metadata = {
   title: "イベントカレンダー | My こうとう (非公式)",
@@ -68,7 +71,10 @@ export default function EventsPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-2">イベントカレンダー</h1>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h1 className="text-2xl font-bold">イベントカレンダー</h1>
+        <ShareButton title="イベントカレンダー" url={`${SITE_URL}/events`} />
+      </div>
       <p className="text-sm text-gray-600 mb-6">直近 90 日のイベント情報</p>
 
       <EventsClient events={upcomingEvents} />

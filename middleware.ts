@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateNonce } from "@/lib/csp";
+import { generateNonce, buildCsp } from "@/lib/csp";
 
 export function middleware(request: NextRequest) {
   const nonce = generateNonce();
-  const response = NextResponse.next();
+  const env =
+    process.env.NODE_ENV === "production" ? "production" : "development";
 
-  // Pass nonce to Server Components via request header for CSP nonce injection.
-  // Full nonce-based CSP wiring in script-src is completed in Step 9.
+  const response = NextResponse.next({
+    request: {
+      headers: new Headers(request.headers),
+    },
+  });
+
+  const csp = buildCsp(env === "production" ? nonce : null, env);
+
+  // Set CSP on the response so browsers enforce it.
+  response.headers.set("Content-Security-Policy", csp);
+
+  // Pass nonce to Server Components via a forwarded request header.
+  // app/layout.tsx reads x-nonce from headers() to inject it into <Script> tags.
   response.headers.set("x-nonce", nonce);
 
   return response;

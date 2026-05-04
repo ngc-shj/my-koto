@@ -1,24 +1,53 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { SITE_TITLE, SITE_DESCRIPTION, SITE_THEME_COLOR } from "@/config/site";
 import { messages } from "@/lib/i18n/messages";
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://example.com";
+
 export const metadata: Metadata = {
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    siteName: SITE_TITLE,
+    images: [
+      {
+        url: `${BASE_URL}/api/og`,
+        width: 1200,
+        height: 630,
+        alt: SITE_TITLE,
+      },
+    ],
+    locale: "ja_JP",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [`${BASE_URL}/api/og`],
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: SITE_THEME_COLOR,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Read nonce set by middleware for CSP nonce injection into inline scripts.
+  const headersList = await headers();
+  const nonce = headersList.get("x-nonce") ?? undefined;
+
   return (
-    <html lang="ja">
+    // data-nonce exposes the per-request nonce for any inline scripts that require it.
+    <html lang="ja" suppressHydrationWarning {...(nonce ? { "data-nonce": nonce } : {})}>
       <head>
         {/* Required for CC-BY 4.0 compliance: machine-readable license declaration */}
         <link rel="license" href="https://creativecommons.org/licenses/by/4.0/deed.ja" />

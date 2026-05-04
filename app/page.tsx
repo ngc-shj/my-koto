@@ -1,12 +1,20 @@
 import { messages } from "@/lib/i18n/messages";
 import WeatherWidget from "@/components/WeatherWidget";
+import ShareButton from "@/components/ShareButton";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
 export default function HomePage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-700">{messages.brand.title}</h1>
-        <p className="mt-2 text-gray-600">{messages.brand.tagline}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-700">{messages.brand.title}</h1>
+            <p className="mt-2 text-gray-600">{messages.brand.tagline}</p>
+          </div>
+          <ShareButton title={messages.brand.title} url={SITE_URL || undefined} />
+        </div>
       </header>
 
       <div className="mb-6">

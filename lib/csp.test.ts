@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateNonce } from "./csp";
+import { generateNonce, buildCsp } from "./csp";
 
 describe("generateNonce", () => {
   it("returns a URL-safe base64 string (no +, /, = characters)", () => {
@@ -29,5 +29,70 @@ describe("generateNonce", () => {
     const dir = dirname(fileURLToPath(import.meta.url));
     const source = readFileSync(resolve(dir, "csp.ts"), "utf-8");
     expect(source).not.toContain("Math.random");
+  });
+});
+
+describe("buildCsp", () => {
+  const testNonce = "abc123-test-nonce";
+
+  describe("production mode", () => {
+    it("includes nonce in script-src", () => {
+      const csp = buildCsp(testNonce, "production");
+      expect(csp).toContain(`'nonce-${testNonce}'`);
+    });
+
+    it("includes strict-dynamic in script-src", () => {
+      const csp = buildCsp(testNonce, "production");
+      expect(csp).toContain("'strict-dynamic'");
+    });
+
+    it("does not include unsafe-inline in script-src", () => {
+      const csp = buildCsp(testNonce, "production");
+      // Extract only the script-src directive to avoid false positives from other directives
+      const scriptSrcMatch = csp.match(/script-src[^;]*/);
+      expect(scriptSrcMatch).not.toBeNull();
+      expect(scriptSrcMatch![0]).not.toContain("'unsafe-inline'");
+    });
+
+    it("does not include unsafe-eval in script-src", () => {
+      const csp = buildCsp(testNonce, "production");
+      const scriptSrcMatch = csp.match(/script-src[^;]*/);
+      expect(scriptSrcMatch).not.toBeNull();
+      expect(scriptSrcMatch![0]).not.toContain("'unsafe-eval'");
+    });
+
+    it("includes upgrade-insecure-requests", () => {
+      const csp = buildCsp(testNonce, "production");
+      expect(csp).toContain("upgrade-insecure-requests");
+    });
+
+    it("works with null nonce (fallback to strict-dynamic only)", () => {
+      const csp = buildCsp(null, "production");
+      expect(csp).toContain("'strict-dynamic'");
+      expect(csp).not.toContain("'nonce-");
+    });
+  });
+
+  describe("development mode", () => {
+    it("includes unsafe-inline in script-src for Next.js dev runtime", () => {
+      const csp = buildCsp(null, "development");
+      expect(csp).toContain("'unsafe-inline'");
+    });
+
+    it("includes unsafe-eval in script-src for Next.js dev runtime", () => {
+      const csp = buildCsp(null, "development");
+      expect(csp).toContain("'unsafe-eval'");
+    });
+
+    it("does not include upgrade-insecure-requests", () => {
+      const csp = buildCsp(null, "development");
+      expect(csp).not.toContain("upgrade-insecure-requests");
+    });
+
+    it("ignores nonce even if provided (dev does not use nonce)", () => {
+      const csp = buildCsp(testNonce, "development");
+      // Dev CSP should not embed nonce; uses unsafe-inline instead
+      expect(csp).not.toContain(`'nonce-${testNonce}'`);
+    });
   });
 });

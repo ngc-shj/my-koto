@@ -62,3 +62,12 @@
    - Next.js 15 の `app/manifest.ts` メタデータ API は `/manifest.json` ではなく `/manifest.webmanifest` を生成する。`public/manifest.json` は静的フォールバックとして残置 (ローカル確認用)。本番デプロイでは `app/manifest.ts` の動的版が `VERCEL_ENV !== 'production'` で 404 を返す。
 3. **アイコンは pure-Node 生成 (sharp 不使用)**
    - `scripts/generate-icons.mjs` が PNG header/IHDR/IDAT (zlib deflate + adler32) を手書きで生成。外部依存ゼロのため supply-chain 面で安全。手動デザインへの差し替えはフェーズ 2。
+
+## Step 9 (2026-05-04)
+
+1. **CSP の出力経路を `next.config.ts` から `middleware.ts` に集約**
+   - リクエスト毎の nonce が動的 (`headers()` 関数からは静的にしか出せない) のため、CSP のみ middleware で組み立てる構成に変更。HSTS / X-Content-Type-Options / Referrer-Policy / COOP / CORP / Permissions-Policy は `next.config.ts` の `headers()` に残置。S16 の本番要件 (`script-src` に `unsafe-inline/unsafe-eval` 含まず、nonce + strict-dynamic) は満たす。
+2. **OG 画像のフォントは `next/og` 内蔵を使用**
+   - 日本語フォントの埋込みなしで運用 (`next/og` のデフォルトフォントで漢字も最低限表示される)。フォント追加はフェーズ 2 の品質改善で対応。
+3. **vitest-axe canvas 警告は無害**
+   - JSDOM の `HTMLCanvasElement.getContext` 未実装で axe-core color-contrast チェックが stderr 警告を出すが、テスト自体は緑 (WCAG 違反 0)。Next.js 標準の Tailwind 配色を継続利用。

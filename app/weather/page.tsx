@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import DataFreshness from "@/components/DataFreshness";
+import ShareButton from "@/components/ShareButton";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
 type State =
   | { status: "loading" }
@@ -29,7 +32,10 @@ export default function WeatherPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-slate-700 mb-6">天気（江東区）</h1>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-slate-700">天気（江東区）</h1>
+        <ShareButton title="天気（江東区）" url={`${SITE_URL}/weather`} />
+      </div>
 
       {state.status === "loading" && (
         <p className="text-gray-500">読み込み中…</p>
