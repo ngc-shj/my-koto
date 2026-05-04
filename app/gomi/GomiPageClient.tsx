@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import DistrictSelector from "@/components/DistrictSelector";
+import SubscribeButton from "@/components/SubscribeButton";
 import { getDistrictId } from "@/config/storage";
 import { resolveSchedule } from "@/lib/gomi/schedule";
 import { GOMI_CATEGORY_LABELS } from "@/lib/gomi/types";
@@ -131,10 +132,18 @@ export default function GomiPageClient({ districts, overlays }: Props) {
       )}
 
       {district && (
-        <p className="text-sm text-gray-600">
-          選択中の地区:{" "}
-          <span className="font-semibold text-gray-900">{district.label}</span>
-        </p>
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            選択中の地区:{" "}
+            <span className="font-semibold text-gray-900">{district.label}</span>
+          </p>
+          {district.notes && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              ⚠ {district.notes} (現状の表示は毎週として扱っています — 公式サイトの隔週日程を最終確認してください)
+            </p>
+          )}
+          <SubscribeButton districtId={district.id} />
+        </div>
       )}
 
       {/* Today / Tomorrow */}

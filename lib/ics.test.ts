@@ -26,9 +26,11 @@ function sampleEvent(overrides: Partial<Event> = {}): Event {
 
 function sampleDistrict(): District {
   return {
-    id: "kameido-1",
-    label: "亀戸1丁目",
-    addresses: ["亀戸1丁目"],
+    // Real district id from the rebuilt master so the test stays
+    // consistent with the route allowlist (T-07).
+    id: "kameido-1-3",
+    label: "亀戸1〜3丁目",
+    addresses: ["亀戸1〜3丁目"],
     schedule: {
       burnable: ["mon", "thu"],
       non_burnable: ["wed"],
@@ -295,7 +297,7 @@ describe("buildGomiIcs — structure", () => {
 
   it("uses deterministic UID: <district-id>-<date>@koto-city.example", () => {
     const ics = buildGomiIcs(sampleDistrict(), sampleOccurrences(), fixedDeps);
-    expect(ics).toContain("UID:kameido-1-2026-05-04@koto-city.example");
+    expect(ics).toContain("UID:kameido-1-3-2026-05-04@koto-city.example");
   });
 
   it("uses CRLF line endings", () => {

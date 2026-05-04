@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import { gomiSubscriptionUrl } from "./url";
 
 const HOST = "koto.example.com";
-const DISTRICT = "kameido-1";
+// Use a real district id from the rebuilt master so this stays consistent
+// with the route handler's allowlist (T-07 fix).
+const DISTRICT = "kameido-1-3";
 
 describe("gomiSubscriptionUrl — UA-based scheme selection", () => {
   it("returns webcal:// for iPhone UA", () => {
@@ -54,5 +56,12 @@ describe("gomiSubscriptionUrl — UA-based scheme selection", () => {
     const ua = "";
     const url = gomiSubscriptionUrl(DISTRICT, HOST, ua);
     expect(url).toContain(HOST);
+  });
+
+  it("uses path that matches the actual route handler (no /route.ics suffix)", () => {
+    // F-02 regression guard: the previous implementation appended
+    // `/route.ics` which 404s. Verify the path matches the live route.
+    const url = gomiSubscriptionUrl(DISTRICT, HOST, "");
+    expect(url).toBe(`https://${HOST}/api/ics/gomi/${DISTRICT}`);
   });
 });

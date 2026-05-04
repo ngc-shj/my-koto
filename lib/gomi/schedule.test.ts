@@ -81,19 +81,11 @@ describe("resolveSchedule — overlay (New Year's holiday)", () => {
   const newYearOverlay: SpecialOverlay = {
     date: "2026-01-01",
     districts: ["kameido-1"],
-    override: {
-      burnable: [],
-      non_burnable: [],
-      resource_plastic: [],
-      container_plastic: [],
-      pet_bottle: [],
-      bottles_cans: [],
-      bulky: [],
-    },
+    categories: [],
     note: "New Year's Day — no collection",
   };
 
-  it("skips all collection on New Year's Day (overlay zeroes everything out)", () => {
+  it("skips all collection on New Year's Day (categories=[] zeroes the day)", () => {
     const result = resolveSchedule(districtKameido1, [newYearOverlay], {
       from: thuJan1,
       to: thuJan1,
@@ -114,8 +106,8 @@ describe("resolveSchedule — overlay (New Year's holiday)", () => {
   it("overlay for another district does not affect kameido-1", () => {
     const otherOverlay: SpecialOverlay = {
       date: "2026-01-05",
-      districts: ["toyosu-1"],
-      override: { burnable: [] },
+      districts: ["toyosu"],
+      categories: [],
     };
     const result = resolveSchedule(districtKameido1, [otherOverlay], {
       from: mondayJan5,
@@ -130,15 +122,7 @@ describe("resolveSchedule — overlay Dec 31 (no collection)", () => {
   const dec31Overlay: SpecialOverlay = {
     date: "2025-12-31",
     districts: ["kameido-1"],
-    override: {
-      burnable: [],
-      non_burnable: [],
-      resource_plastic: [],
-      container_plastic: [],
-      pet_bottle: [],
-      bottles_cans: [],
-      bulky: [],
-    },
+    categories: [],
     note: "New Year's Eve — no collection",
   };
 
@@ -151,23 +135,19 @@ describe("resolveSchedule — overlay Dec 31 (no collection)", () => {
   });
 });
 
-describe("resolveSchedule — partial overlay (only overrides some categories)", () => {
-  it("only overrides specified category, leaves others from weekly", () => {
-    // Wed Jan 7: normally non_burnable. Overlay says non_burnable=[] but leaves resource_plastic unspecified.
-    // resource_plastic is on Tue, so Wed should not have it regardless.
-    // burnable is on Mon/Thu, so Wed should not have it.
-    // Net result: overlay zeroes non_burnable, no other category on Wed → empty
-    const partialOverlay: SpecialOverlay = {
+describe("resolveSchedule — overlay with explicit categories (supplementary)", () => {
+  it("substitutes the entire day's collection set with the overlay categories", () => {
+    // On Wed (normally non_burnable), force a supplementary burnable-only day.
+    const supplementaryOverlay: SpecialOverlay = {
       date: "2026-01-07",
       districts: ["kameido-1"],
-      override: {
-        non_burnable: [],
-      },
+      categories: ["burnable"],
     };
-    const result = resolveSchedule(districtKameido1, [partialOverlay], {
+    const result = resolveSchedule(districtKameido1, [supplementaryOverlay], {
       from: wednesdayJan7,
       to: wednesdayJan7,
     });
-    expect(result).toHaveLength(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].categories).toEqual(["burnable"]);
   });
 });

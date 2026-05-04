@@ -72,7 +72,11 @@ export const ATTRIBUTIONS: DatasetAttribution[] = [
     licenseUrl: "https://www.openstreetmap.org/copyright",
     licenseLabel: "ODbL",
     sourceUrl: "https://www.openstreetmap.org",
-    modified: false,
+    // The Overpass query filters tags and elementsToMapPoints derives
+    // names + reprojects fields, so the published rows are derivative
+    // works under ODbL. The Attribution component renders "(一部加工して
+    // 利用)" when this flag is true (F-11).
+    modified: true,
   },
 ];
 

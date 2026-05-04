@@ -9,6 +9,44 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Inline copy of lib/csv.ts kept in sync via T-02 tests. We can't import the
+// .ts file directly from a plain .mjs node script without an additional
+// loader, so the canonical implementation lives in lib/csv.ts (with tests)
+// and this minimal mirror supports the build script.
+function parseCsvRow(line) {
+  const out = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (inQuote) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i += 1;
+        continue;
+      }
+      if (ch === '"') {
+        inQuote = false;
+        continue;
+      }
+      cur += ch;
+    } else {
+      if (ch === '"') {
+        inQuote = true;
+        continue;
+      }
+      if (ch === ',') {
+        out.push(cur);
+        cur = '';
+        continue;
+      }
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const FIXTURE_DIR = join(ROOT, '__fixtures__', 'opendata');
@@ -46,42 +84,6 @@ async function loadCsv(src) {
   await mkdir(FIXTURE_DIR, { recursive: true });
   await writeFile(src.cache, text, 'utf8');
   return text;
-}
-
-// Quoted-CSV parser: supports embedded commas inside double quotes and
-// the standard "" escape.
-function parseCsvRow(line) {
-  const out = [];
-  let cur = '';
-  let inQuote = false;
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    if (inQuote) {
-      if (ch === '"' && line[i + 1] === '"') {
-        cur += '"';
-        i += 1;
-        continue;
-      }
-      if (ch === '"') {
-        inQuote = false;
-        continue;
-      }
-      cur += ch;
-    } else {
-      if (ch === '"') {
-        inQuote = true;
-        continue;
-      }
-      if (ch === ',') {
-        out.push(cur);
-        cur = '';
-        continue;
-      }
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out;
 }
 
 function parseCsv(text) {

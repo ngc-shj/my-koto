@@ -47,8 +47,8 @@ export default function HomePage() {
           href="/weather"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
-          <div className="text-lg font-medium">天気・暑さ指数</div>
-          <div className="text-sm text-gray-500 mt-1">気温・WBGT</div>
+          <div className="text-lg font-medium">天気</div>
+          <div className="text-sm text-gray-500 mt-1">気温・降水確率</div>
         </a>
         <a
           href="/settings"

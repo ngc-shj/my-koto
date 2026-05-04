@@ -13,7 +13,9 @@
       "Bash(rtk grep *)",
       "WebFetch(domain:gsi-cyberjapan.github.io)",
       "Bash(rtk npm *)",
-      "Bash(rtk ps *)"
+      "Bash(rtk ps *)",
+      "Read(//var/folders/vb/tjf174hj1835lfyj9vw5066c0000gn/T/tri-SfRYSo/**)",
+      "Read(//private/var/folders/vb/tjf174hj1835lfyj9vw5066c0000gn/T/tri-SfRYSo/**)"
     ]
   }
 }

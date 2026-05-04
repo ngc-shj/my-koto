@@ -107,7 +107,16 @@ export default function WeatherPage() {
           </p>
 
           <p className="text-xs text-gray-400">
-            ※ WBGT（暑さ指数）は日次バッチ取得データに含まれます（今後実装予定）
+            WBGT（暑さ指数）はフェーズ 2 で対応予定です。当面は{" "}
+            <a
+              href="https://www.wbgt.env.go.jp/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              環境省熱中症予防情報サイト
+            </a>{" "}
+            をご確認ください。
           </p>
         </div>
       )}

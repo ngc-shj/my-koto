@@ -8,7 +8,7 @@
  *   - Process exits with code 1.
  */
 
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { DATASETS, TOKYO_OPEN_DATA_API_BASE, WBGT_BASE_URL, WBGT_STATION_CODE } from "@/config/opendata";
@@ -73,8 +73,13 @@ export async function validateAndPersist<T>(
   return { ok: true };
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url, {
+// Exported (T-03) so route guards (Content-Type allowlist, redirect:'manual',
+// AbortSignal timeout) can be unit-tested with a mocked fetch.
+export async function fetchJson(
+  url: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<unknown> {
+  const res = await fetchImpl(url, {
     headers: {
       "User-Agent": USER_AGENT,
       Accept: "application/json",
@@ -93,6 +98,30 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 
   return res.json();
+}
+
+// Exported pure parser for the WBGT CSV (T-03). Input is the full body.
+// Drops the header row, ignores blank lines, and rejects rows missing a
+// datetime or whose WBGT value is not a finite number.
+export function parseWbgtCsv(
+  csv: string,
+  station = "東京",
+): Array<{ station: string; datetime: string; wbgt: number }> {
+  const lines = csv.trim().split(/\r?\n/);
+  if (lines.length <= 1) return [];
+  return lines
+    .slice(1)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => {
+      const parts = line.split(",");
+      const datetime = parts[0]?.trim() ?? "";
+      const wbgt = parseFloat(parts[1]?.trim() ?? "");
+      if (!datetime || !Number.isFinite(wbgt)) return null;
+      return { station, datetime, wbgt };
+    })
+    .filter((r): r is { station: string; datetime: string; wbgt: number } =>
+      r !== null,
+    );
 }
 
 function buildApiUrl(datasetId: string): string {
@@ -133,17 +162,7 @@ async function fetchWbgt(): Promise<void> {
   }
 
   const csv = await res.text();
-  const lines = csv.trim().split("\n").slice(1); // skip header
-
-  const readings = lines
-    .map((line) => {
-      const parts = line.split(",");
-      const datetime = parts[0]?.trim() ?? "";
-      const wbgt = parseFloat(parts[1]?.trim() ?? "");
-      if (!datetime || isNaN(wbgt)) return null;
-      return { station: "東京", datetime, wbgt };
-    })
-    .filter((r): r is NonNullable<typeof r> => r !== null);
+  const readings = parseWbgtCsv(csv);
 
   const wbgtData = {
     fetchedAt: new Date().toISOString(),

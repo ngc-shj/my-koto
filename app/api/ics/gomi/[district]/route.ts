@@ -5,14 +5,31 @@ import overlaysData from "@/data/gomi-schedule.json";
 import { DistrictSchema, SpecialOverlaySchema } from "@/lib/gomi/types";
 import { resolveSchedule } from "@/lib/gomi/schedule";
 import { buildGomiIcs } from "@/lib/ics";
+import { checkRateLimit } from "@/lib/api-shared";
 
 // Resolve schedule for the next 90 days from today.
 const SCHEDULE_DAYS = 90;
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ district: string }> },
 ): Promise<Response> {
+  // Synthesises ICS over the 90-day window per call — synchronous date
+  // walk + ical-generator output. Rate limit (S-03) keeps an
+  // unauthenticated public endpoint from becoming a CPU amplification
+  // target.
+  const rl = await checkRateLimit(request, {
+    bucket: "ics-gomi",
+    limit: 60,
+    windowSec: 60,
+  });
+  if (!rl.ok) {
+    return new Response("Too Many Requests", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfter) },
+    });
+  }
+
   const { district } = await params;
 
   // Stage 1: character-class restriction — ASCII slug only.

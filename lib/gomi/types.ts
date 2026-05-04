@@ -70,24 +70,17 @@ export const AREA_LABELS = {
   joto: "城東地域",
 } as const;
 
-// A partial weekly schedule used in special overlays (all fields optional).
-export const PartialWeeklyScheduleSchema = z.object({
-  burnable: z.array(WeekdaySchema).optional(),
-  non_burnable: z.array(WeekdaySchema).optional(),
-  resource_plastic: z.array(WeekdaySchema).optional(),
-  container_plastic: z.array(WeekdaySchema).optional(),
-  pet_bottle: z.array(WeekdaySchema).optional(),
-  bottles_cans: z.array(WeekdaySchema).optional(),
-  bulky: z.array(WeekdaySchema).optional(),
-});
-
-export type PartialWeeklySchedule = z.infer<typeof PartialWeeklyScheduleSchema>;
-
-// Special date overlay that overrides normal weekly schedule for specific districts.
+// Special date overlay that replaces the normal weekly schedule for the
+// specified districts on a single date. `categories` is the flat list of
+// waste streams collected on that date — empty array means "no collection".
+// We replaced the previous PartialWeeklySchedule shape (F-04) so editors
+// no longer have to keep the date and the matching weekday in sync — that
+// duplicated coupling silently dropped overlay applications when a year
+// rollover changed the weekday for the same Gregorian date.
 export const SpecialOverlaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   districts: z.array(z.string()),
-  override: PartialWeeklyScheduleSchema,
+  categories: z.array(GomiCategorySchema),
   note: z.string().optional(),
 });
 

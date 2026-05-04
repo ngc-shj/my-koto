@@ -17,7 +17,7 @@ export function gomiSubscriptionUrl(
   host: string,
   userAgent: string,
 ): string {
-  const path = `/api/ics/gomi/${district}/route.ics`;
+  const path = `/api/ics/gomi/${district}`;
   const scheme = IOS_UA_PATTERN.test(userAgent) ? "webcal" : "https";
   return `${scheme}://${host}${path}`;
 }

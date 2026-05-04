@@ -2,9 +2,11 @@ import type { MetadataRoute } from "next";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://example.com";
 
-const now = new Date();
-
 export default function sitemap(): MetadataRoute.Sitemap {
+  // F-10: compute on every invocation so a long-running server returns a
+  // fresh `lastModified` rather than the timestamp captured at module load.
+  const now = new Date();
+
   return [
     {
       url: BASE_URL,

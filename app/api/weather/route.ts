@@ -2,7 +2,6 @@
 import type { NextRequest } from "next/server";
 import { kv as vercelKv } from "@vercel/kv";
 import { KOTO_CENTER } from "@/config/geo";
-import { UPSTREAM_HOSTS } from "@/config/proxy-allowlist";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import { buildWeatherUrl, validateUpstreamHost, WEATHER_ALLOWED_HOSTS } from "@/lib/opendata/weather";
 import {

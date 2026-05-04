@@ -55,30 +55,24 @@ function categoriesFromWeekly(
   );
 }
 
-// Apply a special overlay to a base category set.
-// For each category present in the override, replace the weekly result
-// with whether the current weekday appears in the override array.
-function applyOverlay(
-  baseCategories: GomiCategory[],
-  overlay: SpecialOverlay,
-  date: Date,
-): GomiCategory[] {
-  const weekday = ISO_DAY_MAP[date.getDay()];
-  const result = new Set<GomiCategory>(baseCategories);
-
-  for (const cat of CATEGORIES) {
-    const overrideDays = overlay.override[cat];
-    if (overrideDays === undefined) continue;
-    // Override explicitly sets which days this category is collected.
-    // Remove from result if not in override, add if in override.
-    if (overrideDays.includes(weekday)) {
-      result.add(cat);
-    } else {
-      result.delete(cat);
-    }
-  }
-
-  return CATEGORIES.filter((cat) => result.has(cat));
+// Apply a special overlay: REPLACE the day's collection set entirely with
+// the overlay's explicit category list. The previous shape merged a
+// per-weekday partial schedule into the weekly result, which silently
+// dropped overlay days when an editor mis-aligned the weekday array with
+// the literal date (F-04 root cause).
+//
+// NOTE on biweekly cadence (T-04 deferral):
+// The upstream CSV marks `非燃焼ごみ` as `（隔週）<weekday>` for ~58 of the
+// 58 collection routes. The current schema treats those as weekly, which
+// over-reports collection by 50%. A faithful biweekly implementation
+// requires (a) extending the schema with an anchor date, (b) carrying
+// the boolean through `generate-districts.mjs`, and (c) integration tests
+// across DST/calendar boundaries — out of scope for the MVP. Tracked in
+// docs/archive/review/koto-mvp-deviation.md as "Phase 2 — biweekly".
+function applyOverlay(overlay: SpecialOverlay): GomiCategory[] {
+  // Preserve canonical category ordering for stable rendering.
+  const set = new Set<GomiCategory>(overlay.categories);
+  return CATEGORIES.filter((cat) => set.has(cat));
 }
 
 /**
@@ -108,7 +102,7 @@ export function resolveSchedule(
       );
 
       const categories = matchingOverlay
-        ? applyOverlay(categoriesFromWeekly(district, date), matchingOverlay, date)
+        ? applyOverlay(matchingOverlay)
         : categoriesFromWeekly(district, date);
 
       return { date, categories };

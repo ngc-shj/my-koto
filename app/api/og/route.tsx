@@ -1,10 +1,25 @@
 import { ImageResponse } from "next/og";
 import { validateOgTitle } from "@/lib/og";
 import { SITE_TITLE } from "@/config/site";
+import { checkRateLimit } from "@/lib/api-shared";
 
 export const runtime = "edge";
 
 export async function GET(request: Request): Promise<Response> {
+  // Tight limit because each request rasterises a 1200x630 PNG via Satori —
+  // amplification target without throttling (S-02).
+  const rl = await checkRateLimit(request, {
+    bucket: "og",
+    limit: 30,
+    windowSec: 60,
+  });
+  if (!rl.ok) {
+    return new Response("Too Many Requests", {
+      status: 429,
+      headers: { "Retry-After": String(rl.retryAfter) },
+    });
+  }
+
   const { searchParams } = new URL(request.url);
   const rawTitle = searchParams.get("title") ?? "";
   const validTitle = rawTitle ? validateOgTitle(rawTitle) : null;

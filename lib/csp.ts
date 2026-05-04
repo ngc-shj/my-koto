@@ -34,6 +34,14 @@ export function buildCsp(
   const directives = [
     `default-src 'self'`,
     scriptSrc,
+    // S-06 — defense-in-depth note:
+    // Tailwind v4's runtime emits inline <style> blocks for utility classes,
+    // so 'unsafe-inline' on style-src is required for correct rendering.
+    // script-src is nonce/strict-dynamic, so XSS via injected <script> is
+    // already blocked; the residual risk is CSS-injection style exfil
+    // (visited-link selectors), which has no concrete attack vector against
+    // a static informational site. Revisit when Tailwind exposes a nonce
+    // pipeline or when we move user-generated content into the app.
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: https://cyberjapandata.gsi.go.jp`,
     `connect-src 'self' https://api.open-meteo.com https://cyberjapandata.gsi.go.jp`,
