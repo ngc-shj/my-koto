@@ -1,5 +1,9 @@
 "use client";
 
+// Required for MapLibre to compute canvas dimensions and overlay positions.
+// Without this stylesheet the map container collapses and nothing is drawn.
+import "maplibre-gl/dist/maplibre-gl.css";
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
@@ -8,51 +12,24 @@ import { filterPoints } from "@/lib/map/filter";
 import { haversineDistance } from "@/lib/distance";
 import type { MapPoint, MapFilters } from "@/lib/map/types";
 
-// GSI vector tile style — minimal style required for MapLibre to render the tiles
+// GSI raster style — single tile source, no per-feature layers needed.
 const GSI_STYLE = {
   version: 8 as const,
   sources: {
     gsi: {
-      type: "vector" as const,
+      type: "raster" as const,
       tiles: [MAP_TILE.url],
-      maxzoom: MAP_INITIAL.maxZoom,
-      minzoom: MAP_INITIAL.minZoom,
+      tileSize: MAP_TILE.tileSize,
+      maxzoom: MAP_TILE.maxNativeZoom,
+      minzoom: MAP_TILE.minNativeZoom,
       attribution: MAP_TILE.attribution,
     },
   },
   layers: [
     {
-      id: "background",
-      type: "background" as const,
-      paint: { "background-color": "#f8f4f0" },
-    },
-    {
-      id: "water",
-      type: "fill" as const,
+      id: "gsi-tiles",
+      type: "raster" as const,
       source: "gsi",
-      "source-layer": "WaterArea",
-      paint: { "fill-color": "#b3d1ff" },
-    },
-    {
-      id: "road",
-      type: "line" as const,
-      source: "gsi",
-      "source-layer": "RoadL",
-      paint: { "line-color": "#ffffff", "line-width": 1 },
-    },
-    {
-      id: "building",
-      type: "fill" as const,
-      source: "gsi",
-      "source-layer": "BuildA",
-      paint: { "fill-color": "#ddd8c4", "fill-outline-color": "#bbb" },
-    },
-    {
-      id: "label",
-      type: "symbol" as const,
-      source: "gsi",
-      "source-layer": "AdmBdry",
-      layout: {},
     },
   ],
 };

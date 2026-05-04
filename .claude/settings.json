@@ -10,7 +10,9 @@
       "WebFetch(domain:www.wbgt.env.go.jp)",
       "WebFetch(domain:ja.wikipedia.org)",
       "Bash(sed -i.bak 's/kameido-1/kameido-1-3/g' \"app/api/ics/gomi/[district]/route.test.ts\")",
-      "Bash(rtk grep *)"
+      "Bash(rtk grep *)",
+      "WebFetch(domain:gsi-cyberjapan.github.io)",
+      "Bash(rtk npm *)"
     ]
   }
 }
