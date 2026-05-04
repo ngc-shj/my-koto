@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DistrictSelector from "@/components/DistrictSelector";
+import PushOptIn from "@/components/PushOptIn";
 import {
   getDistrictId,
   clearAllStorage,
@@ -57,6 +58,8 @@ export default function SettingsPageClient() {
           地区を変更する
         </button>
       </section>
+
+      <PushOptIn districtId={districtId} />
 
       {/* Privacy / storage */}
       <section className="space-y-3 border-t border-gray-200 pt-6">
