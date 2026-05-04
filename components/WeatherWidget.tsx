@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import DataFreshness from "@/components/DataFreshness";
+import { KanjiText } from "@/components/Furigana";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
 
 // "2026-05-04" → "5月4日(月)" — short, never wraps in the home column.
@@ -39,7 +40,7 @@ export default function WeatherWidget() {
   if (state.status === "loading") {
     return (
       <div className="rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
-        天気情報を読み込み中…
+        <KanjiText text="天気情報を読み込み中…" />
       </div>
     );
   }
@@ -47,7 +48,7 @@ export default function WeatherWidget() {
   if (state.status === "error") {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-        天気情報を取得できませんでした。
+        <KanjiText text="天気情報を取得できませんでした。" />
       </div>
     );
   }
@@ -57,7 +58,9 @@ export default function WeatherWidget() {
 
   return (
     <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-      <h2 className="text-base font-semibold text-blue-800 mb-2">天気（江東区中心）</h2>
+      <h2 className="text-base font-semibold text-blue-800 mb-2">
+        <KanjiText text="天気（江東区中心）" />
+      </h2>
       {daily ? (
         <ul className="space-y-1 text-sm text-gray-700">
           {daily.time.slice(0, 2).map((date, i) => (
@@ -73,14 +76,16 @@ export default function WeatherWidget() {
               </span>
               {daily.precipitation_probability_max?.[i] != null && (
                 <span className="text-blue-600 whitespace-nowrap">
-                  降水 {daily.precipitation_probability_max[i]}%
+                  <KanjiText text="降水" /> {daily.precipitation_probability_max[i]}%
                 </span>
               )}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-gray-500">予報データなし</p>
+        <p className="text-sm text-gray-500">
+          <KanjiText text="予報データなし" />
+        </p>
       )}
       <div className="mt-2">
         <DataFreshness lastModified={fetchedAt} label="取得日時" />

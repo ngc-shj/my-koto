@@ -1,6 +1,7 @@
 import { messages } from "@/lib/i18n/messages";
 import ShareButton from "@/components/ShareButton";
 import TodaySummary from "@/components/TodaySummary";
+import { KanjiText } from "@/components/Furigana";
 import {
   DistrictSchema,
   SpecialOverlaySchema,
@@ -30,8 +31,12 @@ export default function HomePage() {
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-700">{messages.brand.title}</h1>
-            <p className="mt-2 text-gray-600">{messages.brand.tagline}</p>
+            <h1 className="text-3xl font-bold text-slate-700">
+              <KanjiText text={messages.brand.title} />
+            </h1>
+            <p className="mt-2 text-gray-600">
+              <KanjiText text={messages.brand.tagline} />
+            </p>
           </div>
           <ShareButton title={messages.brand.title} url={SITE_URL || undefined} />
         </div>
@@ -48,20 +53,26 @@ export default function HomePage() {
       <nav className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <a
           href="/gomi"
+          aria-label="ゴミ収集 — 収集日カレンダー・品目検索"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
-          <div className="text-lg font-medium">ゴミ収集</div>
+          <div className="text-lg font-medium">
+            <KanjiText text="ゴミ収集" />
+          </div>
           <div className="text-sm text-gray-500 mt-1">
-            収集日カレンダー・品目検索
+            <KanjiText text="収集日カレンダー・品目検索" />
           </div>
         </a>
         <a
           href="/map"
+          aria-label="区民マップ — AED・避難所・公園・図書館など"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
-          <div className="text-lg font-medium">区民マップ</div>
+          <div className="text-lg font-medium">
+            <KanjiText text="区民マップ" />
+          </div>
           <div className="text-sm text-gray-500 mt-1">
-            AED・避難所・公園・図書館など
+            <KanjiText text="AED・避難所・公園・図書館など" />
           </div>
         </a>
         <a
@@ -69,24 +80,32 @@ export default function HomePage() {
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
           <div className="text-lg font-medium">イベント</div>
-          <div className="text-sm text-gray-500 mt-1">区主催イベント一覧</div>
+          <div className="text-sm text-gray-500 mt-1">
+            <KanjiText text="区主催イベント一覧" />
+          </div>
         </a>
         <a
           href="/weather"
+          aria-label="天気・暑さ指数 — 気温・降水確率・WBGT"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
-          <div className="text-lg font-medium">天気・暑さ指数</div>
+          <div className="text-lg font-medium">
+            <KanjiText text="天気・暑さ指数" />
+          </div>
           <div className="text-sm text-gray-500 mt-1">
-            気温・降水確率・WBGT
+            <KanjiText text="気温・降水確率・WBGT" />
           </div>
         </a>
         <a
           href="/settings"
+          aria-label="設定 — プロファイル・通知・表示設定"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
-          <div className="text-lg font-medium">設定</div>
+          <div className="text-lg font-medium">
+            <KanjiText text="設定" />
+          </div>
           <div className="text-sm text-gray-500 mt-1">
-            プロファイル・通知・表示設定
+            <KanjiText text="プロファイル・通知・表示設定" />
           </div>
         </a>
       </nav>

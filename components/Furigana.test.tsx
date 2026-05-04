@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { act } from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { DistrictName, Furigana } from "./Furigana";
+import { DistrictName, Furigana, KanjiText } from "./Furigana";
 import { setFuriganaEnabled } from "@/lib/a11y/preferences";
 
 beforeEach(() => {
@@ -71,5 +71,42 @@ describe("DistrictName", () => {
     setFuriganaEnabled(true);
     render(<DistrictName id="kameido-1-3" />);
     expect(document.querySelector("ruby")).not.toBeNull();
+  });
+});
+
+describe("KanjiText", () => {
+  it("renders ruby for known dictionary entries when furigana is on", () => {
+    setFuriganaEnabled(true);
+    render(<KanjiText text="燃やすごみ" />);
+    const ruby = document.querySelector("ruby");
+    expect(ruby).not.toBeNull();
+    expect(document.querySelector("rt")?.textContent).toBe("もやすごみ");
+  });
+
+  it("falls back to plain text for entries with no dictionary reading", () => {
+    setFuriganaEnabled(true);
+    // "AED" is intentionally absent from the readings table — no useful
+    // ruby exists for an English acronym.
+    render(<KanjiText text="AED" />);
+    expect(document.querySelector("ruby")).toBeNull();
+    expect(screen.getByText("AED")).toBeInTheDocument();
+  });
+
+  it("renders plain text when the preference is off, even for known entries", () => {
+    render(<KanjiText text="燃やすごみ" />);
+    expect(document.querySelector("ruby")).toBeNull();
+    expect(screen.getByText("燃やすごみ")).toBeInTheDocument();
+  });
+
+  it("looks up gomi categories, hazards, areas, and map layers", () => {
+    setFuriganaEnabled(true);
+    const { rerender } = render(<KanjiText text="洪水" />);
+    expect(document.querySelector("rt")?.textContent).toBe("こうずい");
+    rerender(<KanjiText text="深川地域" />);
+    expect(document.querySelector("rt")?.textContent).toBe("ふかがわちいき");
+    rerender(<KanjiText text="避難所" />);
+    expect(document.querySelector("rt")?.textContent).toBe("ひなんじょ");
+    rerender(<KanjiText text="図書館" />);
+    expect(document.querySelector("rt")?.textContent).toBe("としょかん");
   });
 });

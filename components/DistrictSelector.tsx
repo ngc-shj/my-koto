@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import districts from "@/data/districts.json";
-import { Furigana, useFuriganaEnabled } from "@/components/Furigana";
+import { Furigana, KanjiText, useFuriganaEnabled } from "@/components/Furigana";
 import type { District } from "@/lib/gomi/types";
 import { AREA_LABELS } from "@/lib/gomi/types";
 import { normalize } from "@/lib/search/normalize";
@@ -137,7 +137,7 @@ export default function DistrictSelector({
               <section key={group.area ?? "unknown"}>
                 {group.area && (
                   <div className="px-4 py-1.5 bg-gray-50 text-xs font-semibold text-gray-600 sticky top-0">
-                    {AREA_LABELS[group.area]}
+                    <KanjiText text={AREA_LABELS[group.area]} />
                   </div>
                 )}
                 {group.items.map((d) => (

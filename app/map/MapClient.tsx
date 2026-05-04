@@ -7,6 +7,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
+import { KanjiText } from "@/components/Furigana";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
 import {
@@ -553,7 +554,7 @@ export default function MapClient({ points, initialFilters }: Props) {
                   className="inline-block text-xs px-2 py-0.5 rounded-full text-white"
                   style={{ backgroundColor: selectedLayer.color }}
                 >
-                  {selectedLayer.label}
+                  <KanjiText text={selectedLayer.label} />
                 </span>
                 {selectedPoint.source && (
                   <span
@@ -621,7 +622,7 @@ export default function MapClient({ points, initialFilters }: Props) {
                     key={h}
                     className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300"
                   >
-                    {HAZARD_LABELS[h]}
+                    <KanjiText text={HAZARD_LABELS[h]} />
                   </span>
                 ))}
               </div>
@@ -682,6 +683,7 @@ function LayerChip({
     <button
       type="button"
       onClick={onClick}
+      aria-label={layer.label}
       // eslint-disable-next-line jsx-a11y/aria-proptypes
       aria-pressed={active ? "true" : "false"}
       className="text-xs px-3 py-1 rounded-full border transition-colors flex items-center gap-1.5"
@@ -709,7 +711,7 @@ function LayerChip({
       >
         {layer.letter}
       </span>
-      {layer.shortLabel}
+      <KanjiText text={layer.shortLabel} />
     </button>
   );
 }
