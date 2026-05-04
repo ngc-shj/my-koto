@@ -1,0 +1,142 @@
+[
+  {
+    "id": "kameido-1",
+    "label": "亀戸 1 丁目",
+    "addresses": ["亀戸一丁目", "亀戸1丁目"],
+    "schedule": {
+      "burnable": ["mon", "thu"],
+      "non_burnable": ["wed"],
+      "resource_plastic": ["tue"],
+      "container_plastic": ["fri"],
+      "pet_bottle": ["fri"],
+      "bottles_cans": ["fri"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "kameido-2",
+    "label": "亀戸 2 丁目",
+    "addresses": ["亀戸二丁目", "亀戸2丁目"],
+    "schedule": {
+      "burnable": ["mon", "thu"],
+      "non_burnable": ["wed"],
+      "resource_plastic": ["tue"],
+      "container_plastic": ["fri"],
+      "pet_bottle": ["fri"],
+      "bottles_cans": ["fri"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "kameido-3",
+    "label": "亀戸 3 丁目",
+    "addresses": ["亀戸三丁目", "亀戸3丁目"],
+    "schedule": {
+      "burnable": ["tue", "fri"],
+      "non_burnable": ["wed"],
+      "resource_plastic": ["mon"],
+      "container_plastic": ["thu"],
+      "pet_bottle": ["thu"],
+      "bottles_cans": ["thu"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "toyo-1",
+    "label": "東陽 1 丁目",
+    "addresses": ["東陽一丁目", "東陽1丁目"],
+    "schedule": {
+      "burnable": ["tue", "fri"],
+      "non_burnable": ["thu"],
+      "resource_plastic": ["wed"],
+      "container_plastic": ["mon"],
+      "pet_bottle": ["mon"],
+      "bottles_cans": ["mon"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "toyo-2",
+    "label": "東陽 2 丁目",
+    "addresses": ["東陽二丁目", "東陽2丁目"],
+    "schedule": {
+      "burnable": ["tue", "fri"],
+      "non_burnable": ["thu"],
+      "resource_plastic": ["wed"],
+      "container_plastic": ["mon"],
+      "pet_bottle": ["mon"],
+      "bottles_cans": ["mon"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "toyo-3",
+    "label": "東陽 3 丁目",
+    "addresses": ["東陽三丁目", "東陽3丁目"],
+    "schedule": {
+      "burnable": ["wed", "sat"],
+      "non_burnable": ["mon"],
+      "resource_plastic": ["tue"],
+      "container_plastic": ["fri"],
+      "pet_bottle": ["fri"],
+      "bottles_cans": ["fri"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "tomioka-1",
+    "label": "富岡 1 丁目",
+    "addresses": ["富岡一丁目", "富岡1丁目"],
+    "schedule": {
+      "burnable": ["mon", "thu"],
+      "non_burnable": ["tue"],
+      "resource_plastic": ["wed"],
+      "container_plastic": ["fri"],
+      "pet_bottle": ["fri"],
+      "bottles_cans": ["fri"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "tomioka-2",
+    "label": "富岡 2 丁目",
+    "addresses": ["富岡二丁目", "富岡2丁目"],
+    "schedule": {
+      "burnable": ["mon", "thu"],
+      "non_burnable": ["tue"],
+      "resource_plastic": ["wed"],
+      "container_plastic": ["fri"],
+      "pet_bottle": ["fri"],
+      "bottles_cans": ["fri"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "toyosu-1",
+    "label": "豊洲 1 丁目",
+    "addresses": ["豊洲一丁目", "豊洲1丁目"],
+    "schedule": {
+      "burnable": ["tue", "sat"],
+      "non_burnable": ["fri"],
+      "resource_plastic": ["thu"],
+      "container_plastic": ["wed"],
+      "pet_bottle": ["wed"],
+      "bottles_cans": ["wed"],
+      "bulky": []
+    }
+  },
+  {
+    "id": "toyosu-2",
+    "label": "豊洲 2 丁目",
+    "addresses": ["豊洲二丁目", "豊洲2丁目"],
+    "schedule": {
+      "burnable": ["tue", "sat"],
+      "non_burnable": ["fri"],
+      "resource_plastic": ["thu"],
+      "container_plastic": ["wed"],
+      "pet_bottle": ["wed"],
+      "bottles_cans": ["wed"],
+      "bulky": []
+    }
+  }
+]

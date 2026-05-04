@@ -1,0 +1,44 @@
+[
+  {
+    "date": "2026-01-01",
+    "districts": ["kameido-1", "kameido-2", "kameido-3", "toyo-1", "toyo-2", "toyo-3", "tomioka-1", "tomioka-2", "toyosu-1", "toyosu-2"],
+    "override": {
+      "burnable": [],
+      "non_burnable": [],
+      "resource_plastic": [],
+      "container_plastic": [],
+      "pet_bottle": [],
+      "bottles_cans": [],
+      "bulky": []
+    },
+    "note": "New Year's Day — no collection"
+  },
+  {
+    "date": "2025-12-31",
+    "districts": ["kameido-1", "kameido-2", "kameido-3", "toyo-1", "toyo-2", "toyo-3", "tomioka-1", "tomioka-2", "toyosu-1", "toyosu-2"],
+    "override": {
+      "burnable": [],
+      "non_burnable": [],
+      "resource_plastic": [],
+      "container_plastic": [],
+      "pet_bottle": [],
+      "bottles_cans": [],
+      "bulky": []
+    },
+    "note": "New Year's Eve — no collection"
+  },
+  {
+    "date": "2026-01-05",
+    "districts": ["kameido-1", "kameido-2"],
+    "override": {
+      "burnable": ["mon"],
+      "non_burnable": [],
+      "resource_plastic": [],
+      "container_plastic": [],
+      "pet_bottle": [],
+      "bottles_cans": [],
+      "bulky": []
+    },
+    "note": "Post-holiday supplementary burnable collection for kameido-1/2"
+  }
+]

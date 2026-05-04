@@ -1,0 +1,71 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Mock next/navigation to capture notFound() calls.
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(() => {
+    throw new Error("NEXT_NOT_FOUND");
+  }),
+}));
+
+import { GET } from "./route";
+
+function makeRequest(district: string): [Request, { params: Promise<{ district: string }> }] {
+  const req = new Request(`https://example.com/api/ics/gomi/${district}`);
+  const params = Promise.resolve({ district });
+  return [req, { params }];
+}
+
+async function callGET(district: string): Promise<Response | null> {
+  try {
+    const [req, ctx] = makeRequest(district);
+    return await GET(req, ctx);
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message === "NEXT_NOT_FOUND") {
+      return null;
+    }
+    throw e;
+  }
+}
+
+describe("GET /api/ics/gomi/[district]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns 501 for valid allowlist district kameido-1", async () => {
+    const res = await callGET("kameido-1");
+    expect(res).not.toBeNull();
+    expect(res?.status).toBe(501);
+  });
+
+  it("returns 404 for kameido-99 (valid characters, not in allowlist)", async () => {
+    const res = await callGET("kameido-99");
+    expect(res).toBeNull();
+  });
+
+  it("returns 404 for '..' (directory traversal attempt)", async () => {
+    const res = await callGET("..");
+    expect(res).toBeNull();
+  });
+
+  it("returns 404 for 'KAMEIDO-1' (uppercase — not in allowlist)", async () => {
+    const res = await callGET("KAMEIDO-1");
+    expect(res).toBeNull();
+  });
+
+  it("returns 404 for empty string", async () => {
+    const res = await callGET("");
+    expect(res).toBeNull();
+  });
+
+  it("returns 404 for string containing Cyrillic 'о' lookalike", async () => {
+    // Cyrillic о (U+043E) looks like Latin o but fails /^[a-z0-9-]{1,32}$/
+    const res = await callGET("kameidо-1");
+    expect(res).toBeNull();
+  });
+
+  it("returns 404 for a string longer than 32 characters", async () => {
+    const res = await callGET("a".repeat(33));
+    expect(res).toBeNull();
+  });
+});
