@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import districts from "@/data/districts.json";
-import { setDistrictId, getDistrictId } from "@/config/storage";
 import type { District } from "@/lib/gomi/types";
 import { AREA_LABELS } from "@/lib/gomi/types";
 import { normalize } from "@/lib/search/normalize";
@@ -11,6 +10,13 @@ type Props = {
   onSelect: (districtId: string) => void;
   open: boolean;
   onClose: () => void;
+  // Pre-selected district id when reopening the picker for an existing
+  // profile. Defaults to no selection so the confirm button stays disabled
+  // until the user picks a row.
+  initialDistrictId?: string | null;
+  // Override the confirm button label so the picker can read naturally for
+  // either "set as active" or "save into profile" callers.
+  confirmLabel?: string;
 };
 
 const ALL_DISTRICTS = districts as District[];
@@ -29,14 +35,22 @@ function groupByArea(items: District[]): Group[] {
   return Array.from(buckets.entries()).map(([area, group]) => ({ area, items: group }));
 }
 
-export default function DistrictSelector({ onSelect, open, onClose }: Props) {
-  const [selected, setSelected] = useState<string>(() => getDistrictId() ?? "");
+export default function DistrictSelector({
+  onSelect,
+  open,
+  onClose,
+  initialDistrictId,
+  confirmLabel = "この地区に設定",
+}: Props) {
+  const [selected, setSelected] = useState<string>(initialDistrictId ?? "");
   const [query, setQuery] = useState("");
 
+  // Re-seed selection from the prop each time the modal opens, so the
+  // picker reflects whichever profile (or none) the caller is editing.
   useEffect(() => {
-    setSelected(getDistrictId() ?? "");
+    setSelected(initialDistrictId ?? "");
     if (open) setQuery("");
-  }, [open]);
+  }, [open, initialDistrictId]);
 
   const groups = useMemo<Group[]>(() => {
     const q = query.trim();
@@ -63,7 +77,9 @@ export default function DistrictSelector({ onSelect, open, onClose }: Props) {
 
   function handleConfirm() {
     if (!selected) return;
-    setDistrictId(selected);
+    // Persistence is the caller's responsibility — for the multi-profile
+    // flow we may be saving the selection into a not-yet-active profile
+    // rather than pinning it as the global active district.
     onSelect(selected);
     onClose();
   }
@@ -155,7 +171,7 @@ export default function DistrictSelector({ onSelect, open, onClose }: Props) {
             disabled={!selected}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            この地区に設定
+            {confirmLabel}
           </button>
         </div>
       </div>

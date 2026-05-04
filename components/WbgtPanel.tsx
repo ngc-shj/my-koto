@@ -2,61 +2,12 @@
 
 import { useEffect, useState } from "react";
 import DataFreshness from "@/components/DataFreshness";
+import { classifyWbgt } from "@/lib/wbgt/bands";
 import {
   WbgtDataSchema,
   type WbgtData,
   type WbgtReading,
 } from "@/lib/opendata/schemas/wbgt";
-
-// 環境省 alert thresholds (`日常生活における熱中症予防指針 Ver.4`).
-// We render the band that contains `value`. The `≥` boundary is inclusive
-// so a reading of exactly 28 °C lands on 厳重警戒 rather than 警戒.
-type AlertBand = {
-  readonly threshold: number;
-  readonly label: string;
-  readonly tone: string; // Tailwind classes for badge background/foreground.
-  readonly note: string;
-};
-
-const ALERT_BANDS: readonly AlertBand[] = [
-  {
-    threshold: 31,
-    label: "危険",
-    tone: "bg-red-700 text-white",
-    note: "高齢者は安静状態でも発生する危険性。外出はなるべく避ける",
-  },
-  {
-    threshold: 28,
-    label: "厳重警戒",
-    tone: "bg-orange-600 text-white",
-    note: "外出時は炎天下を避け、室内では室温の上昇に注意",
-  },
-  {
-    threshold: 25,
-    label: "警戒",
-    tone: "bg-amber-500 text-white",
-    note: "運動や激しい作業をする際は定期的に十分な休息を取り入れる",
-  },
-  {
-    threshold: 21,
-    label: "注意",
-    tone: "bg-yellow-300 text-yellow-900",
-    note: "一般に危険性は少ないが激しい運動・重労働時には熱中症の発生に注意",
-  },
-  {
-    threshold: 0,
-    label: "ほぼ安全",
-    tone: "bg-emerald-600 text-white",
-    note: "通常生活で熱中症の危険は低い",
-  },
-];
-
-function classify(value: number): AlertBand {
-  for (const band of ALERT_BANDS) {
-    if (value >= band.threshold) return band;
-  }
-  return ALERT_BANDS[ALERT_BANDS.length - 1];
-}
 
 function formatHourLabel(iso: string): string {
   const d = new Date(iso);
@@ -128,7 +79,7 @@ export default function WbgtPanel() {
 
   const upcoming = state.data.readings.slice(0, 6);
   const next = upcoming[0];
-  const band = classify(next.wbgt);
+  const band = classifyWbgt(next.wbgt);
 
   return (
     <section className="space-y-3">
@@ -172,7 +123,7 @@ export default function WbgtPanel() {
         </thead>
         <tbody>
           {upcoming.map((r: WbgtReading) => {
-            const b = classify(r.wbgt);
+            const b = classifyWbgt(r.wbgt);
             return (
               <tr key={r.datetime} className="border-b border-gray-100">
                 <td className="py-1.5 pr-2 text-gray-700">
