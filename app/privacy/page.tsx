@@ -62,6 +62,19 @@ export default function PrivacyPage() {
           ユーザーの位置情報は送信されません。
         </p>
         <p className="text-gray-700">
+          WBGT (暑さ指数) の取得のため、本サービスのサーバーから
+          <a
+            href="https://www.wbgt.env.go.jp/"
+            className="underline hover:text-gray-900"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            環境省 熱中症予防情報サイト
+          </a>
+          への通信が発生します。リクエストは固定の観測所コード (44132 / 東京) 1
+          つのみで、ユーザーを識別する情報は送信しません。
+        </p>
+        <p className="text-gray-700">
           地図タイルの表示のため、国土地理院のタイルサーバーへの通信が発生します。
         </p>
       </section>
