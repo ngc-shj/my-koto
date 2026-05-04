@@ -50,7 +50,7 @@ export default async function MapPage({
           <ShareButton title="AED・公衆トイレマップ" url={`${SITE_URL}/map`} />
         </div>
         <p className="text-xs text-gray-500 mt-0.5">
-          地図データ:{" "}
+          地図:{" "}
           <a
             href={MAP_TILE.attributionUrl}
             target="_blank"
@@ -59,6 +59,16 @@ export default async function MapPage({
           >
             {MAP_TILE.attribution}
           </a>
+          {" / "}施設データ: 江東区 (CC-BY 4.0) +{" "}
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-gray-700"
+          >
+            © OpenStreetMap contributors
+          </a>{" "}
+          (ODbL)
         </p>
       </header>
       <div className="flex-1 overflow-hidden">

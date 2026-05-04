@@ -11,6 +11,7 @@ export function normalizeAed(record: AedRecord, index: number): MapPoint {
   return {
     id: `aed-${index}`,
     type: "aed",
+    source: "koto-official",
     name: record.名称,
     address: record.住所,
     lat: parseFloat(record.緯度),
@@ -26,6 +27,7 @@ export function normalizeToilet(record: ToiletRecord, index: number): MapPoint {
   return {
     id: `toilet-${index}`,
     type: "toilet",
+    source: "koto-official",
     name: record.名称,
     address: record.住所,
     lat: parseFloat(record.緯度),

@@ -9,7 +9,15 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
-import type { MapPoint, MapFilters, RadiusOption } from "@/lib/map/types";
+import type { MapPoint, MapFilters, RadiusOption, PointType } from "@/lib/map/types";
+import {
+  KOTO_BBOX,
+  TOKYO_23_BBOX,
+  bboxAreaSqDeg,
+  isBboxInside,
+  isInsideBbox,
+  type Bbox,
+} from "@/config/geo";
 
 const RADIUS_OPTIONS: { label: string; value: RadiusOption }[] = [
   { label: "500m", value: 500 },
@@ -63,6 +71,12 @@ export default function MapClient({ points, initialFilters }: Props) {
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
   const [showConsentModal, setShowConsentModal] = useState(true);
   const [mapReady, setMapReady] = useState(false);
+  // Dynamic POIs fetched from /api/pois for areas outside Koto-ku.
+  // Keyed by viewport-snapped bbox so cache hits stay deterministic across
+  // small pan movements.
+  const [externalPoints, setExternalPoints] = useState<MapPoint[]>([]);
+  const [externalStatus, setExternalStatus] = useState<"idle" | "loading" | "error">("idle");
+  const fetchedBboxesRef = useRef<Set<string>>(new Set());
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -99,17 +113,121 @@ export default function MapClient({ points, initialFilters }: Props) {
     };
   }, []);
 
+  // Merge bundled Koto-official points with whatever has been fetched from
+  // /api/pois. Dedupe by id so refreshes do not double-pin.
+  const mergedPoints = useMemo(() => {
+    const seen = new Set<string>();
+    const out: MapPoint[] = [];
+    for (const p of points) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        out.push(p);
+      }
+    }
+    for (const p of externalPoints) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        out.push(p);
+      }
+    }
+    return out;
+  }, [points, externalPoints]);
+
   // Apply radius + type filters once per dependency change. Memoise so the
   // marker rendering effect and the nearby-list panel share the same view.
   const visiblePoints = useMemo(
-    () => filterPoints(points, filters, { referencePoint: userLocation }),
-    [points, filters, userLocation],
+    () => filterPoints(mergedPoints, filters, { referencePoint: userLocation }),
+    [mergedPoints, filters, userLocation],
   );
 
   const nearbyList = useMemo(() => {
     if (userLocation === null) return [];
     return nearestPoints(visiblePoints, userLocation, 10);
   }, [visiblePoints, userLocation]);
+
+  // Pulls POIs from /api/pois for the current viewport whenever the map
+  // pans into territory not already cached on the client. Snaps the bbox
+  // to a 0.02° grid (≈2km) so small pans share fetches.
+  const maybeFetchExternalPois = useCallback(async () => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (!filters.aed && !filters.toilet) return;
+
+    const b = map.getBounds();
+    const live: Bbox = {
+      south: b.getSouth(),
+      west: b.getWest(),
+      north: b.getNorth(),
+      east: b.getEast(),
+    };
+    if (bboxAreaSqDeg(live) > 0.04) return; // Too zoomed out — skip fetch.
+    if (!isBboxInside(live, TOKYO_23_BBOX)) return;
+
+    // If the entire viewport is inside Koto-ku, the bundled dataset already
+    // covers it and we do not need OSM augmentation.
+    const fullyInsideKoto =
+      live.south >= KOTO_BBOX.south &&
+      live.north <= KOTO_BBOX.north &&
+      live.west >= KOTO_BBOX.west &&
+      live.east <= KOTO_BBOX.east;
+    if (fullyInsideKoto) return;
+
+    const step = 0.02;
+    const round = (n: number) => Math.round(n / step) * step;
+    const snapped: Bbox = {
+      south: round(live.south),
+      west: round(live.west),
+      north: round(live.north),
+      east: round(live.east),
+    };
+    const types: PointType[] = [];
+    if (filters.aed) types.push("aed");
+    if (filters.toilet) types.push("toilet");
+    const cacheKey = `${types.slice().sort().join("+")}|${snapped.south.toFixed(2)},${snapped.west.toFixed(2)},${snapped.north.toFixed(2)},${snapped.east.toFixed(2)}`;
+    if (fetchedBboxesRef.current.has(cacheKey)) return;
+    fetchedBboxesRef.current.add(cacheKey);
+
+    setExternalStatus("loading");
+    try {
+      const params = new URLSearchParams({
+        bbox: `${snapped.south},${snapped.west},${snapped.north},${snapped.east}`,
+        types: types.join(","),
+      });
+      const res = await fetch(`/api/pois?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.json()) as { records: MapPoint[] };
+      setExternalPoints((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        const fresh = body.records.filter((p) => !seen.has(p.id));
+        return fresh.length === 0 ? prev : [...prev, ...fresh];
+      });
+      setExternalStatus("idle");
+    } catch {
+      // Roll back the cache marker so a later pan can retry this region.
+      fetchedBboxesRef.current.delete(cacheKey);
+      setExternalStatus("error");
+    }
+  }, [mapReady, filters.aed, filters.toilet]);
+
+  // Wire the fetcher to map idle events with a small debounce so rapid
+  // panning does not flood /api/pois.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const handler = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void maybeFetchExternalPois();
+      }, 400);
+    };
+    map.on("moveend", handler);
+    handler();
+    return () => {
+      if (timer) clearTimeout(timer);
+      map.off("moveend", handler);
+    };
+  }, [mapReady, maybeFetchExternalPois]);
 
   // Render markers when map is ready or visiblePoints change.
   const renderMarkers = useCallback(async () => {
@@ -126,18 +244,27 @@ export default function MapClient({ points, initialFilters }: Props) {
       const el = document.createElement("div");
       el.className = "map-marker";
       el.setAttribute("role", "button");
-      el.setAttribute("aria-label", point.name);
+      el.setAttribute(
+        "aria-label",
+        `${point.name}${point.source === "osm" ? " (OSM)" : ""}`,
+      );
+      // OSM-sourced markers get a hollow ring style so the user can tell at
+      // a glance that they were dynamically fetched and may have less
+      // verified information than the bundled Koto-official rows.
+      const isOsm = point.source === "osm";
+      const baseColor = point.type === "aed" ? "#dc2626" : "#2563eb";
       el.style.cssText = `
         width: 28px;
         height: 28px;
         border-radius: 50%;
         border: 2px solid white;
         cursor: pointer;
-        background-color: ${point.type === "aed" ? "#dc2626" : "#2563eb"};
+        background-color: ${isOsm ? "#ffffff" : baseColor};
+        outline: ${isOsm ? `2px solid ${baseColor}` : "none"};
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
+        color: ${isOsm ? baseColor : "white"};
         font-size: 12px;
         font-weight: bold;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
@@ -231,6 +358,18 @@ export default function MapClient({ points, initialFilters }: Props) {
 
       {/* Map container */}
       <div ref={mapContainerRef} className="w-full h-full" aria-label="地図" />
+
+      {/* Loading / error indicator for the dynamic OSM fetcher */}
+      {externalStatus !== "idle" && (
+        <div
+          aria-live="polite"
+          className="absolute top-3 right-3 z-10 bg-white rounded-full shadow px-3 py-1 text-xs text-slate-700 border border-slate-200"
+        >
+          {externalStatus === "loading"
+            ? "区外データを取得中…"
+            : "区外データの取得に失敗しました"}
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-1.5 items-center max-w-xs sm:max-w-none">
@@ -332,13 +471,24 @@ export default function MapClient({ points, initialFilters }: Props) {
         >
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span
-                className={`inline-block text-xs px-2 py-0.5 rounded-full text-white mb-1 ${
-                  selectedPoint.type === "aed" ? "bg-red-600" : "bg-blue-600"
-                }`}
-              >
-                {selectedPoint.type === "aed" ? "AED" : "公衆トイレ"}
-              </span>
+              <div className="flex flex-wrap gap-1 mb-1">
+                <span
+                  className={`inline-block text-xs px-2 py-0.5 rounded-full text-white ${
+                    selectedPoint.type === "aed" ? "bg-red-600" : "bg-blue-600"
+                  }`}
+                >
+                  {selectedPoint.type === "aed" ? "AED" : "公衆トイレ"}
+                </span>
+                <span
+                  className={`inline-block text-xs px-2 py-0.5 rounded-full ${
+                    selectedPoint.source === "osm"
+                      ? "bg-amber-100 text-amber-800 border border-amber-300"
+                      : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  }`}
+                >
+                  {selectedPoint.source === "osm" ? "OSM" : "江東区公式"}
+                </span>
+              </div>
               <h2 id="detail-title" className="text-base font-semibold">
                 {selectedPoint.name}
               </h2>
@@ -353,7 +503,18 @@ export default function MapClient({ points, initialFilters }: Props) {
             </button>
           </div>
 
-          <p className="text-sm text-gray-600 mt-1">{selectedPoint.address}</p>
+          {selectedPoint.address ? (
+            <p className="text-sm text-gray-600 mt-1">{selectedPoint.address}</p>
+          ) : (
+            <p className="text-sm text-gray-400 mt-1 italic">
+              住所情報なし (地図上の座標で確認してください)
+            </p>
+          )}
+          {selectedPoint.source === "osm" && (
+            <p className="text-xs text-amber-700 mt-1">
+              この情報は OpenStreetMap contributors により提供されています。実際の状況と異なる場合があります。
+            </p>
+          )}
 
           {selectedPoint.type === "aed" && (
             <>

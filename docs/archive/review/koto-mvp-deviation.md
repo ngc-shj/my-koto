@@ -99,6 +99,21 @@ User feedback: 「地図とマークの位置がずれていますね」
 2. **MapLibre マーカーの anchor 明示**
    - `new maplibregl.Marker({ element: el, anchor: 'center' })` を全 marker 生成箇所で明示。MapLibre のデフォルトは center だが、カスタム DOM 要素の場合に環境によっては top-left になる挙動報告があるため明示で安定化。
 
+## Post-Step-9 fixes — radius filter + dynamic OSM POIs (2026-05-04)
+
+User feedback: 「現在地付近のデータを動的に取得するのは可能でしょうか」「23 区内も対応」
+
+1. **半径フィルタ + 周辺リスト**
+   - `MapFilters.radius` に 500m / 1km / 2km / 全件のオプション、`filterPoints` が referencePoint で半径フィルタを適用、`nearestPoints` が距離ラベル付き近距離リストを返す。地図右下に「周辺リスト (10 件まで)」を表示。位置情報取得後は zoom 15 で fly-to。
+2. **/api/pois Edge route で OSM Overpass を proxy**
+   - 江東区外の AED/トイレ動的取得。Step 7 と同等のハードニング: GET 限定 / `redirect: 'manual'` / `AbortSignal.timeout(15000)` / Content-Type & Length 制限 / Zod / hostname allowlist (`overpass-api.de`) / ヘッダ strip。bbox は **Tokyo 23 wards** envelope に server-clamp、面積上限 0.04 deg² (≈22km²)。30 req/min/IP のレート制限。KV キャッシュ (snap 0.01° で近接 viewport 共有、1h TTL)。
+3. **MapClient の動的 fetch 統合**
+   - `map.on('moveend')` に 400ms debounce、viewport が江東区 bbox 内に完全収まる場合は fetch スキップ (同梱データで十分)。fetch した OSM ポイントは hollow-ring スタイルで江東区公式と区別。詳細パネルに source バッジ (「江東区公式」「OSM」)、住所欠損時の placeholder、OSM 由来のディスクレーマを表示。
+4. **帰属表示**
+   - `/map` ヘッダに「地図: 地理院タイル / 施設データ: 江東区 + © OpenStreetMap contributors (ODbL)」を併記。`config/attribution.ts` に既存の OpenStreetMap エントリあり、`/about` で集中明示済 (Step 1)。
+5. **OSM 由来データの限界**
+   - OSM の AED/トイレタグ密度は江東区公式に比べて疎、`name` も英語混在や欠損あり。`/api/pois` が空の records を返すケースも仕様。データ品質の差異は UI バッジと注意書きで明示。
+
 ## Post-Step-9 fixes — map rendering (2026-05-04)
 
 User feedback: 「AED・公衆トイレマップ、地図が表示されません。」
