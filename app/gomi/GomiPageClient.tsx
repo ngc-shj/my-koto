@@ -17,6 +17,7 @@ import {
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import DistrictSelector from "@/components/DistrictSelector";
+import { Furigana } from "@/components/Furigana";
 import SubscribeButton from "@/components/SubscribeButton";
 import { getDistrictId, setDistrictId } from "@/config/storage";
 import { resolveSchedule } from "@/lib/gomi/schedule";
@@ -147,7 +148,9 @@ export default function GomiPageClient({ districts, overlays }: Props) {
       {district && (
         <p className="text-sm text-gray-600">
           選択中の地区:{" "}
-          <span className="font-semibold text-gray-900">{district.label}</span>
+          <span className="font-semibold text-gray-900">
+            <Furigana text={district.label} reading={district.reading} />
+          </span>
         </p>
       )}
 

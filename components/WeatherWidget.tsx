@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
 import DataFreshness from "@/components/DataFreshness";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
+
+// "2026-05-04" → "5月4日(月)" — short, never wraps in the home column.
+function formatDailyDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00+09:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return format(d, "M月d日(E)", { locale: ja });
+}
 
 type State =
   | { status: "loading" }
@@ -52,16 +61,18 @@ export default function WeatherWidget() {
       {daily ? (
         <ul className="space-y-1 text-sm text-gray-700">
           {daily.time.slice(0, 2).map((date, i) => (
-            <li key={date} className="flex gap-3">
-              <span className="font-medium w-20 shrink-0">{date}</span>
-              <span>
+            <li key={date} className="flex gap-3 flex-wrap">
+              <span className="font-medium whitespace-nowrap shrink-0">
+                {formatDailyDate(date)}
+              </span>
+              <span className="whitespace-nowrap">
                 {daily.temperature_2m_max[i] != null &&
                 daily.temperature_2m_min[i] != null
                   ? `${daily.temperature_2m_min[i]}°C〜${daily.temperature_2m_max[i]}°C`
                   : "—"}
               </span>
               {daily.precipitation_probability_max?.[i] != null && (
-                <span className="text-blue-600">
+                <span className="text-blue-600 whitespace-nowrap">
                   降水 {daily.precipitation_probability_max[i]}%
                 </span>
               )}

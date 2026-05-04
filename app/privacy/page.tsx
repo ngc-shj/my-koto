@@ -41,7 +41,8 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">LocalStorage の使用</h2>
         <p className="text-gray-700">
-          選択した地区などの設定情報のみ、お使いの端末の LocalStorage に保存します。
+          選択した地区・表示テーマ・ふりがな表示の設定情報のみ、
+          お使いの端末の LocalStorage に保存します。
           個人情報・健康情報・財務情報は保存しません。
         </p>
       </section>
