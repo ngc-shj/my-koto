@@ -30,3 +30,10 @@
    - `wanakana` は英単語 (例 `lithium` → `richiumu`) をそのまま日本語ローマ字に変換できない。fixture の `id` (`battery-lithium`) も検索対象に含めることで実用的なヒットを実現。Plan の機能要件は満たす (シナリオ 2「リチウムイオン」検索)。
 3. **`lib/search.ts` を `lib/search/` サブディレクトリ構成に変更**
    - Plan の単一ファイル想定を `normalize.ts` (純関数) + `index.ts` (検索エンジン) に分割。テスト分離と関心の分離のため。インポートパスは `@/lib/search` で通る。
+
+## Step 5 (2026-05-04)
+
+1. **MapLibre v4 の `attributionControl` 型変更**
+   - Plan の暗黙前提 (v3 系の `attributionControl: true`) は v4 で廃止。`{}` (デフォルトオプション) に変更。表示・帰属義務の動作は同等。
+2. **`aria-pressed` を文字列に変換**
+   - 一部 linter が `aria-pressed={boolean}` を ARIA 仕様違反と判定するため `"true"`/`"false"` 文字列で渡す。挙動・アクセシビリティ的には同等 (HTML 仕様で string-bool として解釈される)。
