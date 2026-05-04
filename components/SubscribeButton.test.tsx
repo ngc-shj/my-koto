@@ -48,8 +48,11 @@ describe("SubscribeButton", () => {
     const href = link.getAttribute("href");
     expect(href).not.toBeNull();
     expect(href).toContain("/api/ics/gomi/kameido-1-3");
-    // jsdom default UA is not iOS, so the scheme should be https://.
-    expect(href).toMatch(/^https:\/\//);
+    // jsdom default UA is not iOS and the default page protocol is http:
+    // (window.location.protocol === 'http:'), so the F-19 fix should
+    // produce an http:// link rather than https:// — verifying that the
+    // dev-session scheme actually flows through.
+    expect(href).toMatch(/^http:\/\//);
   });
 
   it("copies the subscribe URL to the clipboard when the copy button is clicked", async () => {

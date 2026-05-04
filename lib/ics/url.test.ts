@@ -64,4 +64,35 @@ describe("gomiSubscriptionUrl — UA-based scheme selection", () => {
     const url = gomiSubscriptionUrl(DISTRICT, HOST, "");
     expect(url).toBe(`https://${HOST}/api/ics/gomi/${DISTRICT}`);
   });
+
+  // F-19 regression guard: a dev session served over http://localhost
+  // would previously synthesise an https:// link the browser cannot reach.
+  describe("scheme honours the page protocol on non-iOS UAs", () => {
+    it("returns http:// when the page is served over http:", () => {
+      const url = gomiSubscriptionUrl(DISTRICT, HOST, "Mozilla/5.0", "http:");
+      expect(url).toMatch(/^http:\/\//);
+      expect(url).not.toMatch(/^https:/);
+    });
+
+    it("returns https:// when the page is served over https:", () => {
+      const url = gomiSubscriptionUrl(DISTRICT, HOST, "Mozilla/5.0", "https:");
+      expect(url).toMatch(/^https:\/\//);
+    });
+
+    it("still returns webcal:// on iPhone regardless of page protocol", () => {
+      const ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)";
+      expect(gomiSubscriptionUrl(DISTRICT, HOST, ua, "http:")).toMatch(
+        /^webcal:\/\//,
+      );
+      expect(gomiSubscriptionUrl(DISTRICT, HOST, ua, "https:")).toMatch(
+        /^webcal:\/\//,
+      );
+    });
+
+    it("falls back to https for unexpected protocols (file:, blob:, etc.)", () => {
+      expect(
+        gomiSubscriptionUrl(DISTRICT, HOST, "Mozilla/5.0", "file:"),
+      ).toMatch(/^https:/);
+    });
+  });
 });

@@ -25,9 +25,16 @@ export default function SubscribeButton({ districtId }: Props) {
 
   useEffect(() => {
     // useEffect only runs on the client, so window/navigator are always
-    // defined here — no SSR guard needed (F-18).
+    // defined here — no SSR guard needed (F-18). Pass the page's actual
+    // protocol so dev sessions on http://localhost don't synthesise an
+    // unreachable https:// link (F-19).
     setSubscribeUrl(
-      gomiSubscriptionUrl(districtId, window.location.host, navigator.userAgent),
+      gomiSubscriptionUrl(
+        districtId,
+        window.location.host,
+        navigator.userAgent,
+        window.location.protocol,
+      ),
     );
   }, [districtId]);
 
