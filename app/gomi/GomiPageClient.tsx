@@ -11,28 +11,22 @@ import {
   isToday,
   isTomorrow,
   isSameDay,
+  isSameMonth,
+  addMonths,
+  subMonths,
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import DistrictSelector from "@/components/DistrictSelector";
 import SubscribeButton from "@/components/SubscribeButton";
 import { getDistrictId } from "@/config/storage";
-import { resolveSchedule, biweeklyCategories } from "@/lib/gomi/schedule";
+import { resolveSchedule } from "@/lib/gomi/schedule";
 import { GOMI_CATEGORY_LABELS } from "@/lib/gomi/types";
 import type { District, SpecialOverlay, GomiOccurrence } from "@/lib/gomi/types";
 
-const WEEKDAY_LABELS: Record<string, string> = {
-  mon: "月",
-  tue: "火",
-  wed: "水",
-  thu: "木",
-  fri: "金",
-  sat: "土",
-  sun: "日",
-};
-
-// Authoritative biweekly schedule lives on the city's site; we link directly
-// rather than asking the user to navigate there themselves.
-const KOTO_BIWEEKLY_REFERENCE_URL =
+// One-click escape hatch to the authoritative city page (kept as a
+// footer link below the calendar so users can confirm anything that
+// looks off — the data here is derived from the same upstream CSV).
+const KOTO_OFFICIAL_REFERENCE_URL =
   "https://www.city.koto.lg.jp/388010/kurashi/gomi/kate/43735.html";
 
 type Props = {
@@ -54,6 +48,9 @@ export default function GomiPageClient({ districts, overlays }: Props) {
   const [districtId, setDistrictIdState] = useState<string | null>(null);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [today] = useState(() => new Date());
+  // Monthly calendar view month (separate from `today` so users can flip
+  // between months without affecting today/tomorrow widgets).
+  const [viewMonth, setViewMonth] = useState(() => new Date());
 
   useEffect(() => {
     const stored = getDistrictId();
@@ -78,10 +75,10 @@ export default function GomiPageClient({ districts, overlays }: Props) {
 
   const monthOccurrences = useMemo((): GomiOccurrence[] => {
     if (!district) return [];
-    const from = startOfMonth(today);
-    const to = endOfMonth(today);
+    const from = startOfMonth(viewMonth);
+    const to = endOfMonth(viewMonth);
     return resolveSchedule(district, overlays, { from, to });
-  }, [district, overlays, today]);
+  }, [district, overlays, viewMonth]);
 
   const todayOccurrence = useMemo(
     () => weekOccurrences.find((o) => isToday(o.date)) ?? null,
@@ -112,9 +109,10 @@ export default function GomiPageClient({ districts, overlays }: Props) {
   }
 
   const monthDays = eachDayOfInterval({
-    start: startOfMonth(today),
-    end: endOfMonth(today),
+    start: startOfMonth(viewMonth),
+    end: endOfMonth(viewMonth),
   });
+  const isViewingCurrentMonth = isSameMonth(viewMonth, today);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
@@ -147,60 +145,10 @@ export default function GomiPageClient({ districts, overlays }: Props) {
       )}
 
       {district && (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-600">
-            選択中の地区:{" "}
-            <span className="font-semibold text-gray-900">{district.label}</span>
-          </p>
-          <SubscribeButton districtId={district.id} />
-        </div>
-      )}
-
-      {/* Biweekly streams — 隔週収集はカレンダー表示・ICS から除外し、専用の
-          パネルで「曜日 + 公式サイトへの直接導線」として明示的に区別する。
-          ユーザーに「自分で隔週かどうか調べてください」と丸投げしない。 */}
-      {district && biweeklyCategories(district).length > 0 && (
-        <section
-          aria-label="隔週収集の品目"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3"
-        >
-          <header>
-            <h2 className="text-base font-semibold text-amber-900">
-              隔週収集の品目
-            </h2>
-            <p className="text-xs text-amber-800 mt-1">
-              下記は隔週で収集される品目です。具体的な実施日（第何週か）は江東区公式サイトの掲載カレンダーをご確認ください。
-              <br />
-              本アプリの「当日・翌日」「週次」「月次」ビューおよびカレンダー連携には、誤差防止のため
-              <strong>含めていません</strong>。
-            </p>
-          </header>
-          <ul className="space-y-1.5">
-            {biweeklyCategories(district).map((entry) => (
-              <li
-                key={entry.category}
-                className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100"
-              >
-                <span className="text-sm font-medium text-gray-800">
-                  {GOMI_CATEGORY_LABELS[entry.category]}
-                </span>
-                <span className="text-sm text-amber-900">
-                  隔週 {WEEKDAY_LABELS[entry.weekday]}曜
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-amber-800">
-            <a
-              href={KOTO_BIWEEKLY_REFERENCE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-amber-900"
-            >
-              江東区公式「資源回収・ごみ収集日一覧」を開く →
-            </a>
-          </p>
-        </section>
+        <p className="text-sm text-gray-600">
+          選択中の地区:{" "}
+          <span className="font-semibold text-gray-900">{district.label}</span>
+        </p>
       )}
 
       {/* Today / Tomorrow */}
@@ -253,9 +201,38 @@ export default function GomiPageClient({ districts, overlays }: Props) {
       {/* Monthly calendar */}
       {district && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {format(today, "yyyy年M月", { locale: ja })}の収集カレンダー
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMonth((m) => subMonths(m, 1))}
+              aria-label="前の月"
+              className="px-2 py-1 text-sm text-gray-700 rounded hover:bg-gray-100"
+            >
+              ‹ 前月
+            </button>
+            <h2 className="text-lg font-semibold text-gray-800">
+              {format(viewMonth, "yyyy年M月", { locale: ja })}の収集カレンダー
+            </h2>
+            <button
+              type="button"
+              onClick={() => setViewMonth((m) => addMonths(m, 1))}
+              aria-label="次の月"
+              className="px-2 py-1 text-sm text-gray-700 rounded hover:bg-gray-100"
+            >
+              次月 ›
+            </button>
+          </div>
+          {!isViewingCurrentMonth && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setViewMonth(today)}
+                className="text-xs text-blue-600 underline hover:text-blue-800"
+              >
+                今月に戻る
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-xl overflow-hidden text-center text-xs">
             {["月", "火", "水", "木", "金", "土", "日"].map((d) => (
               <div key={d} className="bg-gray-50 py-2 font-medium text-gray-600">
@@ -265,7 +242,7 @@ export default function GomiPageClient({ districts, overlays }: Props) {
             {/* Leading empty cells for month start offset */}
             {Array.from({
               length:
-                ((startOfMonth(today).getDay() + 6) % 7),
+                ((startOfMonth(viewMonth).getDay() + 6) % 7),
             }).map((_, i) => (
               <div key={`pad-${i}`} className="bg-white py-2" />
             ))}
@@ -292,6 +269,25 @@ export default function GomiPageClient({ districts, overlays }: Props) {
               );
             })}
           </div>
+        </section>
+      )}
+
+      {/* Subscribe + official-source link sit BELOW the calendar — the
+          calendar itself is what the user comes here to see; the
+          subscribe button is a follow-up action, not a header. */}
+      {district && (
+        <section className="space-y-3 pt-2">
+          <SubscribeButton districtId={district.id} />
+          <p className="text-xs text-gray-500 text-center">
+            <a
+              href={KOTO_OFFICIAL_REFERENCE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-700"
+            >
+              江東区公式「資源回収・ごみ収集日一覧」を開く →
+            </a>
+          </p>
         </section>
       )}
 

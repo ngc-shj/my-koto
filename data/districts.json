@@ -4,6 +4,7 @@
     "label": "青海",
     "reading": "あおみ",
     "area": "fukagawa",
+    "areaCode": 6,
     "addresses": [
       "青海"
     ],
@@ -38,6 +39,7 @@
     "label": "有明",
     "reading": "ありあけ",
     "area": "fukagawa",
+    "areaCode": 6,
     "addresses": [
       "有明"
     ],
@@ -72,6 +74,7 @@
     "label": "石島",
     "reading": "いしじま",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "石島"
     ],
@@ -106,6 +109,7 @@
     "label": "海の森",
     "reading": "うみのもり",
     "area": "fukagawa",
+    "areaCode": 6,
     "addresses": [
       "海の森"
     ],
@@ -140,6 +144,7 @@
     "label": "海辺",
     "reading": "うみべ",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "海辺"
     ],
@@ -174,6 +179,7 @@
     "label": "永代",
     "reading": "えいたい",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "永代"
     ],
@@ -208,6 +214,7 @@
     "label": "枝川",
     "reading": "えだがわ",
     "area": "fukagawa",
+    "areaCode": 12,
     "addresses": [
       "枝川"
     ],
@@ -242,6 +249,7 @@
     "label": "越中島",
     "reading": "えっちゅうじま",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "越中島"
     ],
@@ -276,6 +284,7 @@
     "label": "扇橋",
     "reading": "おうぎばし",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "扇橋"
     ],
@@ -310,6 +319,7 @@
     "label": "大島1～2丁目",
     "reading": "おおじま",
     "area": "joto",
+    "areaCode": 8,
     "addresses": [
       "大島1～2丁目"
     ],
@@ -344,6 +354,7 @@
     "label": "大島3～7丁目",
     "reading": "おおじま",
     "area": "joto",
+    "areaCode": 10,
     "addresses": [
       "大島3～7丁目"
     ],
@@ -378,6 +389,7 @@
     "label": "大島8～9丁目",
     "reading": "おおじま",
     "area": "joto",
+    "areaCode": 4,
     "addresses": [
       "大島8～9丁目"
     ],
@@ -412,6 +424,7 @@
     "label": "亀戸1～3丁目",
     "reading": "かめいど",
     "area": "joto",
+    "areaCode": 8,
     "addresses": [
       "亀戸1～3丁目"
     ],
@@ -446,6 +459,7 @@
     "label": "亀戸4～9丁目",
     "reading": "かめいど",
     "area": "joto",
+    "areaCode": 2,
     "addresses": [
       "亀戸4～9丁目"
     ],
@@ -480,6 +494,7 @@
     "label": "北砂1～5丁目",
     "reading": "きたすな",
     "area": "joto",
+    "areaCode": 7,
     "addresses": [
       "北砂1～5丁目"
     ],
@@ -514,6 +529,7 @@
     "label": "北砂6～7丁目",
     "reading": "きたすな",
     "area": "joto",
+    "areaCode": 4,
     "addresses": [
       "北砂6～7丁目"
     ],
@@ -548,6 +564,7 @@
     "label": "木場",
     "reading": "きば",
     "area": "fukagawa",
+    "areaCode": 9,
     "addresses": [
       "木場"
     ],
@@ -582,6 +599,7 @@
     "label": "清澄",
     "reading": "きよすみ",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "清澄"
     ],
@@ -616,6 +634,7 @@
     "label": "佐賀",
     "reading": "さが",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "佐賀"
     ],
@@ -650,6 +669,7 @@
     "label": "猿江",
     "reading": "さるえ",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "猿江"
     ],
@@ -684,6 +704,7 @@
     "label": "塩浜1丁目",
     "reading": "しおはま",
     "area": "fukagawa",
+    "areaCode": 6,
     "addresses": [
       "塩浜1丁目"
     ],
@@ -718,6 +739,7 @@
     "label": "塩浜2丁目",
     "reading": "しおはま",
     "area": "fukagawa",
+    "areaCode": 12,
     "addresses": [
       "塩浜2丁目"
     ],
@@ -752,6 +774,7 @@
     "label": "潮見",
     "reading": "しおみ",
     "area": "fukagawa",
+    "areaCode": 12,
     "addresses": [
       "潮見"
     ],
@@ -786,6 +809,7 @@
     "label": "東雲",
     "reading": "しののめ",
     "area": "fukagawa",
+    "areaCode": 6,
     "addresses": [
       "東雲"
     ],
@@ -820,6 +844,7 @@
     "label": "白河1～3丁目",
     "reading": "しらかわ",
     "area": "fukagawa",
+    "areaCode": 5,
     "addresses": [
       "白河1～3丁目"
     ],
@@ -854,6 +879,7 @@
     "label": "白河4丁目",
     "reading": "しらかわ",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "白河4丁目"
     ],
@@ -888,6 +914,7 @@
     "label": "新大橋",
     "reading": "しんおおはし",
     "area": "fukagawa",
+    "areaCode": 5,
     "addresses": [
       "新大橋"
     ],
@@ -922,6 +949,7 @@
     "label": "新木場",
     "reading": "しんきば",
     "area": "joto",
+    "areaCode": 12,
     "addresses": [
       "新木場"
     ],
@@ -956,6 +984,7 @@
     "label": "新砂",
     "reading": "しんすな",
     "area": "joto",
+    "areaCode": 1,
     "addresses": [
       "新砂"
     ],
@@ -990,6 +1019,7 @@
     "label": "住吉",
     "reading": "すみよし",
     "area": "fukagawa",
+    "areaCode": 8,
     "addresses": [
       "住吉"
     ],
@@ -1024,6 +1054,7 @@
     "label": "千石",
     "reading": "せんごく",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "千石"
     ],
@@ -1058,6 +1089,7 @@
     "label": "千田",
     "reading": "せんだ",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "千田"
     ],
@@ -1092,6 +1124,7 @@
     "label": "高橋",
     "reading": "たかばし",
     "area": "fukagawa",
+    "areaCode": 5,
     "addresses": [
       "高橋"
     ],
@@ -1126,6 +1159,7 @@
     "label": "辰巳",
     "reading": "たつみ",
     "area": "fukagawa",
+    "areaCode": 12,
     "addresses": [
       "辰巳"
     ],
@@ -1160,6 +1194,7 @@
     "label": "東陽",
     "reading": "とうよう",
     "area": "fukagawa",
+    "areaCode": 9,
     "addresses": [
       "東陽"
     ],
@@ -1194,6 +1229,7 @@
     "label": "常盤",
     "reading": "ときわ",
     "area": "fukagawa",
+    "areaCode": 5,
     "addresses": [
       "常盤"
     ],
@@ -1228,6 +1264,7 @@
     "label": "富岡",
     "reading": "とみおか",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "富岡"
     ],
@@ -1262,6 +1299,7 @@
     "label": "豊洲",
     "reading": "とよす",
     "area": "fukagawa",
+    "areaCode": 6,
     "addresses": [
       "豊洲"
     ],
@@ -1296,6 +1334,7 @@
     "label": "東砂1～5丁目",
     "reading": "ひがしすな",
     "area": "joto",
+    "areaCode": 4,
     "addresses": [
       "東砂1～5丁目"
     ],
@@ -1330,6 +1369,7 @@
     "label": "東砂6～8丁目",
     "reading": "ひがしすな",
     "area": "joto",
+    "areaCode": 1,
     "addresses": [
       "東砂6～8丁目"
     ],
@@ -1364,6 +1404,7 @@
     "label": "平野1～3丁目",
     "reading": "ひらの",
     "area": "fukagawa",
+    "areaCode": 5,
     "addresses": [
       "平野1～3丁目"
     ],
@@ -1398,6 +1439,7 @@
     "label": "平野4丁目",
     "reading": "ひらの",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "平野4丁目"
     ],
@@ -1432,6 +1474,7 @@
     "label": "深川1丁目",
     "reading": "ふかがわ",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "深川1丁目"
     ],
@@ -1466,6 +1509,7 @@
     "label": "深川2丁目",
     "reading": "ふかがわ",
     "area": "fukagawa",
+    "areaCode": 9,
     "addresses": [
       "深川2丁目"
     ],
@@ -1500,6 +1544,7 @@
     "label": "福住",
     "reading": "ふくずみ",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "福住"
     ],
@@ -1534,6 +1579,7 @@
     "label": "冬木",
     "reading": "ふゆき",
     "area": "fukagawa",
+    "areaCode": 9,
     "addresses": [
       "冬木"
     ],
@@ -1568,6 +1614,7 @@
     "label": "古石場",
     "reading": "ふるいしば",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "古石場"
     ],
@@ -1602,6 +1649,7 @@
     "label": "牡丹",
     "reading": "ぼたん",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "牡丹"
     ],
@@ -1636,6 +1684,7 @@
     "label": "南砂1・5丁目",
     "reading": "みなみすな",
     "area": "joto",
+    "areaCode": 7,
     "addresses": [
       "南砂1・5丁目"
     ],
@@ -1670,6 +1719,7 @@
     "label": "南砂2～4・6～7丁目",
     "reading": "みなみすな",
     "area": "joto",
+    "areaCode": 1,
     "addresses": [
       "南砂2～4・6～7丁目"
     ],
@@ -1704,6 +1754,7 @@
     "label": "三好1～3丁目",
     "reading": "みよし",
     "area": "fukagawa",
+    "areaCode": 5,
     "addresses": [
       "三好1～3丁目"
     ],
@@ -1738,6 +1789,7 @@
     "label": "三好4丁目",
     "reading": "みよし",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "三好4丁目"
     ],
@@ -1772,6 +1824,7 @@
     "label": "毛利",
     "reading": "もうり",
     "area": "fukagawa",
+    "areaCode": 8,
     "addresses": [
       "毛利"
     ],
@@ -1806,6 +1859,7 @@
     "label": "森下1～4丁目",
     "reading": "もりした",
     "area": "fukagawa",
+    "areaCode": 5,
     "addresses": [
       "森下1～4丁目"
     ],
@@ -1840,6 +1894,7 @@
     "label": "森下5丁目",
     "reading": "もりした",
     "area": "fukagawa",
+    "areaCode": 11,
     "addresses": [
       "森下5丁目"
     ],
@@ -1874,6 +1929,7 @@
     "label": "門前仲町",
     "reading": "もんぜんなかちょう",
     "area": "fukagawa",
+    "areaCode": 3,
     "addresses": [
       "門前仲町"
     ],
@@ -1908,6 +1964,7 @@
     "label": "夢の島",
     "reading": "ゆめのしま",
     "area": "joto",
+    "areaCode": 12,
     "addresses": [
       "夢の島"
     ],
@@ -1942,6 +1999,7 @@
     "label": "若洲",
     "reading": "わかす",
     "area": "joto",
+    "areaCode": 12,
     "addresses": [
       "若洲"
     ],

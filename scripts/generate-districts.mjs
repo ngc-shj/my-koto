@@ -136,7 +136,8 @@ const LABEL_READING_OVERRIDE = {
 };
 
 function rowToDistrict(row) {
-  const [readingRaw, label, _districtNumber, shigen, plastic, burnable, nonBurnable] = row;
+  const [readingRaw, label, districtNumber, shigen, plastic, burnable, nonBurnable] = row;
+  const areaCode = Number.parseInt(String(districtNumber).trim(), 10);
   const labelKey = label.replace(/\s+/g, '').replace(/^([一-龯々]+).*/, '$1');
   const overrideReading = LABEL_READING_OVERRIDE[labelKey];
   const reading = overrideReading ?? readingRaw.replace(/\s+/g, '');
@@ -167,6 +168,9 @@ function rowToDistrict(row) {
     label,
     reading,
     area: JOTO_TOWNS.has(baseSlug) ? 'joto' : 'fukagawa',
+    ...(Number.isInteger(areaCode) && areaCode >= 1 && areaCode <= 12
+      ? { areaCode }
+      : {}),
     addresses: [label],
     schedule: {
       burnable: burnableDays.days,

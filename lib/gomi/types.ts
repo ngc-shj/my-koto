@@ -77,6 +77,10 @@ export const DistrictSchema = z.object({
   label: z.string(),
   reading: z.string().optional(),
   area: z.enum(["fukagawa", "joto"]).optional(),
+  // Koto-ku publishes 12 collection-route codes (1..12). Each route has a
+  // distinct biweekly anchor for 燃やさないごみ; the resolver derives the
+  // actual collection date from the anchor + 14-day modulo.
+  areaCode: z.number().int().min(1).max(12).optional(),
   addresses: z.array(z.string()),
   schedule: WeeklyScheduleSchema,
   notes: z.string().optional(),

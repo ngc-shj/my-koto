@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { isBiweeklyCollectionDate } from "./biweekly-anchors";
 import type {
   DateRange,
   District,
@@ -45,11 +46,10 @@ function eachDayInRange(range: DateRange): Date[] {
 }
 
 // Determine which categories are collected on a given date using the weekly
-// schedule. Biweekly categories are skipped on purpose: the upstream CSV
-// publishes only the weekday (e.g. 「（隔週）土」) without the anchor week,
-// so emitting them weekly would over-report by 50 % every second week
-// (T-04). The dedicated biweekly UI panel + the upstream link cover the
-// gap until/unless an authoritative anchor calendar becomes available.
+// schedule. Biweekly categories use the area-code anchor table from
+// `biweekly-anchors.ts` to decide which 14-day boundary actually fires —
+// over-reporting (the previous skip-everything default) is no longer
+// necessary now that we encode the published anchor calendar.
 function isBiweekly(district: District, cat: GomiCategory): boolean {
   return district.schedule.biweekly?.[cat] === true;
 }
@@ -59,11 +59,15 @@ function categoriesFromWeekly(
   date: Date,
 ): GomiCategory[] {
   const weekday = ISO_DAY_MAP[date.getDay()];
-  return CATEGORIES.filter(
-    (cat) =>
-      !isBiweekly(district, cat) &&
-      district.schedule[cat].includes(weekday),
-  );
+  return CATEGORIES.filter((cat) => {
+    if (!district.schedule[cat].includes(weekday)) return false;
+    if (!isBiweekly(district, cat)) return true;
+    // Biweekly stream — only emit on the area-code anchor's 14-day
+    // boundary. Districts without a known area code conservatively
+    // suppress the stream so the UI / ICS never claim a wrong date.
+    if (district.areaCode === undefined) return false;
+    return isBiweeklyCollectionDate(district.areaCode, date);
+  });
 }
 
 // Lists biweekly categories for the district along with their nominal
@@ -86,15 +90,6 @@ export function biweeklyCategories(
 // per-weekday partial schedule into the weekly result, which silently
 // dropped overlay days when an editor mis-aligned the weekday array with
 // the literal date (F-04 root cause).
-//
-// NOTE on biweekly cadence (T-04 deferral):
-// The upstream CSV marks `非燃焼ごみ` as `（隔週）<weekday>` for ~58 of the
-// 58 collection routes. The current schema treats those as weekly, which
-// over-reports collection by 50%. A faithful biweekly implementation
-// requires (a) extending the schema with an anchor date, (b) carrying
-// the boolean through `generate-districts.mjs`, and (c) integration tests
-// across DST/calendar boundaries — out of scope for the MVP. Tracked in
-// docs/archive/review/koto-mvp-deviation.md as "Phase 2 — biweekly".
 function applyOverlay(overlay: SpecialOverlay): GomiCategory[] {
   // Preserve canonical category ordering for stable rendering.
   const set = new Set<GomiCategory>(overlay.categories);

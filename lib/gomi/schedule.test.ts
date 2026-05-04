@@ -139,6 +139,7 @@ describe("resolveSchedule — overlay Dec 31 (no collection)", () => {
 });
 
 describe("biweekly handling — categories flagged as 隔週", () => {
+  // No areaCode: the resolver falls back to suppression rather than guess.
   const districtWithBiweekly: District = {
     id: "test-biweekly",
     label: "テスト地区",
@@ -158,13 +159,13 @@ describe("biweekly handling — categories flagged as 隔週", () => {
   // Saturday Jan 3, 2026 — would be a non_burnable day under naive weekly rules.
   const saturday = new Date("2026-01-03T00:00:00");
 
-  it("excludes biweekly categories from the weekly schedule", () => {
+  it("suppresses biweekly categories when no areaCode is known", () => {
+    // Without an anchor we must NOT guess — over-emission is worse than
+    // a known gap that the UI can call out.
     const result = resolveSchedule(districtWithBiweekly, [], {
       from: saturday,
       to: saturday,
     });
-    // Without biweekly skip we'd return ["non_burnable"]. With it, the day
-    // has no auto-emitted categories.
     expect(result).toHaveLength(0);
   });
 
@@ -189,6 +190,120 @@ describe("biweekly handling — categories flagged as 隔週", () => {
       schedule: { ...districtWithBiweekly.schedule, biweekly: undefined },
     };
     expect(biweeklyCategories(plainDistrict)).toEqual([]);
+  });
+});
+
+describe("biweekly handling — anchor-driven emission (area code 1)", () => {
+  // Area 1 calendar from Koto-ku's official site:
+  // 隔週月曜 anchored on 2026-04-06 (Mon). Expected hits in April:
+  //   2026-04-06 (Mon)  ✓
+  //   2026-04-20 (Mon)  ✓
+  // Skips:
+  //   2026-04-13 (Mon — alternate week, no collection)
+  const districtArea1: District = {
+    id: "test-area1",
+    label: "Area 1",
+    addresses: ["test"],
+    areaCode: 1,
+    schedule: {
+      burnable: [],
+      non_burnable: ["mon"],
+      resource_plastic: [],
+      container_plastic: [],
+      pet_bottle: [],
+      bottles_cans: [],
+      bulky: [],
+      biweekly: { non_burnable: true },
+    },
+  };
+
+  it("emits non_burnable on the anchor Monday", () => {
+    const day = new Date("2026-04-06T00:00:00");
+    const result = resolveSchedule(districtArea1, [], { from: day, to: day });
+    expect(result).toHaveLength(1);
+    expect(result[0].categories).toEqual(["non_burnable"]);
+  });
+
+  it("skips the alternating Monday (anchor + 7 days)", () => {
+    const day = new Date("2026-04-13T00:00:00");
+    const result = resolveSchedule(districtArea1, [], { from: day, to: day });
+    expect(result).toHaveLength(0);
+  });
+
+  it("emits non_burnable on the next 14-day boundary", () => {
+    const day = new Date("2026-04-20T00:00:00");
+    const result = resolveSchedule(districtArea1, [], { from: day, to: day });
+    expect(result).toHaveLength(1);
+  });
+
+  it("over a 4-week window the gaps between hits are exactly 14 days", () => {
+    const result = resolveSchedule(districtArea1, [], {
+      from: new Date("2026-04-01T00:00:00"),
+      to: new Date("2026-05-31T00:00:00"),
+    });
+    expect(result.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < result.length; i += 1) {
+      const diffDays =
+        (result[i].date.getTime() - result[i - 1].date.getTime()) /
+        (24 * 60 * 60 * 1000);
+      expect(Math.round(diffDays)).toBe(14);
+    }
+  });
+});
+
+describe("biweekly handling — anchor-driven emission (area code 6 vs 12)", () => {
+  // Areas 6 and 12 share the same weekday (土) but different anchors.
+  // 6: anchor 2026-04-11 (Sat). 12: anchor 2026-04-04 (Sat).
+  // On 2026-04-11 only area 6 should fire; on 2026-04-04 only area 12.
+  function district(areaCode: number): District {
+    return {
+      id: `test-area${areaCode}`,
+      label: `Area ${areaCode}`,
+      addresses: ["test"],
+      areaCode,
+      schedule: {
+        burnable: [],
+        non_burnable: ["sat"],
+        resource_plastic: [],
+        container_plastic: [],
+        pet_bottle: [],
+        bottles_cans: [],
+        bulky: [],
+        biweekly: { non_burnable: true },
+      },
+    };
+  }
+
+  it("area 6 fires on 04-11 but not on 04-04", () => {
+    const a = district(6);
+    expect(
+      resolveSchedule(a, [], {
+        from: new Date("2026-04-11T00:00:00"),
+        to: new Date("2026-04-11T00:00:00"),
+      }),
+    ).toHaveLength(1);
+    expect(
+      resolveSchedule(a, [], {
+        from: new Date("2026-04-04T00:00:00"),
+        to: new Date("2026-04-04T00:00:00"),
+      }),
+    ).toHaveLength(0);
+  });
+
+  it("area 12 fires on 04-04 but not on 04-11", () => {
+    const a = district(12);
+    expect(
+      resolveSchedule(a, [], {
+        from: new Date("2026-04-04T00:00:00"),
+        to: new Date("2026-04-04T00:00:00"),
+      }),
+    ).toHaveLength(1);
+    expect(
+      resolveSchedule(a, [], {
+        from: new Date("2026-04-11T00:00:00"),
+        to: new Date("2026-04-11T00:00:00"),
+      }),
+    ).toHaveLength(0);
   });
 });
 
