@@ -1,0 +1,142 @@
+[
+  {
+    "id": "pet-bottle",
+    "label": "ペットボトル",
+    "category": "pet_bottle",
+    "instruction": "キャップとラベルを外してすすいでから出してください。",
+    "note": "つぶして出す必要はありませんが、つぶすと収集しやすくなります。"
+  },
+  {
+    "id": "battery-dry",
+    "label": "乾電池",
+    "category": "non_burnable",
+    "instruction": "テープで端子を絶縁して不燃ごみとして出してください。",
+    "note": "充電式電池（ニッカド・ニッケル水素・リチウムイオン）は対象外です。"
+  },
+  {
+    "id": "battery-lithium",
+    "label": "リチウムイオン電池",
+    "category": "special",
+    "instruction": "区役所・出張所の小型家電回収ボックスへ持参してください。",
+    "note": "燃やすごみ・不燃ごみには出せません。発火の危険があります。"
+  },
+  {
+    "id": "newspaper",
+    "label": "新聞",
+    "category": "resource_plastic",
+    "instruction": "ひもで十字に縛るか紙袋に入れて資源回収日に出してください。",
+    "note": "チラシも一緒に束ねて出せます。"
+  },
+  {
+    "id": "magazine",
+    "label": "雑誌",
+    "category": "resource_plastic",
+    "instruction": "ひもで縛るか紙袋に入れて資源回収日に出してください。",
+    "note": "週刊誌・月刊誌・書籍・カタログなども含みます。"
+  },
+  {
+    "id": "cardboard",
+    "label": "段ボール",
+    "category": "resource_plastic",
+    "instruction": "折り畳んでひもで縛り、資源回収日に出してください。",
+    "note": "汚れた段ボールは燃やすごみへ。"
+  },
+  {
+    "id": "glass-bottle",
+    "label": "ガラスびん",
+    "category": "bottles_cans",
+    "instruction": "軽くすすいでキャップを外し、びん・かん等の収集日に出してください。",
+    "note": "割れたびんは燃やさないごみへ。耐熱ガラスは不燃ごみです。"
+  },
+  {
+    "id": "can",
+    "label": "缶",
+    "category": "bottles_cans",
+    "instruction": "軽くすすいでびん・かん等の収集日に出してください。",
+    "note": "スプレー缶は別途処理が必要です。"
+  },
+  {
+    "id": "plastic-container",
+    "label": "プラスチック容器",
+    "category": "container_plastic",
+    "instruction": "中身を使い切り、軽く汚れを落として容器包装プラスチックの収集日に出してください。",
+    "note": "汚れが落ちないものは燃やすごみへ。"
+  },
+  {
+    "id": "cd",
+    "label": "CD",
+    "category": "non_burnable",
+    "instruction": "燃やさないごみとして出してください。",
+    "note": "ケースはプラスチック容器として出せます。"
+  },
+  {
+    "id": "umbrella",
+    "label": "傘",
+    "category": "non_burnable",
+    "instruction": "そのまま燃やさないごみの収集日に出してください。",
+    "note": "大きな傘は粗大ごみになる場合があります（概ね全長1m以上）。"
+  },
+  {
+    "id": "clothing",
+    "label": "衣類",
+    "category": "burnable",
+    "instruction": "燃やすごみの収集日に出してください。",
+    "note": "まだ使えるものはリサイクルボックスや寄付をご検討ください。"
+  },
+  {
+    "id": "food-waste",
+    "label": "生ゴミ",
+    "category": "burnable",
+    "instruction": "水切りをしっかりしてから燃やすごみの日に出してください。",
+    "note": "水切りすることで臭いや重量を減らせます。"
+  },
+  {
+    "id": "diaper",
+    "label": "紙おむつ",
+    "category": "burnable",
+    "instruction": "汚物を取り除いてからビニール袋に入れて燃やすごみとして出してください。",
+    "note": "高吸水性ポリマーが含まれるため、水に流さないでください。"
+  },
+  {
+    "id": "fluorescent-lamp",
+    "label": "蛍光灯",
+    "category": "non_burnable",
+    "instruction": "紙や新聞に包み「蛍光管」と書いて燃やさないごみの日に出してください。",
+    "note": "水銀を含むため割らないように注意してください。"
+  },
+  {
+    "id": "spray-can",
+    "label": "スプレー缶",
+    "category": "non_burnable",
+    "instruction": "中身を使い切り、穴を開けて燃やさないごみの日に出してください。",
+    "note": "屋外など風通しの良い場所で安全に穴を開けてください。"
+  },
+  {
+    "id": "bicycle",
+    "label": "自転車",
+    "category": "bulky",
+    "instruction": "粗大ごみとして事前に申し込みのうえ収集してもらうか、処理施設に持ち込んでください。",
+    "note": "有料（粗大ごみ処理手数料）です。"
+  },
+  {
+    "id": "home-appliance",
+    "label": "家電",
+    "category": "special",
+    "instruction": "家電リサイクル法対象品（テレビ・冷蔵庫・洗濯機・エアコン）は購入店または区に相談してください。",
+    "note": "小型家電は区役所・出張所の回収ボックスへ。"
+  },
+  {
+    "id": "seasoning-bottle",
+    "label": "調味料の空き瓶",
+    "category": "bottles_cans",
+    "instruction": "軽くすすいでキャップを外し、びん・かん等の収集日に出してください。",
+    "note": "割れたびんは燃やさないごみへ。"
+  },
+  {
+    "id": "flower-pot",
+    "label": "植木鉢",
+    "category": "non_burnable",
+    "instruction": "燃やさないごみとして出してください。",
+    "note": "プラスチック製の小さいものは容器包装プラスチックとして出せます。"
+  }
+]

@@ -21,3 +21,12 @@
    - 環境省利用規約とエリア別観測地点コードの確認は plan の「確認ポイント (実装初日)」に従い後続タスク。`config/opendata.ts` の `WBGT_STATION_CODE` 更新で対応。
 3. **`__fixtures__/opendata/` は空**
    - 実 API レスポンスの取得は別途 `scripts/refresh-fixtures.ts` を手動実行する設計。Vitest 用の fixture は `__fixtures__/schemas/<dataset>/{valid,invalid}.json` (推測ベース) で代替し、実 API 取得後に shape 差分を検出するフローは Step 2 後の手動運用とする。
+
+## Step 4 (2026-05-04)
+
+1. **正規化を「カタカナ ↔ ローマ字」双方向に拡張**
+   - Plan は「ローマ字 → カタカナ」を終端としていたが、`PET` (英 3 文字) と `ペットボトル` (カタカナ) を同一空間で比較するために、**最終的に ASCII ローマ字 (訓令式相当) に正規化**する戦略を採用。これにより `ペットボトル` `ぺっとぼとる` `ﾍﾟｯﾄﾎﾞﾄﾙ` `PET` `pet` `Pet` が `pettobotoru` 系列に集約される。
+2. **`lithium` 等の英単語マッチに `id` フィールドを併用**
+   - `wanakana` は英単語 (例 `lithium` → `richiumu`) をそのまま日本語ローマ字に変換できない。fixture の `id` (`battery-lithium`) も検索対象に含めることで実用的なヒットを実現。Plan の機能要件は満たす (シナリオ 2「リチウムイオン」検索)。
+3. **`lib/search.ts` を `lib/search/` サブディレクトリ構成に変更**
+   - Plan の単一ファイル想定を `normalize.ts` (純関数) + `index.ts` (検索エンジン) に分割。テスト分離と関心の分離のため。インポートパスは `@/lib/search` で通る。
