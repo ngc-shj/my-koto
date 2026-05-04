@@ -51,8 +51,31 @@ export function buildCsp(
     `frame-ancestors 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
-    ...(isDev ? [] : [`upgrade-insecure-requests`]),
+    // Browsers that support the Reporting API (Chrome / Edge) post
+    // violations to the named endpoint group, which middleware emits via
+    // the Reporting-Endpoints header. The legacy report-uri keeps Firefox
+    // working too — its support of report-to is still rolling out.
+    ...(isDev
+      ? []
+      : [
+          `upgrade-insecure-requests`,
+          `report-uri ${CSP_REPORT_PATH}`,
+          `report-to ${CSP_REPORT_GROUP}`,
+        ]),
   ];
 
   return directives.join("; ");
+}
+
+// Endpoint group identifier paired with the Reporting-Endpoints header in
+// middleware.ts. Centralised so the CSP directive and the header can never
+// drift apart.
+export const CSP_REPORT_GROUP = "csp-endpoint";
+export const CSP_REPORT_PATH = "/api/csp-report";
+
+// Builds the value for the Reporting-Endpoints response header. Browsers
+// (Chrome 96+, Edge 96+) read this to learn where to POST CSP violation
+// reports referenced by the `report-to <group>` directive above.
+export function buildReportingEndpoints(): string {
+  return `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`;
 }

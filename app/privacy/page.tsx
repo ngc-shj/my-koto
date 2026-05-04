@@ -85,6 +85,21 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-2">
+        <h2 className="text-lg font-semibold">CSP 違反レポート</h2>
+        <p className="text-gray-700">
+          ブラウザが Content-Security-Policy
+          のルール違反を検知した場合、その内容を本サービスのサーバー
+          (`/api/csp-report`) に通知します。これは外部の解析・広告事業者ではなく、
+          サイト運営者がポリシー設定の不具合を検知するための仕組みです。
+        </p>
+        <p className="text-gray-700">
+          受信した内容は (1) URL のクエリ文字列を削除し、
+          (2) User-Agent をブラウザ名のみに丸めた上で、
+          直近 50 件まで保存します (`/status` で表示)。氏名・住所・メールアドレス等の個人情報は含みません。
+        </p>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="text-lg font-semibold">アクセス解析</h2>
         <p className="text-gray-700">
           本サービスはアクセス解析ツールを使用していません。

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateNonce, buildCsp } from "./csp";
+import { generateNonce, buildCsp } from "./policy";
 
 describe("generateNonce", () => {
   it("returns a URL-safe base64 string (no +, /, = characters)", () => {
@@ -27,7 +27,7 @@ describe("generateNonce", () => {
     const { resolve, dirname } = await import("path");
     const { fileURLToPath } = await import("url");
     const dir = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(resolve(dir, "csp.ts"), "utf-8");
+    const source = readFileSync(resolve(dir, "policy.ts"), "utf-8");
     expect(source).not.toContain("Math.random");
   });
 });
