@@ -55,13 +55,11 @@ function parseBboxParam(value: string | null): Bbox | null {
   return { south, west, north, east };
 }
 
-// Default to the legacy AED + toilet pair when the caller omits ?types= so
-// existing browser caches and bookmarked URLs continue to load the same
-// layers they always did.
-const DEFAULT_TYPES: readonly LayerId[] = ["aed", "toilet"];
-
+// When ?types= is omitted we request every registered layer so the route
+// default matches /map's first-paint behaviour. The browser UI always sends
+// an explicit types= so this branch only fires for direct API consumers.
 function parseTypesParam(value: string | null): LayerId[] | null {
-  if (!value) return [...DEFAULT_TYPES];
+  if (!value) return [...LAYER_IDS];
   const allowed = new Set<string>(LAYER_IDS);
   const out: LayerId[] = [];
   for (const raw of value.split(",")) {
