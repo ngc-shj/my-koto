@@ -44,15 +44,41 @@ function eachDayInRange(range: DateRange): Date[] {
   return days;
 }
 
-// Determine which categories are collected on a given date using the weekly schedule.
+// Determine which categories are collected on a given date using the weekly
+// schedule. Biweekly categories are skipped on purpose: the upstream CSV
+// publishes only the weekday (e.g. 「（隔週）土」) without the anchor week,
+// so emitting them weekly would over-report by 50 % every second week
+// (T-04). The dedicated biweekly UI panel + the upstream link cover the
+// gap until/unless an authoritative anchor calendar becomes available.
+function isBiweekly(district: District, cat: GomiCategory): boolean {
+  return district.schedule.biweekly?.[cat] === true;
+}
+
 function categoriesFromWeekly(
   district: District,
   date: Date,
 ): GomiCategory[] {
   const weekday = ISO_DAY_MAP[date.getDay()];
-  return CATEGORIES.filter((cat) =>
-    district.schedule[cat].includes(weekday),
+  return CATEGORIES.filter(
+    (cat) =>
+      !isBiweekly(district, cat) &&
+      district.schedule[cat].includes(weekday),
   );
+}
+
+// Lists biweekly categories for the district along with their nominal
+// weekday, for UI rendering. Empty array when none.
+export function biweeklyCategories(
+  district: District,
+): Array<{ category: GomiCategory; weekday: Weekday }> {
+  return CATEGORIES.filter((cat) => isBiweekly(district, cat))
+    .map((cat) => ({
+      category: cat,
+      weekday: district.schedule[cat][0],
+    }))
+    .filter((entry): entry is { category: GomiCategory; weekday: Weekday } =>
+      entry.weekday !== undefined,
+    );
 }
 
 // Apply a special overlay: REPLACE the day's collection set entirely with

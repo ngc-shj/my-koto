@@ -150,6 +150,18 @@ function rowToDistrict(row) {
   const nonBurnableDays = parseDays(nonBurnable);
   const shigenDays = parseDays(shigen);
   const plasticDays = parseDays(plastic);
+  // Build biweekly flags — only emit a key when the cell actually carries
+  // 「（隔週）」. Schema treats absence as not-biweekly.
+  const biweekly = {};
+  if (burnableDays.biweekly) biweekly.burnable = true;
+  if (nonBurnableDays.biweekly) biweekly.non_burnable = true;
+  if (shigenDays.biweekly) {
+    biweekly.resource_plastic = true;
+    biweekly.pet_bottle = true;
+    biweekly.bottles_cans = true;
+  }
+  if (plasticDays.biweekly) biweekly.container_plastic = true;
+  const hasBiweekly = Object.keys(biweekly).length > 0;
   return {
     id,
     label,
@@ -159,15 +171,13 @@ function rowToDistrict(row) {
     schedule: {
       burnable: burnableDays.days,
       non_burnable: nonBurnableDays.days,
-      // Resource and plastic streams collapse into existing categories so
-      // the legacy schedule shape stays valid; biweekly metadata lives below.
       resource_plastic: shigenDays.days,
       container_plastic: plasticDays.days,
       pet_bottle: shigenDays.days,
       bottles_cans: shigenDays.days,
       bulky: [],
+      ...(hasBiweekly ? { biweekly } : {}),
     },
-    notes: nonBurnableDays.biweekly ? '燃やさないごみは隔週収集' : undefined,
   };
 }
 

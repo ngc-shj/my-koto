@@ -38,6 +38,14 @@ export const GOMI_CATEGORY_LABELS: Record<GomiCategory, string> = {
 };
 
 // Weekly collection schedule for a single district.
+//
+// `biweekly` flags categories whose upstream entry was 「（隔週）<weekday>」.
+// We preserve the weekday but treat these streams as approximate-only:
+// without an anchor calendar (which the open-data CSV does not publish),
+// we cannot reliably tell odd vs even weeks apart. The schedule resolver
+// and the ICS feed therefore skip biweekly categories from automatic
+// emission; the UI surfaces them in a dedicated panel that points to the
+// authoritative site instead of guessing.
 export const WeeklyScheduleSchema = z.object({
   burnable: z.array(WeekdaySchema),
   non_burnable: z.array(WeekdaySchema),
@@ -46,6 +54,17 @@ export const WeeklyScheduleSchema = z.object({
   pet_bottle: z.array(WeekdaySchema),
   bottles_cans: z.array(WeekdaySchema),
   bulky: z.array(WeekdaySchema),
+  biweekly: z
+    .object({
+      burnable: z.boolean().optional(),
+      non_burnable: z.boolean().optional(),
+      resource_plastic: z.boolean().optional(),
+      container_plastic: z.boolean().optional(),
+      pet_bottle: z.boolean().optional(),
+      bottles_cans: z.boolean().optional(),
+      bulky: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export type WeeklySchedule = z.infer<typeof WeeklyScheduleSchema>;

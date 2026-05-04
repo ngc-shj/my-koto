@@ -27,9 +27,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "ariake",
@@ -59,9 +61,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "ishijima",
@@ -91,9 +95,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "uminomori",
@@ -123,9 +129,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "umibe",
@@ -155,9 +163,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "eitai",
@@ -187,9 +197,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "edagawa",
@@ -219,9 +231,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "etchujima",
@@ -251,9 +265,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "ougibashi",
@@ -283,9 +299,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "ojima-1-2",
@@ -315,9 +333,11 @@
       "bottles_cans": [
         "mon"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "ojima-3-7",
@@ -347,9 +367,11 @@
       "bottles_cans": [
         "wed"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "ojima-8-9",
@@ -379,9 +401,11 @@
       "bottles_cans": [
         "wed"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "kameido-1-3",
@@ -411,9 +435,11 @@
       "bottles_cans": [
         "mon"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "kameido-4-9",
@@ -443,9 +469,11 @@
       "bottles_cans": [
         "mon"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "kitasuna-1-5",
@@ -475,9 +503,11 @@
       "bottles_cans": [
         "sat"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "kitasuna-6-7",
@@ -507,9 +537,11 @@
       "bottles_cans": [
         "wed"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "kiba",
@@ -539,9 +571,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "kiyosumi",
@@ -571,9 +605,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "saga",
@@ -603,9 +639,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "sarue",
@@ -635,9 +673,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shiohama-1",
@@ -667,9 +707,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shiohama-2",
@@ -699,9 +741,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shiomi",
@@ -731,9 +775,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shinonome",
@@ -763,9 +809,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shirakawa-1-3",
@@ -795,9 +843,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shirakawa-4",
@@ -827,9 +877,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shin-ohashi",
@@ -859,9 +911,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shinkiba",
@@ -891,9 +945,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "shinsuna",
@@ -923,9 +979,11 @@
       "bottles_cans": [
         "sat"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "sumiyoshi",
@@ -955,9 +1013,11 @@
       "bottles_cans": [
         "mon"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "sengoku",
@@ -987,9 +1047,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "senda",
@@ -1019,9 +1081,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "takabashi",
@@ -1051,9 +1115,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "tatsumi",
@@ -1083,9 +1149,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "toyo",
@@ -1115,9 +1183,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "tokiwa",
@@ -1147,9 +1217,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "tomioka",
@@ -1179,9 +1251,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "toyosu",
@@ -1211,9 +1285,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "higashisuna-1-5",
@@ -1243,9 +1319,11 @@
       "bottles_cans": [
         "wed"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "higashisuna-6-8",
@@ -1275,9 +1353,11 @@
       "bottles_cans": [
         "sat"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "hirano-1-3",
@@ -1307,9 +1387,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "hirano-4",
@@ -1339,9 +1421,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "fukagawa-1",
@@ -1371,9 +1455,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "fukagawa-2",
@@ -1403,9 +1489,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "fukuzumi",
@@ -1435,9 +1523,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "fuyuki",
@@ -1467,9 +1557,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "furuishiba",
@@ -1499,9 +1591,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "botan",
@@ -1531,9 +1625,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "minamisuna-1-5",
@@ -1563,9 +1659,11 @@
       "bottles_cans": [
         "sat"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "minamisuna-2-4",
@@ -1595,9 +1693,11 @@
       "bottles_cans": [
         "sat"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "miyoshi-1-3",
@@ -1627,9 +1727,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "miyoshi-4",
@@ -1659,9 +1761,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "mouri",
@@ -1691,9 +1795,11 @@
       "bottles_cans": [
         "mon"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "morishita-1-4",
@@ -1723,9 +1829,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "morishita-5",
@@ -1755,9 +1863,11 @@
       "bottles_cans": [
         "thu"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "monzen-nakacho",
@@ -1787,9 +1897,11 @@
       "bottles_cans": [
         "tue"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "yumenoshima",
@@ -1819,9 +1931,11 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   },
   {
     "id": "wakasu",
@@ -1851,8 +1965,10 @@
       "bottles_cans": [
         "fri"
       ],
-      "bulky": []
-    },
-    "notes": "燃やさないごみは隔週収集"
+      "bulky": [],
+      "biweekly": {
+        "non_burnable": true
+      }
+    }
   }
 ]

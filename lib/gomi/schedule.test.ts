@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveSchedule } from "./schedule";
+import { resolveSchedule, biweeklyCategories } from "./schedule";
 import type { District, SpecialOverlay } from "./types";
 
 // Synthetic test district. The real master uses route-grouped IDs like
@@ -135,6 +135,60 @@ describe("resolveSchedule — overlay Dec 31 (no collection)", () => {
       to: wedDec31,
     });
     expect(result).toHaveLength(0);
+  });
+});
+
+describe("biweekly handling — categories flagged as 隔週", () => {
+  const districtWithBiweekly: District = {
+    id: "test-biweekly",
+    label: "テスト地区",
+    addresses: ["テスト"],
+    schedule: {
+      burnable: ["mon", "thu"],
+      non_burnable: ["sat"], // upstream said 「（隔週）土」
+      resource_plastic: ["fri"],
+      container_plastic: ["wed"],
+      pet_bottle: ["fri"],
+      bottles_cans: ["fri"],
+      bulky: [],
+      biweekly: { non_burnable: true },
+    },
+  };
+
+  // Saturday Jan 3, 2026 — would be a non_burnable day under naive weekly rules.
+  const saturday = new Date("2026-01-03T00:00:00");
+
+  it("excludes biweekly categories from the weekly schedule", () => {
+    const result = resolveSchedule(districtWithBiweekly, [], {
+      from: saturday,
+      to: saturday,
+    });
+    // Without biweekly skip we'd return ["non_burnable"]. With it, the day
+    // has no auto-emitted categories.
+    expect(result).toHaveLength(0);
+  });
+
+  it("still emits non-biweekly categories on their normal weekdays", () => {
+    const monday = new Date("2026-01-05T00:00:00");
+    const result = resolveSchedule(districtWithBiweekly, [], {
+      from: monday,
+      to: monday,
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].categories).toEqual(["burnable"]);
+  });
+
+  it("biweeklyCategories surfaces the flagged categories with their weekday", () => {
+    const flagged = biweeklyCategories(districtWithBiweekly);
+    expect(flagged).toEqual([{ category: "non_burnable", weekday: "sat" }]);
+  });
+
+  it("biweeklyCategories returns empty when the district has no biweekly streams", () => {
+    const plainDistrict: District = {
+      ...districtWithBiweekly,
+      schedule: { ...districtWithBiweekly.schedule, biweekly: undefined },
+    };
+    expect(biweeklyCategories(plainDistrict)).toEqual([]);
   });
 });
 
