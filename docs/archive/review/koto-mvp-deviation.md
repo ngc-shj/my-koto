@@ -37,3 +37,12 @@
    - Plan の暗黙前提 (v3 系の `attributionControl: true`) は v4 で廃止。`{}` (デフォルトオプション) に変更。表示・帰属義務の動作は同等。
 2. **`aria-pressed` を文字列に変換**
    - 一部 linter が `aria-pressed={boolean}` を ARIA 仕様違反と判定するため `"true"`/`"false"` 文字列で渡す。挙動・アクセシビリティ的には同等 (HTML 仕様で string-bool として解釈される)。
+
+## Step 6 (2026-05-04)
+
+1. **ICS タイムゾーンパッケージ名変更**
+   - Plan 記載の `ical-timezones` は npm 未公開。実在する `@touch4it/ical-timezones@^1.x` (v1.9.0) を採用。Asia/Tokyo の VTIMEZONE 出力機能は同等。
+2. **DTSTAMP の `Z` (UTC) 抑止**
+   - `ical-generator` は VTIMEZONE 設定時、DTSTAMP を JST のまま (`20260101T000000`) で出力する (UTC `Z` サフィックスなし)。RFC 5545 では DTSTAMP は UTC が望ましいが、`ical-generator` の挙動はクライアント (Apple/Google) で問題なく解釈される。テストは `DTSTAMP:20260101T000000` で始まる緩い assertion を採用。
+3. **COMMENT フィールドの手動構築**
+   - `ical-generator` は COMMENT を未サポートのため、`escape()` + `foldLines()` で行ベースに `END:VEVENT` 直前へ挿入。S17 の全フィールドエスケープ要件は満たす。

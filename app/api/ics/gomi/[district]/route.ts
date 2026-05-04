@@ -1,8 +1,13 @@
 import { notFound } from "next/navigation";
 import { isValidDistrictId } from "@/config/districts";
+import districtsData from "@/data/districts.json";
+import overlaysData from "@/data/gomi-schedule.json";
+import { DistrictSchema, SpecialOverlaySchema } from "@/lib/gomi/types";
+import { resolveSchedule } from "@/lib/gomi/schedule";
+import { buildGomiIcs } from "@/lib/ics";
 
-// ICS generation is deferred to Step 6 (ical-generator + VTIMEZONE).
-// This route only implements the two-stage district validation.
+// Resolve schedule for the next 90 days from today.
+const SCHEDULE_DAYS = 90;
 
 export async function GET(
   _request: Request,
@@ -21,8 +26,34 @@ export async function GET(
     notFound();
   }
 
-  // TODO(Step 6): generate VCALENDAR with ical-generator + VTIMEZONE.
-  return new Response("Not implemented (ical-generator pending Step 6)", {
-    status: 501,
+  // Find the district master record and validate.
+  const districtRecord = districtsData.find(
+    (d: { id: string }) => d.id === district,
+  );
+  if (!districtRecord) {
+    notFound();
+  }
+  const parsedDistrict = DistrictSchema.parse(districtRecord);
+
+  // Parse special overlays.
+  const overlays = overlaysData.map((o) => SpecialOverlaySchema.parse(o));
+
+  // Resolve schedule for the next 90 days.
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const to = new Date(from);
+  to.setDate(to.getDate() + SCHEDULE_DAYS);
+
+  const occurrences = resolveSchedule(parsedDistrict, overlays, { from, to });
+
+  const ics = buildGomiIcs(parsedDistrict, occurrences);
+
+  return new Response(ics, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Disposition": `attachment; filename="koto-gomi-${district}.ics"`,
+      "Cache-Control": "public, max-age=3600",
+    },
   });
 }

@@ -32,10 +32,28 @@ describe("GET /api/ics/gomi/[district]", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 501 for valid allowlist district kameido-1", async () => {
+  it("returns 200 with text/calendar for valid allowlist district kameido-1", async () => {
     const res = await callGET("kameido-1");
     expect(res).not.toBeNull();
-    expect(res?.status).toBe(501);
+    expect(res?.status).toBe(200);
+    expect(res?.headers.get("Content-Type")).toContain("text/calendar");
+  });
+
+  it("returns valid ICS body with VCALENDAR for kameido-1", async () => {
+    const res = await callGET("kameido-1");
+    expect(res).not.toBeNull();
+    const body = await res!.text();
+    expect(body).toContain("BEGIN:VCALENDAR");
+    expect(body).toContain("END:VCALENDAR");
+    expect(body).toContain("TZID:Asia/Tokyo");
+  });
+
+  it("returns Content-Disposition attachment header for kameido-1", async () => {
+    const res = await callGET("kameido-1");
+    expect(res).not.toBeNull();
+    const cd = res?.headers.get("Content-Disposition");
+    expect(cd).toContain("attachment");
+    expect(cd).toContain("kameido-1");
   });
 
   it("returns 404 for kameido-99 (valid characters, not in allowlist)", async () => {

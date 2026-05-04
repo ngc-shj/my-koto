@@ -21,3 +21,18 @@ export function gomiSubscriptionUrl(
   const scheme = IOS_UA_PATTERN.test(userAgent) ? "webcal" : "https";
   return `${scheme}://${host}${path}`;
 }
+
+/**
+ * Build the events calendar subscription URL.
+ *
+ * Returns `webcal://` on iOS so that tapping the link opens the Calendar app directly.
+ * Returns `https://` on all other platforms.
+ *
+ * @param host - Hostname without scheme (e.g. "koto.example.com").
+ * @param userAgent - UA string from the request headers (or navigator.userAgent).
+ */
+export function eventsSubscriptionUrl(host: string, userAgent: string): string {
+  const path = "/api/ics/events";
+  const scheme = IOS_UA_PATTERN.test(userAgent) ? "webcal" : "https";
+  return `${scheme}://${host}${path}`;
+}
