@@ -17,9 +17,19 @@ import {
 // degraded-mode safety net.
 const lruStore = lruFallbackKvStore(2000);
 
+// Per-worker dedupe window for the Discord webhook. Without this, a sustained
+// KV outage would emit one webhook POST per request (N-01). The cooldown
+// is process-local so each Edge instance still announces itself once when
+// it transitions into degraded mode.
+const NOTIFY_DEDUPE_MS = 5 * 60 * 1000;
+let lastNotifyAt = 0;
+
 function notify(_msg: string): void {
   const webhookUrl = process.env.DISCORD_WEBHOOK;
   if (!webhookUrl) return;
+  const now = Date.now();
+  if (now - lastNotifyAt < NOTIFY_DEDUPE_MS) return;
+  lastNotifyAt = now;
   // Send a fixed message — never forward the raw err.message string,
   // which @vercel/kv could populate with parts of the connection URL
   // when the upstream connection itself fails (S-04).

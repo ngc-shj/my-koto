@@ -61,7 +61,8 @@ npm run build
 node scripts/generate-districts.mjs
 
 # 江東区 AED/トイレ (公式 CSV → data/aed.json + data/toilet.json)
-node scripts/generate-pois.mjs
+# `tsx` 経由で TypeScript を直接実行 (lib/csv.ts と parser 共有)
+npx tsx scripts/generate-pois.ts
 
 # 開発時に東京都オープンデータ API のレスポンスを fixture として保存
 npx tsx scripts/refresh-fixtures.ts

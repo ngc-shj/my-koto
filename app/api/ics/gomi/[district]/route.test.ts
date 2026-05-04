@@ -7,6 +7,24 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+// In-memory @vercel/kv stub so the rate-limit pipeline operates against a
+// deterministic backing store inside the test process.
+const memory = new Map<string, unknown>();
+vi.mock("@vercel/kv", () => ({
+  kv: {
+    get: vi.fn(async (k: string) => memory.get(k) ?? null),
+    set: vi.fn(async (k: string, v: unknown) => {
+      memory.set(k, v);
+    }),
+    incr: vi.fn(async (k: string) => {
+      const cur = (memory.get(k) as number) ?? 0;
+      memory.set(k, cur + 1);
+      return cur + 1;
+    }),
+    expire: vi.fn(async () => {}),
+  },
+}));
+
 import { GET } from "./route";
 
 function makeRequest(district: string): [Request, { params: Promise<{ district: string }> }] {
@@ -29,6 +47,7 @@ async function callGET(district: string): Promise<Response | null> {
 
 describe("GET /api/ics/gomi/[district]", () => {
   beforeEach(() => {
+    memory.clear();
     vi.clearAllMocks();
   });
 
@@ -85,5 +104,17 @@ describe("GET /api/ics/gomi/[district]", () => {
   it("returns 404 for a string longer than 32 characters", async () => {
     const res = await callGET("a".repeat(33));
     expect(res).toBeNull();
+  });
+
+  it("returns 429 with Retry-After once the per-IP budget is exhausted (T-11 / S-03)", async () => {
+    // 60 rpm/IP — first 60 succeed, 61st is throttled.
+    for (let i = 0; i < 60; i += 1) {
+      const ok = await callGET("kameido-1-3");
+      expect(ok?.status).toBe(200);
+    }
+    const denied = await callGET("kameido-1-3");
+    expect(denied).not.toBeNull();
+    expect(denied!.status).toBe(429);
+    expect(denied!.headers.get("Retry-After")).not.toBeNull();
   });
 });

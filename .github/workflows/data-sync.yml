@@ -10,9 +10,12 @@ concurrency:
   group: data-sync
   cancel-in-progress: false
 
-# Default permissions for all steps. Individual steps elevate as needed.
-# `contents: read` covers checkout / npm install. PR creation is scoped to
-# the create-pull-request step alone via permissions: at the step level.
+# Default workflow permissions are read-only. The `sync` job below
+# elevates to `contents: write` + `pull-requests: write` (job-scope, not
+# step-scope — GitHub Actions does not support step-level `permissions:`,
+# so the smallest unit of elevation is the job). Workflow-default still
+# matters: any future job added without an explicit `permissions:` block
+# inherits this read-only default rather than the legacy write-default.
 permissions:
   contents: read
 

@@ -1,7 +1,7 @@
 import eventsData from "@/data/events.json";
 import { EventRecordSchema } from "@/lib/opendata/schemas/events";
 import { buildEventIcs } from "@/lib/ics";
-import { toEvent } from "@/lib/events/normalize";
+import { toEvent, filterUpcoming } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
 import { checkRateLimit } from "@/lib/api-shared";
 
@@ -20,13 +20,17 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
-  // Parse and validate static event data at build time.
+  // Parse and validate static event data at build time, then filter to the
+  // same 90-day window the events page renders. Otherwise the ICS feed
+  // would expose every record (including past ones), which the F-05 split
+  // was supposed to prevent (F-16).
   const records = eventsData.result.records.map((r) =>
     EventRecordSchema.parse(r),
   );
   const events: Event[] = records.map((r, i) => toEvent(r, i));
+  const upcoming = filterUpcoming(events);
 
-  const ics = buildEventIcs(events);
+  const ics = buildEventIcs(upcoming);
 
   return new Response(ics, {
     status: 200,

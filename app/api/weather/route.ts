@@ -1,18 +1,15 @@
 // Edge route handler: Open-Meteo proxy with KV cache, rate limiting, SSRF hardening.
 import type { NextRequest } from "next/server";
-import { kv as vercelKv } from "@vercel/kv";
 import { KOTO_CENTER } from "@/config/geo";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import { buildWeatherUrl, validateUpstreamHost, WEATHER_ALLOWED_HOSTS } from "@/lib/opendata/weather";
+import { kvKey, parseSchemaVersion } from "@/lib/proxy";
 import {
-  vercelKvStore,
-  lruFallbackKvStore,
-  withFallback,
-  getClientIp,
-  enforceRateLimit,
-  kvKey,
-  parseSchemaVersion,
-} from "@/lib/proxy";
+  buildKv,
+  rateLimitResponse,
+  jsonResponseHeaders,
+  getAllowedOrigin,
+} from "@/lib/api-shared";
 
 export const runtime = "edge";
 
@@ -21,70 +18,29 @@ const MAX_UPSTREAM_BYTES = 256 * 1024;
 // Max allowed KV value size (64 KB).
 const MAX_KV_BYTES = 64 * 1024;
 
-// Site origin for CORS (restrict to own origin).
-// In production this should match the deployed URL; in dev allow any same-origin.
-function getAllowedOrigin(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
-
-// Shared LRU fallback store (process-local).
-const lruStore = lruFallbackKvStore(1000);
-
-function buildKv() {
-  return withFallback(
-    vercelKvStore(vercelKv),
-    lruStore,
-    (msg) => {
-      // Discord notify hook: fire-and-forget
-      const webhookUrl = process.env.DISCORD_WEBHOOK;
-      if (webhookUrl) {
-        void fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: msg }),
-        }).catch(() => {
-          // swallow Discord notification errors
-        });
-      }
-    },
-  );
-}
-
-function secureHeaders(origin: string): Headers {
-  const h = new Headers();
-  h.set("Cache-Control", "public, s-maxage=3600, stale-if-error=86400");
-  h.set("Vary", "Accept-Encoding");
-  h.set("Access-Control-Allow-Origin", origin);
-  h.set("Content-Type", "application/json");
-  return h;
-}
-
 export async function GET(request: NextRequest): Promise<Response> {
   // Method guard (belt-and-suspenders: Next.js already routes GET here)
   if (request.method !== "GET") {
     return new Response(null, { status: 405 });
   }
 
+  const allowedOrigin = getAllowedOrigin();
+  const responseHeaders = jsonResponseHeaders(allowedOrigin);
+
+  // Rate limiting via the shared pipeline (F-14). Future observability
+  // upgrades happen in lib/api-shared.ts and propagate to every route.
+  const tooMany = await rateLimitResponse(
+    request,
+    { bucket: "weather", limit: 60, windowSec: 60 },
+    responseHeaders,
+  );
+  if (tooMany) return tooMany;
+
   // Cache key: path only, ignore any query parameters.
   const schemaVersion = parseSchemaVersion();
   const cacheKey = kvKey("weather", schemaVersion, "koto-center");
 
   const kv = buildKv();
-  const allowedOrigin = getAllowedOrigin();
-  const responseHeaders = secureHeaders(allowedOrigin);
-
-  // Rate limiting: 60 req/min per client IP.
-  const ip = getClientIp(request);
-  const rateLimitKey = kvKey("rl", schemaVersion, "weather", ip);
-  const rlResult = await enforceRateLimit(kv, rateLimitKey, 60, 60);
-  if (!rlResult.ok) {
-    const h = new Headers(responseHeaders);
-    h.set("Retry-After", String(rlResult.retryAfter));
-    return new Response(JSON.stringify({ error: "Too Many Requests" }), {
-      status: 429,
-      headers: h,
-    });
-  }
 
   // Build upstream URL using fixed Koto City coordinates (ignore request params).
   const upstreamUrl = buildWeatherUrl(KOTO_CENTER);

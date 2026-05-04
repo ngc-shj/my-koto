@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { gomiSubscriptionUrl } from "@/lib/ics/url";
 
 type Props = {
@@ -13,26 +13,25 @@ type Props = {
 // gomi calendar feed without leaving the page. F-02 wires this into the UI
 // to satisfy Plan F19 — clipboard copies the webcal:// form on iOS so the
 // user can paste it into a sibling device's calendar app.
+//
+// SSR caveat (F-13): the URL depends on `window.location.host` and
+// `navigator.userAgent` which are unavailable during the server render.
+// We compute it inside useEffect so the rendered href never carries the
+// `https:///api/...` (empty authority) shape that triggers React's
+// hydration warning on first paint.
 export default function SubscribeButton({ districtId }: Props) {
   const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [subscribeUrl, setSubscribeUrl] = useState<string | null>(null);
 
-  function getHost(): string {
-    if (typeof window === "undefined") return "";
-    return window.location.host;
-  }
-
-  function getUserAgent(): string {
-    if (typeof navigator === "undefined") return "";
-    return navigator.userAgent;
-  }
-
-  const subscribeUrl = gomiSubscriptionUrl(
-    districtId,
-    getHost(),
-    getUserAgent(),
-  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setSubscribeUrl(
+      gomiSubscriptionUrl(districtId, window.location.host, navigator.userAgent),
+    );
+  }, [districtId]);
 
   async function handleCopy() {
+    if (subscribeUrl == null) return;
     try {
       await navigator.clipboard.writeText(subscribeUrl);
       setStatus("copied");
@@ -49,17 +48,28 @@ export default function SubscribeButton({ districtId }: Props) {
         カレンダー連携 (収集日を Google / Apple / Outlook に取り込む)
       </p>
       <div className="flex flex-wrap gap-2">
-        <a
-          href={subscribeUrl}
-          className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-        >
-          <span aria-hidden="true">📅</span>
-          <span>カレンダーに登録</span>
-        </a>
+        {subscribeUrl ? (
+          <a
+            href={subscribeUrl}
+            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          >
+            <span aria-hidden="true">📅</span>
+            <span>カレンダーに登録</span>
+          </a>
+        ) : (
+          <span
+            aria-disabled="true"
+            className="inline-flex items-center gap-1 rounded-lg bg-emerald-300 px-3 py-2 text-sm font-medium text-white cursor-not-allowed"
+          >
+            <span aria-hidden="true">📅</span>
+            <span>カレンダーに登録</span>
+          </span>
+        )}
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+          disabled={subscribeUrl == null}
+          className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {status === "copied"
             ? "✅ コピーしました"

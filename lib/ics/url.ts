@@ -8,7 +8,7 @@ const IOS_UA_PATTERN = /iPhone|iPad|iPod/i;
  * Returns `webcal://` on iOS so that tapping the link opens the Calendar app directly.
  * Returns `https://` on all other platforms.
  *
- * @param district - Validated district id (e.g. "kameido-1").
+ * @param district - Validated district id (e.g. "kameido-1-3").
  * @param host - Hostname without scheme (e.g. "koto.example.com").
  * @param userAgent - UA string from the request headers (or navigator.userAgent).
  */

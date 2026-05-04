@@ -2,10 +2,13 @@ import { describe, it, expect } from "vitest";
 import { resolveSchedule } from "./schedule";
 import type { District, SpecialOverlay } from "./types";
 
-// kameido-1: burnable on mon/thu, non_burnable on wed
+// Synthetic test district. The real master uses route-grouped IDs like
+// `kameido-1-3` after the Step-9 rebuild; we deliberately keep this
+// fixture's id off the master so a future allowlist tightening would
+// flag drift instead of letting the test pass under a stale literal.
 const districtKameido1: District = {
-  id: "kameido-1",
-  label: "亀戸 1 丁目",
+  id: "test-kameido",
+  label: "亀戸 1 丁目 (test)",
   addresses: ["亀戸一丁目"],
   schedule: {
     burnable: ["mon", "thu"],
@@ -80,7 +83,7 @@ describe("resolveSchedule — normal weekly", () => {
 describe("resolveSchedule — overlay (New Year's holiday)", () => {
   const newYearOverlay: SpecialOverlay = {
     date: "2026-01-01",
-    districts: ["kameido-1"],
+    districts: ["test-kameido"],
     categories: [],
     note: "New Year's Day — no collection",
   };
@@ -121,7 +124,7 @@ describe("resolveSchedule — overlay (New Year's holiday)", () => {
 describe("resolveSchedule — overlay Dec 31 (no collection)", () => {
   const dec31Overlay: SpecialOverlay = {
     date: "2025-12-31",
-    districts: ["kameido-1"],
+    districts: ["test-kameido"],
     categories: [],
     note: "New Year's Eve — no collection",
   };
@@ -140,7 +143,7 @@ describe("resolveSchedule — overlay with explicit categories (supplementary)",
     // On Wed (normally non_burnable), force a supplementary burnable-only day.
     const supplementaryOverlay: SpecialOverlay = {
       date: "2026-01-07",
-      districts: ["kameido-1"],
+      districts: ["test-kameido"],
       categories: ["burnable"],
     };
     const result = resolveSchedule(districtKameido1, [supplementaryOverlay], {

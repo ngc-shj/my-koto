@@ -126,9 +126,20 @@ function slugifySuffix(suffix) {
   return '';
 }
 
+// Upstream CSV reading typos that the importer must correct before slug
+// lookup. Without this, `新大橋` (officially しんおおはし) ships under the
+// upstream's しんきば row and silently collides with 新木場's row, so any
+// resident who picks 新木場 ends up with 新大橋's schedule (F-12).
+const LABEL_READING_OVERRIDE = {
+  新大橋: 'しんおおはし',
+  毛利: 'もうり',
+};
+
 function rowToDistrict(row) {
   const [readingRaw, label, _districtNumber, shigen, plastic, burnable, nonBurnable] = row;
-  const reading = readingRaw.replace(/\s+/g, '');
+  const labelKey = label.replace(/\s+/g, '').replace(/^([一-龯々]+).*/, '$1');
+  const overrideReading = LABEL_READING_OVERRIDE[labelKey];
+  const reading = overrideReading ?? readingRaw.replace(/\s+/g, '');
   const baseSlug = READING_TO_SLUG[reading];
   if (!baseSlug) {
     throw new Error(`Unknown reading slug: ${reading} (label=${label})`);
@@ -170,5 +181,21 @@ const csv = await loadCsv();
 const districts = parseCsv(csv).map(rowToDistrict);
 // Sort by reading for stable ordering across rebuilds.
 districts.sort((a, b) => (a.reading < b.reading ? -1 : a.reading > b.reading ? 1 : 0));
+
+// Fail fast on duplicate ids so a future upstream typo cannot silently
+// merge two collection routes (F-12 root cause). The build is broken
+// rather than producing a `data/districts.json` with two records sharing
+// the same `id` field.
+const seenIds = new Map();
+for (const d of districts) {
+  if (seenIds.has(d.id)) {
+    throw new Error(
+      `Duplicate district id "${d.id}" — labels: ${seenIds.get(d.id)} and ${d.label}. ` +
+        `Add a LABEL_READING_OVERRIDE entry or adjust slug derivation.`,
+    );
+  }
+  seenIds.set(d.id, d.label);
+}
+
 await writeFile(OUT, JSON.stringify(districts, null, 2) + '\n', 'utf8');
 console.log(`Wrote ${districts.length} districts to ${OUT}`);

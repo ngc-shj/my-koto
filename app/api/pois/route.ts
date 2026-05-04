@@ -1,7 +1,6 @@
 // Edge route handler: Overpass-backed POI proxy with KV cache, rate limiting,
 // SSRF hardening, and bbox clamping to Tokyo's 23 special wards.
 import type { NextRequest } from "next/server";
-import { kv as vercelKv } from "@vercel/kv";
 import {
   TOKYO_23_BBOX,
   bboxAreaSqDeg,
@@ -18,15 +17,13 @@ import {
   elementsToMapPoints,
 } from "@/lib/overpass";
 import type { PointType, MapPoint } from "@/lib/map/types";
+import { kvKey, parseSchemaVersion } from "@/lib/proxy";
 import {
-  vercelKvStore,
-  lruFallbackKvStore,
-  withFallback,
-  getClientIp,
-  enforceRateLimit,
-  kvKey,
-  parseSchemaVersion,
-} from "@/lib/proxy";
+  buildKv,
+  rateLimitResponse,
+  jsonResponseHeaders,
+  getAllowedOrigin,
+} from "@/lib/api-shared";
 
 export const runtime = "edge";
 
@@ -39,33 +36,6 @@ const MAX_KV_BYTES = 256 * 1024;
 // reasonable map viewport but small enough that the Overpass response stays
 // within the size cap above.
 const MAX_BBOX_AREA_SQDEG = 0.04;
-
-function getAllowedOrigin(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
-
-const lruStore = lruFallbackKvStore(2000);
-
-function buildKv() {
-  return withFallback(vercelKvStore(vercelKv), lruStore, (msg) => {
-    const webhookUrl = process.env.DISCORD_WEBHOOK;
-    if (!webhookUrl) return;
-    void fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: msg }),
-    }).catch(() => {});
-  });
-}
-
-function secureHeaders(origin: string): Headers {
-  const h = new Headers();
-  h.set("Cache-Control", "public, s-maxage=3600, stale-if-error=86400");
-  h.set("Vary", "Accept-Encoding");
-  h.set("Access-Control-Allow-Origin", origin);
-  h.set("Content-Type", "application/json");
-  return h;
-}
 
 function jsonResponse(
   status: number,
@@ -102,7 +72,16 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const allowedOrigin = getAllowedOrigin();
-  const responseHeaders = secureHeaders(allowedOrigin);
+  const responseHeaders = jsonResponseHeaders(allowedOrigin);
+
+  // Rate limit via shared pipeline (F-14). 30 rpm/IP — Overpass is a
+  // community-run resource, polite usage policy applies.
+  const tooMany = await rateLimitResponse(
+    request,
+    { bucket: "pois", limit: 30, windowSec: 60 },
+    responseHeaders,
+  );
+  if (tooMany) return tooMany;
 
   // Validate bbox.
   const url = new URL(request.url);
@@ -133,17 +112,6 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const schemaVersion = parseSchemaVersion();
   const kv = buildKv();
-
-  // Rate limit: tighter than /api/weather because Overpass should not be
-  // hammered (community-run infra, polite usage policy).
-  const ip = getClientIp(request);
-  const rateLimitKey = kvKey("rl", schemaVersion, "pois", ip);
-  const rl = await enforceRateLimit(kv, rateLimitKey, 30, 60);
-  if (!rl.ok) {
-    const h = new Headers(responseHeaders);
-    h.set("Retry-After", String(rl.retryAfter));
-    return jsonResponse(429, { error: "Too Many Requests" }, h);
-  }
 
   // Snap bbox to a grid so nearby viewport queries reuse the same KV entry.
   const snapped = snapBbox(bbox, 0.01);

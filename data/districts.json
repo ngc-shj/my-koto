@@ -832,10 +832,10 @@
     "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "shinkiba",
+    "id": "shin-ohashi",
     "label": "新大橋",
-    "reading": "しんきば",
-    "area": "joto",
+    "reading": "しんおおはし",
+    "area": "fukagawa",
     "addresses": [
       "新大橋"
     ],
@@ -1664,9 +1664,9 @@
     "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "morishita",
+    "id": "mouri",
     "label": "毛利",
-    "reading": "もりした",
+    "reading": "もうり",
     "area": "fukagawa",
     "addresses": [
       "毛利"
