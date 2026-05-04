@@ -93,6 +93,11 @@ describe("filterUpcoming", () => {
   });
 
   it("includes events whose end is exactly today", () => {
+    // The boundary passes for the right reason today (UTC midnight 5/4 ≥
+    // JST midnight 5/3 = 2026-05-03T15:00Z, regardless of the host
+    // timezone) but `filterUpcoming` does naive Date comparison without
+    // a TZ contract. T-17 tracked as a Phase 2 follow-up (TZ-aware
+    // window OR an explicit TZ-pinned test fixture).
     const result = filterUpcoming(
       [event("ends-today", "2026-05-01", "2026-05-04")],
       NOW,

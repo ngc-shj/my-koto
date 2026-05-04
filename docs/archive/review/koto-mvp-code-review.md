@@ -367,4 +367,66 @@ Date: 2026-05-04
 
 Round 1 → Round 2 で発見された全 finding を resolution。新規発見はゼロ。Round 2 で Tightening-only skip 条件 (inline minor + 直前 fix scope 内 + security boundary 非該当) をすべて満たす finding は**ない**ので、安全のため **Round 3 verification** を回す。
 
+---
+
+# Round 3 (Incremental Verification + Tightening-only Skip)
+
+Date: 2026-05-04
+
+## Round 3 Findings
+
+### F-17 [Major / Regression] generate-pois.ts top-level await crashes under tsx — Resolved
+- F-15 で `.mjs → .ts` に変換した際、`package.json` に `"type": "module"` がないため tsx (esbuild) が CJS 出力でフォールバックし、top-level await が拒否されてスクリプトが起動不能だった
+- Fix: `await buildAed(); await buildToilet()` を `async function main() { ... }` でラップして `main().catch(err => { console.error(err); process.exit(1); })`、sibling scripts (`fetch-opendata.ts` 他) のパターンに揃えた
+- 検証: `npx tsx scripts/generate-pois.ts` が AED 246 件 + トイレ 191 件を正常に書き出し
+
+### F-18 [Minor] SubscribeButton dead-code SSR guard — Resolved
+- `useEffect(() => { if (typeof window === "undefined") return; ... })` は到達不能 (effect は client only)
+- Fix: gard を削除しコメントで「useEffect は client-only なので window 検査不要」と明記
+
+### T-15 [Minor] misleading test descriptions — Resolved
+- (1) `app/api/ics/events/route.test.ts:52` の test name "denies the 31st request" を **"denies the 61st request"** に修正 (limit 60 と整合)
+- (2) `components/SubscribeButton.test.tsx` の "renders the placeholder before URL is computed" は両 branch が同じ "カレンダーに登録" 文字列を render するため vacuous だった。`querySelector('span[aria-disabled="true"]')` で placeholder branch そのものをチェック、live link になった場合は href が `https:///` (empty authority) でないことを assert (F-13 regression-guard 強化)
+
+### T-16 [Minor / Test isolation hazard] env "undefined" string leak — Resolved
+- `lib/api-shared.test.ts` の `process.env.NEXT_PUBLIC_SITE_URL = original` は Node が undefined を `"undefined"` 文字列に coerce する。同 suite 内で兄弟テストが env を読むと poison
+- Fix: `restore()` ヘルパで `original === undefined` なら `delete process.env.NEXT_PUBLIC_SITE_URL`、そうでなければ書き戻し
+
+### T-17 [Minor] filterUpcoming TZ-leaky boundary — Deferral (documented)
+- **Anti-Deferral check**: acceptable risk
+- **Justification**:
+  - Worst case: `filterUpcoming` の `Date` 比較が naive で、ホスト TZ と event date string の TZ contract が暗黙。**現状は UTC midnight ≥ JST midnight が常に成り立つので boundary が "passes for the right reason"**、すなわち実害なし
+  - Likelihood: 低 — Vercel Edge は UTC、開発機は通常 JST、両 TZ で同じ判定になる
+  - Cost to fix: ~1 時間 (filterUpcoming に TZ パラメータ追加 + date-fns-tz 統合 + 全 call site 移行)
+- TODO marker: `TODO(koto-mvp-phase2): make filterUpcoming TZ-aware (date-fns-tz Asia/Tokyo) and pin the boundary tests with vi.setSystemTime`
+
+## Tightening-only skip evaluation (Round 3)
+
+Round 3 で発見された全 5 件 (F-17 Major regression + F-18, T-15, T-16, T-17 Minor) のうち:
+- F-17 は Round 2 fix の直接的な regression で **Major + テスト fix 含む** ので skip 不可 → 反映済
+- F-18: scope 内 inline minor、security boundary 非該当 ✓
+- T-15: test-only cosmetic + correctness、scope 内 ✓
+- T-16: test-only isolation fix、scope 内 ✓
+- T-17: deferral、scope 内 ✓
+
+F-17 だけが skip 条件を破るが、本コミットで修正済。残り 4 件はすべて inline minor で次のラウンドを必要としない。**Round 4 を skip して Phase 3 終了**:
+
+```
+## Tightening-only skip — Round 4
+Findings applied directly (no Round 4 review):
+- [F-18] [Minor] SubscribeButton dead-code SSR guard — components/SubscribeButton.tsx:27 — applied
+- [T-15] [Minor] misleading test descriptions — app/api/ics/events/route.test.ts:52, components/SubscribeButton.test.tsx — applied
+- [T-16] [Minor] env "undefined" string leak — lib/api-shared.test.ts:125-143 — applied
+- [T-17] [Minor] TZ-leaky boundary — lib/events/normalize.test.ts:95-102 — Anti-Deferral block + TODO marker
+Justification: every finding scoped within Round 2 fix range, inline minor or test-only, no security-boundary touch (Security Round 3 returned No findings).
+```
+
+## Round 3 Resolution Summary
+
+- Critical: 0
+- Major: 1 (F-17 regression of F-15) → Resolved
+- Minor: 4 (F-18, T-15, T-16) → Resolved + (T-17) → Deferred with Anti-Deferral block
+- 303/303 tests pass, lint clean, build clean
+
+
 

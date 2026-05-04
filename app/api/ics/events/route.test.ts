@@ -49,7 +49,7 @@ describe("GET /api/ics/events", () => {
     expect(body).toContain("END:VCALENDAR");
   });
 
-  it("denies the 31st request in a window with 429 + Retry-After (S-03 boundary)", async () => {
+  it("denies the 61st request in a window with 429 + Retry-After (S-03 boundary)", async () => {
     // Bucket budget is 60 rpm/IP (T-10 verifies the limiter is wired in).
     for (let i = 0; i < 60; i += 1) {
       const ok = await GET(makeReq());

@@ -123,13 +123,25 @@ describe("jsonResponseHeaders", () => {
 });
 
 describe("getAllowedOrigin", () => {
+  // Capture the original at describe-eval; it may be undefined.
   const original = process.env.NEXT_PUBLIC_SITE_URL;
+  // Node coerces every assignment to process.env to a string, so writing
+  // back a captured `undefined` would silently leave the literal "undefined"
+  // string for sibling tests to read (T-16). Restore via `delete` instead.
+  function restore() {
+    if (original === undefined) {
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_SITE_URL = original;
+    }
+  }
+
   it("returns the env value when set", () => {
     process.env.NEXT_PUBLIC_SITE_URL = "https://example.app";
     try {
       expect(getAllowedOrigin()).toBe("https://example.app");
     } finally {
-      process.env.NEXT_PUBLIC_SITE_URL = original;
+      restore();
     }
   });
   it("falls back to localhost when unset", () => {
@@ -137,7 +149,7 @@ describe("getAllowedOrigin", () => {
     try {
       expect(getAllowedOrigin()).toBe("http://localhost:3000");
     } finally {
-      process.env.NEXT_PUBLIC_SITE_URL = original;
+      restore();
     }
   });
 });

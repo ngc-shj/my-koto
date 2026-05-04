@@ -24,7 +24,8 @@ export default function SubscribeButton({ districtId }: Props) {
   const [subscribeUrl, setSubscribeUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // useEffect only runs on the client, so window/navigator are always
+    // defined here — no SSR guard needed (F-18).
     setSubscribeUrl(
       gomiSubscriptionUrl(districtId, window.location.host, navigator.userAgent),
     );

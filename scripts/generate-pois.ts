@@ -127,5 +127,16 @@ async function buildToilet(): Promise<void> {
   console.log(`Wrote ${records.length} records to ${src.out}`);
 }
 
-await buildAed();
-await buildToilet();
+async function main(): Promise<void> {
+  // tsx + esbuild compile this to CJS by default (package.json has no
+  // "type": "module"), and CJS does not allow top-level await — F-17.
+  // Wrapping the entry points in a `main()` keeps the .ts form runnable
+  // via `npx tsx scripts/generate-pois.ts` like the sibling scripts.
+  await buildAed();
+  await buildToilet();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
