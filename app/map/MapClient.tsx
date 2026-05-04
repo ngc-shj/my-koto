@@ -145,9 +145,9 @@ export default function MapClient({ points, initialFilters }: Props) {
     return nearestPoints(visiblePoints, userLocation, 10);
   }, [visiblePoints, userLocation]);
 
-  // Pulls POIs from /api/pois for the current viewport whenever the map
-  // pans into territory not already cached on the client. Snaps the bbox
-  // to a 0.02° grid (≈2km) so small pans share fetches.
+  // Pulls POIs from /api/pois for the current viewport. The Koto-ku area is
+  // covered by the bundled official dataset, so we drop OSM rows whose
+  // coordinates fall inside KOTO_BBOX to avoid double-pinning the same site.
   const maybeFetchExternalPois = useCallback(async () => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -160,17 +160,17 @@ export default function MapClient({ points, initialFilters }: Props) {
       north: b.getNorth(),
       east: b.getEast(),
     };
-    if (bboxAreaSqDeg(live) > 0.04) return; // Too zoomed out — skip fetch.
-    if (!isBboxInside(live, TOKYO_23_BBOX)) return;
-
-    // If the entire viewport is inside Koto-ku, the bundled dataset already
-    // covers it and we do not need OSM augmentation.
-    const fullyInsideKoto =
-      live.south >= KOTO_BBOX.south &&
-      live.north <= KOTO_BBOX.north &&
-      live.west >= KOTO_BBOX.west &&
-      live.east <= KOTO_BBOX.east;
-    if (fullyInsideKoto) return;
+    // Server caps bbox area at 0.04 deg^2; refuse client-side too so the
+    // request never bounces back as a 400. The status pill reflects the
+    // reason so the user can zoom in.
+    if (bboxAreaSqDeg(live) > 0.04) {
+      setExternalStatus("error");
+      return;
+    }
+    if (!isBboxInside(live, TOKYO_23_BBOX)) {
+      setExternalStatus("error");
+      return;
+    }
 
     const step = 0.02;
     const round = (n: number) => Math.round(n / step) * step;
@@ -184,7 +184,11 @@ export default function MapClient({ points, initialFilters }: Props) {
     if (filters.aed) types.push("aed");
     if (filters.toilet) types.push("toilet");
     const cacheKey = `${types.slice().sort().join("+")}|${snapped.south.toFixed(2)},${snapped.west.toFixed(2)},${snapped.north.toFixed(2)},${snapped.east.toFixed(2)}`;
-    if (fetchedBboxesRef.current.has(cacheKey)) return;
+    if (fetchedBboxesRef.current.has(cacheKey)) {
+      // Already fetched this snapped bbox; nothing more to do.
+      setExternalStatus("idle");
+      return;
+    }
     fetchedBboxesRef.current.add(cacheKey);
 
     setExternalStatus("loading");
@@ -198,7 +202,12 @@ export default function MapClient({ points, initialFilters }: Props) {
       const body = (await res.json()) as { records: MapPoint[] };
       setExternalPoints((prev) => {
         const seen = new Set(prev.map((p) => p.id));
-        const fresh = body.records.filter((p) => !seen.has(p.id));
+        const fresh = body.records.filter((p) => {
+          if (seen.has(p.id)) return false;
+          // Drop OSM rows that overlap the bundled Koto dataset.
+          if (isInsideBbox(p, KOTO_BBOX)) return false;
+          return true;
+        });
         return fresh.length === 0 ? prev : [...prev, ...fresh];
       });
       setExternalStatus("idle");
@@ -411,6 +420,8 @@ export default function MapClient({ points, initialFilters }: Props) {
                 key={String(opt.value)}
                 type="button"
                 onClick={() => setRadius(opt.value)}
+                // IDE jsx-a11y rule misreads expression form; build lint passes.
+                // eslint-disable-next-line jsx-a11y/aria-proptypes
                 aria-pressed={filters.radius === opt.value}
                 className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                   filters.radius === opt.value
@@ -585,6 +596,8 @@ function FilterButton({
     <button
       type="button"
       onClick={onClick}
+      // IDE jsx-a11y rule misreads expression form; build lint passes.
+      // eslint-disable-next-line jsx-a11y/aria-proptypes
       aria-pressed={active ? "true" : "false"}
       className={`text-xs px-3 py-1 rounded-full border transition-colors ${
         active
