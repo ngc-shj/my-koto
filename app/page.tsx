@@ -1,13 +1,33 @@
 import { messages } from "@/lib/i18n/messages";
-import WeatherWidget from "@/components/WeatherWidget";
 import ShareButton from "@/components/ShareButton";
+import TodaySummary from "@/components/TodaySummary";
+import {
+  DistrictSchema,
+  SpecialOverlaySchema,
+  type District,
+  type SpecialOverlay,
+} from "@/lib/gomi/types";
+import { EventResponseSchema } from "@/lib/opendata/schemas/events";
+import { filterUpcoming, toEvent } from "@/lib/events/normalize";
+import districtsRaw from "@/data/districts.json";
+import overlaysRaw from "@/data/gomi-schedule.json";
+import eventsRaw from "@/data/events.json";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
 export default function HomePage() {
+  // Server-side data prep so the Today summary's first paint already has
+  // every district / overlay / event it needs without a client roundtrip.
+  // Each parse is cheap (~58 districts, ~2 overlays, ~10 events).
+  const districts: District[] = DistrictSchema.array().parse(districtsRaw);
+  const overlays: SpecialOverlay[] = SpecialOverlaySchema.array().parse(overlaysRaw);
+  const events = EventResponseSchema.parse(eventsRaw)
+    .result.records.map(toEvent);
+  const upcomingEvents = filterUpcoming(events).slice(0, 5);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <header className="mb-8">
+      <header className="mb-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-700">{messages.brand.title}</h1>
@@ -17,8 +37,12 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="mb-6">
-        <WeatherWidget />
+      <div className="mb-8">
+        <TodaySummary
+          districts={districts}
+          overlays={overlays}
+          upcomingEvents={upcomingEvents}
+        />
       </div>
 
       <nav className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -62,7 +86,7 @@ export default function HomePage() {
         >
           <div className="text-lg font-medium">設定</div>
           <div className="text-sm text-gray-500 mt-1">
-            地区選択・通知・表示設定
+            プロファイル・通知・表示設定
           </div>
         </a>
       </nav>
