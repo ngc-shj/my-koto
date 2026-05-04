@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import BackToHome from "@/components/BackToHome";
 import SettingsPageClient from "./SettingsPageClient";
 
 export const metadata: Metadata = {
@@ -7,5 +8,12 @@ export const metadata: Metadata = {
 };
 
 export default function SettingsPage() {
-  return <SettingsPageClient />;
+  return (
+    <div>
+      <div className="max-w-2xl mx-auto px-4 pt-8">
+        <BackToHome />
+      </div>
+      <SettingsPageClient />
+    </div>
+  );
 }

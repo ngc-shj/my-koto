@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { parseAedData, parseToiletData } from "@/lib/map/validate";
 import { MAP_TILE } from "@/config/map";
 import MapClient from "./MapClient";
+import BackToHome from "@/components/BackToHome";
 import ShareButton from "@/components/ShareButton";
 import aedRaw from "@/data/aed.json";
 import toiletRaw from "@/data/toilet.json";
@@ -38,8 +39,11 @@ export default async function MapPage({
   return (
     <div className="flex flex-col h-screen">
       <header className="px-4 py-3 border-b border-gray-200 bg-white">
-        <div className="flex items-start justify-between gap-4">
-          <h1 className="text-lg font-semibold text-slate-700">AED・公衆トイレマップ</h1>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex flex-col gap-1">
+            <BackToHome />
+            <h1 className="text-lg font-semibold text-slate-700">AED・公衆トイレマップ</h1>
+          </div>
           <ShareButton title="AED・公衆トイレマップ" url={`${SITE_URL}/map`} />
         </div>
         <p className="text-xs text-gray-500 mt-0.5">

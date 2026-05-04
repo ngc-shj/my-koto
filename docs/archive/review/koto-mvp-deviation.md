@@ -71,3 +71,19 @@
    - 日本語フォントの埋込みなしで運用 (`next/og` のデフォルトフォントで漢字も最低限表示される)。フォント追加はフェーズ 2 の品質改善で対応。
 3. **vitest-axe canvas 警告は無害**
    - JSDOM の `HTMLCanvasElement.getContext` 未実装で axe-core color-contrast チェックが stderr 警告を出すが、テスト自体は緑 (WCAG 違反 0)。Next.js 標準の Tailwind 配色を継続利用。
+
+## Post-Step-9 fixes — district master + back navigation (2026-05-04)
+
+User feedback: 「ゴミ収集、地区がすべて表示されていない。検索出来ないと厳しい」「遷移先から戻る導線がない」「正式な処から取得した方が良いのでは？」
+
+1. **地区マスタを公式オープンデータ CSV から再構築**
+   - `scripts/generate-districts.mjs` を東京都オープンデータカタログの公式 CSV (`https://www.opendata.metro.tokyo.lg.jp/koto/131083_201_kotocity_waste_recycle_collectionday.csv`、Shift_JIS、CC-BY 4.0) を fetch + パースする実装に変更。
+   - `data/districts.json` が **58 件の正式区分** に置き換わった (`亀戸1〜3丁目` `亀戸4〜9丁目` `東砂1〜5丁目` 等、公式の収集ルート単位)。
+   - Plan 案の per-丁目 細分化 (149 件) より、公式の収集ルート単位 (58 件) のほうが実運用と一致するため採用。
+   - 副次効果: District 型に `reading` (じゅうしょ) と `area` (深川/城東) が追加され、検索 UI で漢字・かな・ローマ字いずれでもヒットする。
+   - id 命名規則: `${reading-romaji}-${chome-range}` (例: `kameido-1-3`)。テスト fixture (`route.test.ts`) は新 id に追従。
+   - Plan F1/F7 の「ID 確定 + フォールバック明確化」が実データで完了。
+2. **地区検索 UI 追加**
+   - `DistrictSelector` に検索ボックス、area グルーピング、件数表示を追加。`lib/search/normalize.ts` を再利用して NFKC + ひら↔カナ + ローマ字双方向で全文一致。
+3. **`<BackToHome />` 共通コンポーネント追加**
+   - 全公開ページ (`/about` `/privacy` `/disclaimer` `/gomi` `/gomi/search` `/map` `/events` `/weather` `/settings`) に「ホームへ戻る」ナビを配置。`/offline` はもとから戻る導線あり。`/gomi/search` のみ親ページ `/gomi` への戻りに変更。

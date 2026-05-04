@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import BackToHome from "@/components/BackToHome";
 import { messages } from "@/lib/i18n/messages";
 
 export const metadata: Metadata = {
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+      <BackToHome />
       <h1 className="text-2xl font-bold">{messages.privacy.heading}</h1>
 
       <section className="space-y-2">

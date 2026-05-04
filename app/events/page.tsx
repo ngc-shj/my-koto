@@ -4,6 +4,7 @@ import { EventRecordSchema } from "@/lib/opendata/schemas/events";
 import { EventSchema } from "@/lib/events/types";
 import type { Event } from "@/lib/events/types";
 import Attribution from "@/components/Attribution";
+import BackToHome from "@/components/BackToHome";
 import ShareButton from "@/components/ShareButton";
 import EventsClient from "./EventsClient";
 
@@ -71,6 +72,7 @@ export default function EventsPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
+      <BackToHome />
       <div className="flex items-start justify-between gap-4 mb-2">
         <h1 className="text-2xl font-bold">イベントカレンダー</h1>
         <ShareButton title="イベントカレンダー" url={`${SITE_URL}/events`} />

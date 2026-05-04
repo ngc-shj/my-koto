@@ -1,142 +1,1858 @@
 [
   {
-    "id": "kameido-1",
-    "label": "亀戸 1 丁目",
-    "addresses": ["亀戸一丁目", "亀戸1丁目"],
+    "id": "aomi",
+    "label": "青海",
+    "reading": "あおみ",
+    "area": "fukagawa",
+    "addresses": [
+      "青海"
+    ],
     "schedule": {
-      "burnable": ["mon", "thu"],
-      "non_burnable": ["wed"],
-      "resource_plastic": ["tue"],
-      "container_plastic": ["fri"],
-      "pet_bottle": ["fri"],
-      "bottles_cans": ["fri"],
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "kameido-2",
-    "label": "亀戸 2 丁目",
-    "addresses": ["亀戸二丁目", "亀戸2丁目"],
+    "id": "ariake",
+    "label": "有明",
+    "reading": "ありあけ",
+    "area": "fukagawa",
+    "addresses": [
+      "有明"
+    ],
     "schedule": {
-      "burnable": ["mon", "thu"],
-      "non_burnable": ["wed"],
-      "resource_plastic": ["tue"],
-      "container_plastic": ["fri"],
-      "pet_bottle": ["fri"],
-      "bottles_cans": ["fri"],
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "kameido-3",
-    "label": "亀戸 3 丁目",
-    "addresses": ["亀戸三丁目", "亀戸3丁目"],
+    "id": "ishijima",
+    "label": "石島",
+    "reading": "いしじま",
+    "area": "fukagawa",
+    "addresses": [
+      "石島"
+    ],
     "schedule": {
-      "burnable": ["tue", "fri"],
-      "non_burnable": ["wed"],
-      "resource_plastic": ["mon"],
-      "container_plastic": ["thu"],
-      "pet_bottle": ["thu"],
-      "bottles_cans": ["thu"],
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "toyo-1",
-    "label": "東陽 1 丁目",
-    "addresses": ["東陽一丁目", "東陽1丁目"],
+    "id": "uminomori",
+    "label": "海の森",
+    "reading": "うみのもり",
+    "area": "fukagawa",
+    "addresses": [
+      "海の森"
+    ],
     "schedule": {
-      "burnable": ["tue", "fri"],
-      "non_burnable": ["thu"],
-      "resource_plastic": ["wed"],
-      "container_plastic": ["mon"],
-      "pet_bottle": ["mon"],
-      "bottles_cans": ["mon"],
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "toyo-2",
-    "label": "東陽 2 丁目",
-    "addresses": ["東陽二丁目", "東陽2丁目"],
+    "id": "umibe",
+    "label": "海辺",
+    "reading": "うみべ",
+    "area": "fukagawa",
+    "addresses": [
+      "海辺"
+    ],
     "schedule": {
-      "burnable": ["tue", "fri"],
-      "non_burnable": ["thu"],
-      "resource_plastic": ["wed"],
-      "container_plastic": ["mon"],
-      "pet_bottle": ["mon"],
-      "bottles_cans": ["mon"],
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "toyo-3",
-    "label": "東陽 3 丁目",
-    "addresses": ["東陽三丁目", "東陽3丁目"],
+    "id": "eitai",
+    "label": "永代",
+    "reading": "えいたい",
+    "area": "fukagawa",
+    "addresses": [
+      "永代"
+    ],
     "schedule": {
-      "burnable": ["wed", "sat"],
-      "non_burnable": ["mon"],
-      "resource_plastic": ["tue"],
-      "container_plastic": ["fri"],
-      "pet_bottle": ["fri"],
-      "bottles_cans": ["fri"],
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "tomioka-1",
-    "label": "富岡 1 丁目",
-    "addresses": ["富岡一丁目", "富岡1丁目"],
+    "id": "edagawa",
+    "label": "枝川",
+    "reading": "えだがわ",
+    "area": "fukagawa",
+    "addresses": [
+      "枝川"
+    ],
     "schedule": {
-      "burnable": ["mon", "thu"],
-      "non_burnable": ["tue"],
-      "resource_plastic": ["wed"],
-      "container_plastic": ["fri"],
-      "pet_bottle": ["fri"],
-      "bottles_cans": ["fri"],
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "tomioka-2",
-    "label": "富岡 2 丁目",
-    "addresses": ["富岡二丁目", "富岡2丁目"],
+    "id": "etchujima",
+    "label": "越中島",
+    "reading": "えっちゅうじま",
+    "area": "fukagawa",
+    "addresses": [
+      "越中島"
+    ],
     "schedule": {
-      "burnable": ["mon", "thu"],
-      "non_burnable": ["tue"],
-      "resource_plastic": ["wed"],
-      "container_plastic": ["fri"],
-      "pet_bottle": ["fri"],
-      "bottles_cans": ["fri"],
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "toyosu-1",
-    "label": "豊洲 1 丁目",
-    "addresses": ["豊洲一丁目", "豊洲1丁目"],
+    "id": "ougibashi",
+    "label": "扇橋",
+    "reading": "おうぎばし",
+    "area": "fukagawa",
+    "addresses": [
+      "扇橋"
+    ],
     "schedule": {
-      "burnable": ["tue", "sat"],
-      "non_burnable": ["fri"],
-      "resource_plastic": ["thu"],
-      "container_plastic": ["wed"],
-      "pet_bottle": ["wed"],
-      "bottles_cans": ["wed"],
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
   },
   {
-    "id": "toyosu-2",
-    "label": "豊洲 2 丁目",
-    "addresses": ["豊洲二丁目", "豊洲2丁目"],
+    "id": "ojima-1-2",
+    "label": "大島1～2丁目",
+    "reading": "おおじま",
+    "area": "joto",
+    "addresses": [
+      "大島1～2丁目"
+    ],
     "schedule": {
-      "burnable": ["tue", "sat"],
-      "non_burnable": ["fri"],
-      "resource_plastic": ["thu"],
-      "container_plastic": ["wed"],
-      "pet_bottle": ["wed"],
-      "bottles_cans": ["wed"],
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "tue"
+      ],
+      "resource_plastic": [
+        "mon"
+      ],
+      "container_plastic": [
+        "fri"
+      ],
+      "pet_bottle": [
+        "mon"
+      ],
+      "bottles_cans": [
+        "mon"
+      ],
       "bulky": []
-    }
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "ojima-3-7",
+    "label": "大島3～7丁目",
+    "reading": "おおじま",
+    "area": "joto",
+    "addresses": [
+      "大島3～7丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "thu"
+      ],
+      "resource_plastic": [
+        "wed"
+      ],
+      "container_plastic": [
+        "mon"
+      ],
+      "pet_bottle": [
+        "wed"
+      ],
+      "bottles_cans": [
+        "wed"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "ojima-8-9",
+    "label": "大島8～9丁目",
+    "reading": "おおじま",
+    "area": "joto",
+    "addresses": [
+      "大島8～9丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "thu"
+      ],
+      "resource_plastic": [
+        "wed"
+      ],
+      "container_plastic": [
+        "mon"
+      ],
+      "pet_bottle": [
+        "wed"
+      ],
+      "bottles_cans": [
+        "wed"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "kameido-1-3",
+    "label": "亀戸1～3丁目",
+    "reading": "かめいど",
+    "area": "joto",
+    "addresses": [
+      "亀戸1～3丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "tue"
+      ],
+      "resource_plastic": [
+        "mon"
+      ],
+      "container_plastic": [
+        "fri"
+      ],
+      "pet_bottle": [
+        "mon"
+      ],
+      "bottles_cans": [
+        "mon"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "kameido-4-9",
+    "label": "亀戸4～9丁目",
+    "reading": "かめいど",
+    "area": "joto",
+    "addresses": [
+      "亀戸4～9丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "tue"
+      ],
+      "resource_plastic": [
+        "mon"
+      ],
+      "container_plastic": [
+        "fri"
+      ],
+      "pet_bottle": [
+        "mon"
+      ],
+      "bottles_cans": [
+        "mon"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "kitasuna-1-5",
+    "label": "北砂1～5丁目",
+    "reading": "きたすな",
+    "area": "joto",
+    "addresses": [
+      "北砂1～5丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "mon"
+      ],
+      "resource_plastic": [
+        "sat"
+      ],
+      "container_plastic": [
+        "thu"
+      ],
+      "pet_bottle": [
+        "sat"
+      ],
+      "bottles_cans": [
+        "sat"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "kitasuna-6-7",
+    "label": "北砂6～7丁目",
+    "reading": "きたすな",
+    "area": "joto",
+    "addresses": [
+      "北砂6～7丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "thu"
+      ],
+      "resource_plastic": [
+        "wed"
+      ],
+      "container_plastic": [
+        "mon"
+      ],
+      "pet_bottle": [
+        "wed"
+      ],
+      "bottles_cans": [
+        "wed"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "kiba",
+    "label": "木場",
+    "reading": "きば",
+    "area": "fukagawa",
+    "addresses": [
+      "木場"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "kiyosumi",
+    "label": "清澄",
+    "reading": "きよすみ",
+    "area": "fukagawa",
+    "addresses": [
+      "清澄"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "saga",
+    "label": "佐賀",
+    "reading": "さが",
+    "area": "fukagawa",
+    "addresses": [
+      "佐賀"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "sarue",
+    "label": "猿江",
+    "reading": "さるえ",
+    "area": "fukagawa",
+    "addresses": [
+      "猿江"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shiohama-1",
+    "label": "塩浜1丁目",
+    "reading": "しおはま",
+    "area": "fukagawa",
+    "addresses": [
+      "塩浜1丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shiohama-2",
+    "label": "塩浜2丁目",
+    "reading": "しおはま",
+    "area": "fukagawa",
+    "addresses": [
+      "塩浜2丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shiomi",
+    "label": "潮見",
+    "reading": "しおみ",
+    "area": "fukagawa",
+    "addresses": [
+      "潮見"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shinonome",
+    "label": "東雲",
+    "reading": "しののめ",
+    "area": "fukagawa",
+    "addresses": [
+      "東雲"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shirakawa-1-3",
+    "label": "白河1～3丁目",
+    "reading": "しらかわ",
+    "area": "fukagawa",
+    "addresses": [
+      "白河1～3丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shirakawa-4",
+    "label": "白河4丁目",
+    "reading": "しらかわ",
+    "area": "fukagawa",
+    "addresses": [
+      "白河4丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shinkiba",
+    "label": "新大橋",
+    "reading": "しんきば",
+    "area": "joto",
+    "addresses": [
+      "新大橋"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shinkiba",
+    "label": "新木場",
+    "reading": "しんきば",
+    "area": "joto",
+    "addresses": [
+      "新木場"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "shinsuna",
+    "label": "新砂",
+    "reading": "しんすな",
+    "area": "joto",
+    "addresses": [
+      "新砂"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "mon"
+      ],
+      "resource_plastic": [
+        "sat"
+      ],
+      "container_plastic": [
+        "thu"
+      ],
+      "pet_bottle": [
+        "sat"
+      ],
+      "bottles_cans": [
+        "sat"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "sumiyoshi",
+    "label": "住吉",
+    "reading": "すみよし",
+    "area": "fukagawa",
+    "addresses": [
+      "住吉"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "tue"
+      ],
+      "resource_plastic": [
+        "mon"
+      ],
+      "container_plastic": [
+        "fri"
+      ],
+      "pet_bottle": [
+        "mon"
+      ],
+      "bottles_cans": [
+        "mon"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "sengoku",
+    "label": "千石",
+    "reading": "せんごく",
+    "area": "fukagawa",
+    "addresses": [
+      "千石"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "senda",
+    "label": "千田",
+    "reading": "せんだ",
+    "area": "fukagawa",
+    "addresses": [
+      "千田"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "takabashi",
+    "label": "高橋",
+    "reading": "たかばし",
+    "area": "fukagawa",
+    "addresses": [
+      "高橋"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "tatsumi",
+    "label": "辰巳",
+    "reading": "たつみ",
+    "area": "fukagawa",
+    "addresses": [
+      "辰巳"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "toyo",
+    "label": "東陽",
+    "reading": "とうよう",
+    "area": "fukagawa",
+    "addresses": [
+      "東陽"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "tokiwa",
+    "label": "常盤",
+    "reading": "ときわ",
+    "area": "fukagawa",
+    "addresses": [
+      "常盤"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "tomioka",
+    "label": "富岡",
+    "reading": "とみおか",
+    "area": "fukagawa",
+    "addresses": [
+      "富岡"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "toyosu",
+    "label": "豊洲",
+    "reading": "とよす",
+    "area": "fukagawa",
+    "addresses": [
+      "豊洲"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "higashisuna-1-5",
+    "label": "東砂1～5丁目",
+    "reading": "ひがしすな",
+    "area": "joto",
+    "addresses": [
+      "東砂1～5丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "thu"
+      ],
+      "resource_plastic": [
+        "wed"
+      ],
+      "container_plastic": [
+        "mon"
+      ],
+      "pet_bottle": [
+        "wed"
+      ],
+      "bottles_cans": [
+        "wed"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "higashisuna-6-8",
+    "label": "東砂6～8丁目",
+    "reading": "ひがしすな",
+    "area": "joto",
+    "addresses": [
+      "東砂6～8丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "mon"
+      ],
+      "resource_plastic": [
+        "sat"
+      ],
+      "container_plastic": [
+        "thu"
+      ],
+      "pet_bottle": [
+        "sat"
+      ],
+      "bottles_cans": [
+        "sat"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "hirano-1-3",
+    "label": "平野1～3丁目",
+    "reading": "ひらの",
+    "area": "fukagawa",
+    "addresses": [
+      "平野1～3丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "hirano-4",
+    "label": "平野4丁目",
+    "reading": "ひらの",
+    "area": "fukagawa",
+    "addresses": [
+      "平野4丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "fukagawa-1",
+    "label": "深川1丁目",
+    "reading": "ふかがわ",
+    "area": "fukagawa",
+    "addresses": [
+      "深川1丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "fukagawa-2",
+    "label": "深川2丁目",
+    "reading": "ふかがわ",
+    "area": "fukagawa",
+    "addresses": [
+      "深川2丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "fukuzumi",
+    "label": "福住",
+    "reading": "ふくずみ",
+    "area": "fukagawa",
+    "addresses": [
+      "福住"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "fuyuki",
+    "label": "冬木",
+    "reading": "ふゆき",
+    "area": "fukagawa",
+    "addresses": [
+      "冬木"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "furuishiba",
+    "label": "古石場",
+    "reading": "ふるいしば",
+    "area": "fukagawa",
+    "addresses": [
+      "古石場"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "botan",
+    "label": "牡丹",
+    "reading": "ぼたん",
+    "area": "fukagawa",
+    "addresses": [
+      "牡丹"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "minamisuna-1-5",
+    "label": "南砂1・5丁目",
+    "reading": "みなみすな",
+    "area": "joto",
+    "addresses": [
+      "南砂1・5丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "mon"
+      ],
+      "resource_plastic": [
+        "sat"
+      ],
+      "container_plastic": [
+        "thu"
+      ],
+      "pet_bottle": [
+        "sat"
+      ],
+      "bottles_cans": [
+        "sat"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "minamisuna-2-4",
+    "label": "南砂2～4・6～7丁目",
+    "reading": "みなみすな",
+    "area": "joto",
+    "addresses": [
+      "南砂2～4・6～7丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "tue",
+        "fri"
+      ],
+      "non_burnable": [
+        "mon"
+      ],
+      "resource_plastic": [
+        "sat"
+      ],
+      "container_plastic": [
+        "thu"
+      ],
+      "pet_bottle": [
+        "sat"
+      ],
+      "bottles_cans": [
+        "sat"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "miyoshi-1-3",
+    "label": "三好1～3丁目",
+    "reading": "みよし",
+    "area": "fukagawa",
+    "addresses": [
+      "三好1～3丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "miyoshi-4",
+    "label": "三好4丁目",
+    "reading": "みよし",
+    "area": "fukagawa",
+    "addresses": [
+      "三好4丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "morishita",
+    "label": "毛利",
+    "reading": "もりした",
+    "area": "fukagawa",
+    "addresses": [
+      "毛利"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "tue"
+      ],
+      "resource_plastic": [
+        "mon"
+      ],
+      "container_plastic": [
+        "fri"
+      ],
+      "pet_bottle": [
+        "mon"
+      ],
+      "bottles_cans": [
+        "mon"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "morishita-1-4",
+    "label": "森下1～4丁目",
+    "reading": "もりした",
+    "area": "fukagawa",
+    "addresses": [
+      "森下1～4丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "morishita-5",
+    "label": "森下5丁目",
+    "reading": "もりした",
+    "area": "fukagawa",
+    "addresses": [
+      "森下5丁目"
+    ],
+    "schedule": {
+      "burnable": [
+        "wed",
+        "sat"
+      ],
+      "non_burnable": [
+        "fri"
+      ],
+      "resource_plastic": [
+        "thu"
+      ],
+      "container_plastic": [
+        "tue"
+      ],
+      "pet_bottle": [
+        "thu"
+      ],
+      "bottles_cans": [
+        "thu"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "monzen-nakacho",
+    "label": "門前仲町",
+    "reading": "もんぜんなかちょう",
+    "area": "fukagawa",
+    "addresses": [
+      "門前仲町"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "wed"
+      ],
+      "resource_plastic": [
+        "tue"
+      ],
+      "container_plastic": [
+        "sat"
+      ],
+      "pet_bottle": [
+        "tue"
+      ],
+      "bottles_cans": [
+        "tue"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "yumenoshima",
+    "label": "夢の島",
+    "reading": "ゆめのしま",
+    "area": "joto",
+    "addresses": [
+      "夢の島"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
+  },
+  {
+    "id": "wakasu",
+    "label": "若洲",
+    "reading": "わかす",
+    "area": "joto",
+    "addresses": [
+      "若洲"
+    ],
+    "schedule": {
+      "burnable": [
+        "mon",
+        "thu"
+      ],
+      "non_burnable": [
+        "sat"
+      ],
+      "resource_plastic": [
+        "fri"
+      ],
+      "container_plastic": [
+        "wed"
+      ],
+      "pet_bottle": [
+        "fri"
+      ],
+      "bottles_cans": [
+        "fri"
+      ],
+      "bulky": []
+    },
+    "notes": "燃やさないごみは隔週収集"
   }
 ]

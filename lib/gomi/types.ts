@@ -51,14 +51,24 @@ export const WeeklyScheduleSchema = z.object({
 export type WeeklySchedule = z.infer<typeof WeeklyScheduleSchema>;
 
 // District master record: associates an id with addresses and its weekly schedule.
+// `reading` and `area` are optional so older fixtures still validate.
+// `notes` carries operational caveats from the upstream CSV (e.g. biweekly hint).
 export const DistrictSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   label: z.string(),
+  reading: z.string().optional(),
+  area: z.enum(["fukagawa", "joto"]).optional(),
   addresses: z.array(z.string()),
   schedule: WeeklyScheduleSchema,
+  notes: z.string().optional(),
 });
 
 export type District = z.infer<typeof DistrictSchema>;
+
+export const AREA_LABELS = {
+  fukagawa: "深川地域",
+  joto: "城東地域",
+} as const;
 
 // A partial weekly schedule used in special overlays (all fields optional).
 export const PartialWeeklyScheduleSchema = z.object({

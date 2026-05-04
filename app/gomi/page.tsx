@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import districtsData from "@/data/districts.json";
 import overlaysData from "@/data/gomi-schedule.json";
 import { DistrictSchema, SpecialOverlaySchema } from "@/lib/gomi/types";
+import BackToHome from "@/components/BackToHome";
 import ShareButton from "@/components/ShareButton";
 import GomiPageClient from "./GomiPageClient";
 
@@ -19,8 +20,8 @@ export default function GomiPage() {
 
   return (
     <div>
-      {/* Share button is positioned at the top; GomiPageClient renders its own heading below */}
-      <div className="max-w-2xl mx-auto px-4 pt-8 flex justify-end">
+      <div className="max-w-2xl mx-auto px-4 pt-8 flex justify-between items-center gap-3">
+        <BackToHome />
         <ShareButton title="ごみ収集カレンダー" url={`${SITE_URL}/gomi`} />
       </div>
       <GomiPageClient districts={districts} overlays={overlays} />
