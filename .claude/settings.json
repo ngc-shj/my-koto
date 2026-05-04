@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:city.tecoli.com)",
+      "WebSearch",
+      "WebFetch(domain:spec.api.metro.tokyo.lg.jp)",
+      "WebFetch(domain:catalog.data.metro.tokyo.lg.jp)",
+      "WebFetch(domain:www.city.koto.lg.jp)",
+      "WebFetch(domain:portal.data.metro.tokyo.lg.jp)",
+      "WebFetch(domain:www.wbgt.env.go.jp)"
+    ]
+  }
+}
