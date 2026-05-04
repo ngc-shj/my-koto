@@ -11,9 +11,11 @@
   地区検索、月次/週次/当日・翌日ビュー、`webcal://` 購読 (UA 判定で iOS は webcal、他は https)
 - **ゴミ品目検索** — wanakana を使った NFKC + ひら↔カナ + ローマ字 双方向の正規化検索。
   「ペットボトル」「ぺっとぼとる」「PET」「ﾍﾟｯﾄﾎﾞﾄﾙ」が同一結果
-- **AED・公衆トイレマップ** — 江東区公式 (246 + 191 件) を同梱、地図を区外にパンすると
-  OpenStreetMap Overpass から動的補完 (Tokyo 23 区内、bbox/area サーバ clamp、KV キャッシュ、
-  30 req/min/IP)。江東区内は OSM 由来を除外して同梱データを優先
+- **区民マップ (5 レイヤ)** — AED (246) / 公衆トイレ (191) は江東区公式、避難所 (193) /
+  避難場所 (12, 8 種ハザード対応フラグ付) / 給水拠点 (6) は東京都公式。レイヤ抽象 (`lib/map/registry.ts`)
+  により同一の toggle UI / マーカー描画 / OSM Overpass フォールバック経路を共有。
+  地図を区外にパンすると Overpass から動的補完 (Tokyo 23 区内、bbox/area サーバ clamp、
+  KV キャッシュ、30 req/min/IP)。江東区内は OSM 由来を除外して同梱データを優先
 - **イベントカレンダー + ICS** — `ical-generator` + `@touch4it/ical-timezones` で VTIMEZONE
   同梱、`STATUS:CANCELLED`、全テキストフィールドのエスケープ、URL は https only
 - **天気** — Open-Meteo を Edge proxy で取得、Vercel KV に stale-if-error キャッシュ、
@@ -30,7 +32,9 @@
 | データ | 提供元 | ライセンス |
 |--------|--------|-----------|
 | ゴミ収集・AED・公衆トイレ・イベント | 東京都・江東区 ([東京都オープンデータカタログ](https://catalog.data.metro.tokyo.lg.jp/dataset?organization=t131083)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
-| 23 区内 AED/トイレ補完データ | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
+| 避難所・避難場所 | 東京都総務局 ([東京都防災マップ 避難所・避難場所一覧](https://catalog.data.metro.tokyo.lg.jp/dataset/t000003d0000000093)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
+| 給水拠点 | 東京都水道局 ([給水拠点一覧](https://catalog.data.metro.tokyo.lg.jp/dataset/t000019d0000000001)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
+| 23 区内マップレイヤ補完データ | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
 | 天気予報 | [Open-Meteo](https://open-meteo.com) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
 | 地図タイル | [国土地理院 標準地図](https://maps.gsi.go.jp/development/ichiran.html) | 国土地理院コンテンツ利用規約 |
 
@@ -60,7 +64,8 @@ npm run build
 # 江東区ゴミ収集 (公式 CSV → data/districts.json)
 node scripts/generate-districts.mjs
 
-# 江東区 AED/トイレ (公式 CSV → data/aed.json + data/toilet.json)
+# 区民マップ全レイヤ (江東区・東京都公式 CSV → data/{aed,toilet,shelter,assembly_point,water_supply}.json)
+# Tokyo Met dataset の resource URL は CKAN API から実行時に解決する (filename ローテーション対応)
 # `tsx` 経由で TypeScript を直接実行 (lib/csv.ts と parser 共有)
 npx tsx scripts/generate-pois.ts
 

@@ -57,6 +57,26 @@ export const ATTRIBUTIONS: DatasetAttribution[] = [
     modified: true,
   },
   {
+    id: "tokyo-shelter",
+    name: "東京都防災マップ 避難所・避難場所一覧",
+    copyrightHolder: "東京都総務局",
+    licenseUrl: "https://creativecommons.org/licenses/by/4.0/deed.ja",
+    licenseLabel: "CC-BY 4.0",
+    sourceUrl:
+      "https://catalog.data.metro.tokyo.lg.jp/dataset/t000003d0000000093",
+    modified: true,
+  },
+  {
+    id: "tokyo-water-supply",
+    name: "東京都水道局 給水拠点一覧",
+    copyrightHolder: "東京都水道局",
+    licenseUrl: "https://creativecommons.org/licenses/by/4.0/deed.ja",
+    licenseLabel: "CC-BY 4.0",
+    sourceUrl:
+      "https://catalog.data.metro.tokyo.lg.jp/dataset/t000019d0000000001",
+    modified: true,
+  },
+  {
     id: "gsi-tiles",
     name: "地理院タイル",
     copyrightHolder: "国土地理院",

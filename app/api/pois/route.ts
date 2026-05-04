@@ -16,7 +16,8 @@ import {
   buildOverpassQuery,
   elementsToMapPoints,
 } from "@/lib/overpass";
-import type { PointType, MapPoint } from "@/lib/map/types";
+import type { MapPoint } from "@/lib/map/types";
+import { LAYER_IDS, isLayerId, type LayerId } from "@/lib/map/registry";
 import { kvKey, parseSchemaVersion } from "@/lib/proxy";
 import {
   buildKv,
@@ -54,14 +55,19 @@ function parseBboxParam(value: string | null): Bbox | null {
   return { south, west, north, east };
 }
 
-function parseTypesParam(value: string | null): PointType[] | null {
-  if (!value) return ["aed", "toilet"];
-  const allowed = new Set<PointType>(["aed", "toilet"]);
-  const out: PointType[] = [];
+// Default to the legacy AED + toilet pair when the caller omits ?types= so
+// existing browser caches and bookmarked URLs continue to load the same
+// layers they always did.
+const DEFAULT_TYPES: readonly LayerId[] = ["aed", "toilet"];
+
+function parseTypesParam(value: string | null): LayerId[] | null {
+  if (!value) return [...DEFAULT_TYPES];
+  const allowed = new Set<string>(LAYER_IDS);
+  const out: LayerId[] = [];
   for (const raw of value.split(",")) {
     const t = raw.trim();
-    if (!allowed.has(t as PointType)) return null;
-    if (!out.includes(t as PointType)) out.push(t as PointType);
+    if (!isLayerId(t) || !allowed.has(t)) return null;
+    if (!out.includes(t)) out.push(t);
   }
   return out.length === 0 ? null : out;
 }

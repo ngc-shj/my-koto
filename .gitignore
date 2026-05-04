@@ -51,3 +51,8 @@ yarn-error.log*
 
 # Claude Code session-local artifacts (keep settings.json shared)
 .claude/settings.local.json
+
+# Tokyo Met open-data CSVs cached by scripts/generate-pois.ts.
+# Tokyo-wide files (避難所 ~13MB) are too large for git; the script refetches
+# from the upstream CKAN-resolved URL on demand, then filters down to Koto-ku.
+__fixtures__/opendata/tokyo-*.csv

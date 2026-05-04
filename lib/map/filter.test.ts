@@ -34,8 +34,7 @@ const toiletNoAccess: MapPoint = {
 const allPoints = [aedPoint, toiletBarrierFree24h, toiletNoAccess];
 
 const defaultFilters: MapFilters = {
-  aed: true,
-  toilet: true,
+  layers: { aed: true, toilet: true },
   barrierFreeOnly: false,
   twentyFourOnly: false,
   radius: null,
@@ -47,13 +46,19 @@ describe("filterPoints", () => {
   });
 
   it("hides AED points when aed filter is off", () => {
-    const result = filterPoints(allPoints, { ...defaultFilters, aed: false });
+    const result = filterPoints(allPoints, {
+      ...defaultFilters,
+      layers: { ...defaultFilters.layers, aed: false },
+    });
     expect(result.every((p) => p.type !== "aed")).toBe(true);
     expect(result).toHaveLength(2);
   });
 
   it("hides toilet points when toilet filter is off", () => {
-    const result = filterPoints(allPoints, { ...defaultFilters, toilet: false });
+    const result = filterPoints(allPoints, {
+      ...defaultFilters,
+      layers: { ...defaultFilters.layers, toilet: false },
+    });
     expect(result.every((p) => p.type !== "toilet")).toBe(true);
     expect(result).toHaveLength(1);
   });
@@ -72,13 +77,19 @@ describe("filterPoints", () => {
   });
 
   it("returns empty array when both type filters are off", () => {
-    const result = filterPoints(allPoints, { ...defaultFilters, aed: false, toilet: false });
+    const result = filterPoints(allPoints, {
+      ...defaultFilters,
+      layers: { aed: false, toilet: false },
+    });
     expect(result).toHaveLength(0);
   });
 
   it("does not mutate the original array", () => {
     const copy = [...allPoints];
-    filterPoints(allPoints, { ...defaultFilters, aed: false });
+    filterPoints(allPoints, {
+      ...defaultFilters,
+      layers: { ...defaultFilters.layers, aed: false },
+    });
     expect(allPoints).toEqual(copy);
   });
 

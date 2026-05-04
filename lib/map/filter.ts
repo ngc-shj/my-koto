@@ -16,8 +16,7 @@ export function filterPoints(
 ): MapPoint[] {
   const ref = context.referencePoint ?? null;
   return points.filter((point) => {
-    if (point.type === "aed" && !filters.aed) return false;
-    if (point.type === "toilet" && !filters.toilet) return false;
+    if (filters.layers[point.type] !== true) return false;
 
     if (filters.barrierFreeOnly && !point.accessibility?.barrier_free) return false;
     if (filters.twentyFourOnly && !point.accessibility?.twenty_four_hour) return false;

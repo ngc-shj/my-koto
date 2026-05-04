@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { Bbox } from "@/config/geo";
-import type { MapPoint, PointType } from "@/lib/map/types";
+import type { MapPoint } from "@/lib/map/types";
+import {
+  classifyOsmTags,
+  getLayer,
+  type LayerId,
+} from "@/lib/map/registry";
 
 // Read-only OSM Overpass instance. Hostname must remain in
 // `config/proxy-allowlist.ts` UPSTREAM_HOSTS.overpass for the proxy route
@@ -8,26 +13,23 @@ import type { MapPoint, PointType } from "@/lib/map/types";
 export const OVERPASS_HOST = "overpass-api.de";
 export const OVERPASS_URL = `https://${OVERPASS_HOST}/api/interpreter`;
 
-// Restrict the dynamic POI lookup to the same two categories the bundled
-// dataset covers — aed and toilet.
-const TYPE_TO_FILTER: Record<PointType, string[]> = {
-  // emergency=defibrillator (preferred) plus the older healthcare=defibrillator
-  // tag still seen in some Japanese mappings.
-  aed: [
-    'node["emergency"="defibrillator"]',
-    'node["healthcare"="defibrillator"]',
-  ],
-  toilet: ['node["amenity"="toilets"]'],
-};
-
-export function buildOverpassQuery(bbox: Bbox, types: readonly PointType[]): string {
+// Build an Overpass QL query for the union of the requested layers' OSM
+// tag filters. Every filter is a `node[...]` clause keyed on the registry
+// entry's osmTags so adding a layer never requires editing this file.
+export function buildOverpassQuery(
+  bbox: Bbox,
+  types: readonly LayerId[],
+): string {
   if (types.length === 0) {
     throw new Error("buildOverpassQuery: at least one type is required");
   }
   const bboxClause = `(${bbox.south},${bbox.west},${bbox.north},${bbox.east})`;
   const filters = types
-    .flatMap((t) => TYPE_TO_FILTER[t])
-    .map((f) => `${f}${bboxClause};`)
+    .flatMap((id) =>
+      getLayer(id).osmTags.map(
+        (t) => `node["${t.key}"="${t.value}"]${bboxClause};`,
+      ),
+    )
     .join("");
   return `[out:json][timeout:25];(${filters});out tags center;`;
 }
@@ -50,23 +52,18 @@ export const OverpassResponseSchema = z.object({
 
 export type OverpassElement = z.infer<typeof OverpassElementSchema>;
 
-function classify(tags: Record<string, string> | undefined): PointType | null {
-  if (!tags) return null;
-  if (tags.emergency === "defibrillator") return "aed";
-  if (tags.healthcare === "defibrillator") return "aed";
-  if (tags.amenity === "toilets") return "toilet";
-  return null;
-}
-
-function pickName(tags: Record<string, string> | undefined, type: PointType): string {
-  if (!tags) return type === "aed" ? "AED" : "公衆トイレ";
+function pickName(
+  tags: Record<string, string> | undefined,
+  fallback: string,
+): string {
+  if (!tags) return fallback;
   return (
     tags["name:ja"] ??
     tags.name ??
     tags["operator:ja"] ??
     tags.operator ??
     tags.description ??
-    (type === "aed" ? "AED" : "公衆トイレ")
+    fallback
   );
 }
 
@@ -104,13 +101,14 @@ function pickAccessibility(
 export function elementsToMapPoints(elements: OverpassElement[]): MapPoint[] {
   const out: MapPoint[] = [];
   for (const el of elements) {
-    const type = classify(el.tags);
+    const type = classifyOsmTags(el.tags);
     if (type === null) continue;
+    const layer = getLayer(type);
     out.push({
       id: `osm-${el.id}`,
       type,
       source: "osm",
-      name: pickName(el.tags, type),
+      name: pickName(el.tags, layer.defaultName),
       address: pickAddress(el.tags),
       lat: el.lat,
       lng: el.lon,

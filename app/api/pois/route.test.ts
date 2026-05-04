@@ -69,6 +69,25 @@ describe("GET /api/pois", () => {
     expect(res.status).toBe(400);
   });
 
+  it("accepts Phase 1 disaster layer ids in types", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ elements: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+    const res = await GET(
+      makeReq(
+        "bbox=35.65,139.75,35.70,139.80&types=shelter,assembly_point,water_supply",
+      ) as never,
+    );
+    expect(res.status).toBe(200);
+  });
+
   it("calls upstream Overpass with redirect:manual and proper headers", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ elements: [] }), {

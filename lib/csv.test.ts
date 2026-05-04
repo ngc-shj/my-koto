@@ -84,4 +84,28 @@ describe("parseCsv", () => {
     const text = "a,b,c\n1,2";
     expect(parseCsv(text)).toEqual([{ a: "1", b: "2", c: "" }]);
   });
+
+  it("preserves embedded LF inside quoted fields (Tokyo Met 避難所 CSV pattern)", () => {
+    const text = 'a,b\n"line1\nline2",x\n"plain",y';
+    expect(parseCsv(text)).toEqual([
+      { a: "line1\nline2", b: "x" },
+      { a: "plain", b: "y" },
+    ]);
+  });
+
+  it("preserves embedded CRLF inside quoted fields", () => {
+    const text = 'a,b\r\n"line1\r\nline2",x\r\nplain,y';
+    expect(parseCsv(text)).toEqual([
+      { a: "line1\r\nline2", b: "x" },
+      { a: "plain", b: "y" },
+    ]);
+  });
+
+  it("handles a quoted field whose newline is the row terminator (no escape)", () => {
+    const text = 'a,b\n"foo","bar\nbaz"\nfin,end';
+    expect(parseCsv(text)).toEqual([
+      { a: "foo", b: "bar\nbaz" },
+      { a: "fin", b: "end" },
+    ]);
+  });
 });
