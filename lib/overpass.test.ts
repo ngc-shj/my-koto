@@ -120,4 +120,39 @@ describe("elementsToMapPoints", () => {
     ]);
     expect(points).toHaveLength(0);
   });
+
+  it("maps Phase 1 disaster tags through the registry", () => {
+    const points = elementsToMapPoints([
+      { type: "node", id: 10, lat: 35.7, lon: 139.7, tags: { amenity: "shelter" } },
+      {
+        type: "node",
+        id: 11,
+        lat: 35.7,
+        lon: 139.7,
+        tags: { emergency: "assembly_point" },
+      },
+      {
+        type: "node",
+        id: 12,
+        lat: 35.7,
+        lon: 139.7,
+        tags: { emergency: "drinking_water" },
+      },
+    ]);
+    expect(points.map((p) => p.type)).toEqual([
+      "shelter",
+      "assembly_point",
+      "water_supply",
+    ]);
+  });
+
+  it("composes a multi-layer query that includes disaster tags", () => {
+    const q = buildOverpassQuery(
+      { south: 35.65, west: 139.69, north: 35.69, east: 139.74 },
+      ["shelter", "assembly_point", "water_supply"],
+    );
+    expect(q).toContain('node["amenity"="shelter"]');
+    expect(q).toContain('node["emergency"="assembly_point"]');
+    expect(q).toContain('node["emergency"="drinking_water"]');
+  });
 });

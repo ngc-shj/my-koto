@@ -9,7 +9,20 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
-import type { MapPoint, MapFilters, RadiusOption, PointType } from "@/lib/map/types";
+import {
+  HAZARD_LABELS,
+  type HazardKind,
+  type MapPoint,
+  type MapFilters,
+  type RadiusOption,
+} from "@/lib/map/types";
+import {
+  LAYERS,
+  getLayer,
+  isLayerId,
+  type LayerCategory,
+  type LayerId,
+} from "@/lib/map/registry";
 import {
   KOTO_BBOX,
   TOKYO_23_BBOX,
@@ -26,6 +39,12 @@ const RADIUS_OPTIONS: { label: string; value: RadiusOption }[] = [
   { label: "2km", value: 2000 },
   { label: "全件", value: null },
 ];
+
+const CATEGORY_LABELS: Record<LayerCategory, string> = {
+  civic: "公共施設",
+  disaster: "防災",
+  family: "子育て・暮らし",
+};
 
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} m`;
@@ -61,6 +80,12 @@ type Props = {
   initialFilters: MapFilters;
 };
 
+const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
+  "koto-official": "江東区公式",
+  "tokyo-met": "東京都公式",
+  osm: "OSM",
+};
+
 export default function MapClient({ points, initialFilters }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -72,6 +97,7 @@ export default function MapClient({ points, initialFilters }: Props) {
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
   const [showConsentModal, setShowConsentModal] = useState(true);
   const [mapReady, setMapReady] = useState(false);
+  const [layerPanelOpen, setLayerPanelOpen] = useState(false);
   // Dynamic POIs fetched from /api/pois for areas outside Koto-ku.
   // Keyed by viewport-snapped bbox so cache hits stay deterministic across
   // small pan movements.
@@ -114,7 +140,14 @@ export default function MapClient({ points, initialFilters }: Props) {
     };
   }, []);
 
-  // Merge bundled Koto-official points with whatever has been fetched from
+  // Active layer ids derived once per filter change. Used by both the
+  // dynamic-fetch effect and the marker renderer.
+  const activeLayerIds = useMemo<LayerId[]>(
+    () => LAYERS.filter((l) => filters.layers[l.id]).map((l) => l.id),
+    [filters.layers],
+  );
+
+  // Merge bundled official points with whatever has been fetched from
   // /api/pois. Dedupe by id so refreshes do not double-pin.
   const mergedPoints = useMemo(() => {
     const seen = new Set<string>();
@@ -147,12 +180,12 @@ export default function MapClient({ points, initialFilters }: Props) {
   }, [visiblePoints, userLocation]);
 
   // Pulls POIs from /api/pois for the current viewport. The Koto-ku area is
-  // covered by the bundled official dataset, so we drop OSM rows whose
+  // covered by the bundled official datasets, so we drop OSM rows whose
   // coordinates fall inside KOTO_BBOX to avoid double-pinning the same site.
   const maybeFetchExternalPois = useCallback(async () => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    if (!filters.aed && !filters.toilet) return;
+    if (activeLayerIds.length === 0) return;
 
     const b = map.getBounds();
     const live: Bbox = {
@@ -161,9 +194,6 @@ export default function MapClient({ points, initialFilters }: Props) {
       north: b.getNorth(),
       east: b.getEast(),
     };
-    // Server caps bbox area at 0.04 deg^2; refuse client-side too so the
-    // request never bounces back as a 400. The status pill reflects the
-    // reason so the user can zoom in.
     if (bboxAreaSqDeg(live) > 0.04) {
       setExternalStatus("error");
       return;
@@ -173,17 +203,10 @@ export default function MapClient({ points, initialFilters }: Props) {
       return;
     }
 
-    // Snap to a 0.01° grid (matches the server's KV cache key granularity)
-    // using floor/ceil so the snapped bbox is always a superset of the
-    // viewport. Naive rounding collapsed at high zoom because both edges
-    // could land in the same step bucket.
     const snapped: Bbox = snapBbox(live, 0.01);
-    const types: PointType[] = [];
-    if (filters.aed) types.push("aed");
-    if (filters.toilet) types.push("toilet");
-    const cacheKey = `${types.slice().sort().join("+")}|${snapped.south.toFixed(2)},${snapped.west.toFixed(2)},${snapped.north.toFixed(2)},${snapped.east.toFixed(2)}`;
+    const sortedTypes = activeLayerIds.slice().sort();
+    const cacheKey = `${sortedTypes.join("+")}|${snapped.south.toFixed(2)},${snapped.west.toFixed(2)},${snapped.north.toFixed(2)},${snapped.east.toFixed(2)}`;
     if (fetchedBboxesRef.current.has(cacheKey)) {
-      // Already fetched this snapped bbox; nothing more to do.
       setExternalStatus("idle");
       return;
     }
@@ -193,7 +216,7 @@ export default function MapClient({ points, initialFilters }: Props) {
     try {
       const params = new URLSearchParams({
         bbox: `${snapped.south},${snapped.west},${snapped.north},${snapped.east}`,
-        types: types.join(","),
+        types: sortedTypes.join(","),
       });
       const res = await fetch(`/api/pois?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -202,7 +225,6 @@ export default function MapClient({ points, initialFilters }: Props) {
         const seen = new Set(prev.map((p) => p.id));
         const fresh = body.records.filter((p) => {
           if (seen.has(p.id)) return false;
-          // Drop OSM rows that overlap the bundled Koto dataset.
           if (isInsideBbox(p, KOTO_BBOX)) return false;
           return true;
         });
@@ -210,11 +232,10 @@ export default function MapClient({ points, initialFilters }: Props) {
       });
       setExternalStatus("idle");
     } catch {
-      // Roll back the cache marker so a later pan can retry this region.
       fetchedBboxesRef.current.delete(cacheKey);
       setExternalStatus("error");
     }
-  }, [mapReady, filters.aed, filters.toilet]);
+  }, [mapReady, activeLayerIds]);
 
   // Wire the fetcher to map idle events with a small debounce so rapid
   // panning does not flood /api/pois.
@@ -243,11 +264,12 @@ export default function MapClient({ points, initialFilters }: Props) {
 
     const maplibregl = (await import("maplibre-gl")).default;
 
-    // Remove existing markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
     visiblePoints.forEach((point) => {
+      if (!isLayerId(point.type)) return;
+      const layer = getLayer(point.type);
       const el = document.createElement("div");
       el.className = "map-marker";
       el.setAttribute("role", "button");
@@ -255,28 +277,24 @@ export default function MapClient({ points, initialFilters }: Props) {
         "aria-label",
         `${point.name}${point.source === "osm" ? " (OSM)" : ""}`,
       );
-      // OSM-sourced markers get a hollow ring style so the user can tell at
-      // a glance that they were dynamically fetched and may have less
-      // verified information than the bundled Koto-official rows.
       const isOsm = point.source === "osm";
-      const baseColor = point.type === "aed" ? "#dc2626" : "#2563eb";
       el.style.cssText = `
         width: 28px;
         height: 28px;
         border-radius: 50%;
         border: 2px solid white;
         cursor: pointer;
-        background-color: ${isOsm ? "#ffffff" : baseColor};
-        outline: ${isOsm ? `2px solid ${baseColor}` : "none"};
+        background-color: ${isOsm ? "#ffffff" : layer.color};
+        outline: ${isOsm ? `2px solid ${layer.color}` : "none"};
         display: flex;
         align-items: center;
         justify-content: center;
-        color: ${isOsm ? baseColor : "white"};
+        color: ${isOsm ? layer.color : "white"};
         font-size: 12px;
         font-weight: bold;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       `;
-      el.textContent = point.type === "aed" ? "A" : "T";
+      el.textContent = layer.letter;
       el.addEventListener("click", () => setSelectedPoint(point));
 
       const marker = new maplibregl.Marker({ element: el, anchor: "center" })
@@ -314,8 +332,6 @@ export default function MapClient({ points, initialFilters }: Props) {
         .setLngLat([userLocation.lng, userLocation.lat])
         .addTo(map);
 
-      // Centre on the user a bit further in than the default initial view so
-      // the nearby radius (default 1km) fits comfortably on screen.
       map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15 });
     };
 
@@ -339,7 +355,14 @@ export default function MapClient({ points, initialFilters }: Props) {
     setShowConsentModal(false);
   }
 
-  function toggleFilter<K extends Exclude<keyof MapFilters, "radius">>(key: K) {
+  function toggleLayer(id: LayerId) {
+    setFilters((prev) => ({
+      ...prev,
+      layers: { ...prev.layers, [id]: !prev.layers[id] },
+    }));
+  }
+
+  function toggleAccessibility(key: "barrierFreeOnly" | "twentyFourOnly") {
     setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
@@ -356,17 +379,37 @@ export default function MapClient({ points, initialFilters }: Props) {
     ? `https://www.google.com/maps?q=${selectedPoint.lat},${selectedPoint.lng}`
     : null;
 
+  // Group layers by category for the expanded panel. Each list is a fresh
+  // mutable array so .push() is safe (LAYERS itself is readonly).
+  const groupedLayers = useMemo(() => {
+    const map = new Map<LayerCategory, (typeof LAYERS)[number][]>();
+    for (const l of LAYERS) {
+      const list = map.get(l.category) ?? [];
+      list.push(l);
+      map.set(l.category, list);
+    }
+    return Array.from(map.entries());
+  }, []);
+
+  const activeLayerCount = activeLayerIds.length;
+
+  const selectedLayer = selectedPoint && isLayerId(selectedPoint.type)
+    ? getLayer(selectedPoint.type)
+    : null;
+  const selectedHazards = selectedPoint?.hazards
+    ? (Object.entries(selectedPoint.hazards) as [HazardKind, boolean][])
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+    : [];
+
   return (
     <div className="relative w-full h-full">
-      {/* Consent modal */}
       {showConsentModal && (
         <GeolocationConsent onConsent={handleConsentGrant} onDeny={handleConsentDeny} />
       )}
 
-      {/* Map container */}
       <div ref={mapContainerRef} className="w-full h-full" aria-label="地図" />
 
-      {/* Loading / error indicator for the dynamic OSM fetcher */}
       {externalStatus !== "idle" && (
         <div
           aria-live="polite"
@@ -378,33 +421,57 @@ export default function MapClient({ points, initialFilters }: Props) {
         </div>
       )}
 
-      {/* Filter bar */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-1.5 items-center max-w-xs sm:max-w-none">
-        <div className="bg-white rounded-full shadow px-3 py-1.5 flex gap-2 flex-wrap justify-center">
-          <FilterButton
-            active={filters.aed}
-            label="AED"
-            color="bg-red-600"
-            onClick={() => toggleFilter("aed")}
-          />
-          <FilterButton
-            active={filters.toilet}
-            label="トイレ"
-            color="bg-blue-600"
-            onClick={() => toggleFilter("toilet")}
-          />
-          <FilterButton
-            active={filters.barrierFreeOnly}
-            label="バリアフリー"
-            color="bg-green-600"
-            onClick={() => toggleFilter("barrierFreeOnly")}
-          />
-          <FilterButton
-            active={filters.twentyFourOnly}
-            label="24h"
-            color="bg-orange-500"
-            onClick={() => toggleFilter("twentyFourOnly")}
-          />
+      {/* Layer panel */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-1.5 items-center max-w-[min(95vw,32rem)]">
+        <div className="bg-white rounded-xl shadow border border-slate-200">
+          <button
+            type="button"
+            onClick={() => setLayerPanelOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 px-3 py-2 text-sm text-slate-700"
+            // eslint-disable-next-line jsx-a11y/aria-proptypes
+            aria-expanded={layerPanelOpen ? "true" : "false"}
+          >
+            <span className="font-medium">レイヤ</span>
+            <span className="text-xs text-slate-500">
+              {activeLayerCount > 0 ? `${activeLayerCount} 件 ON` : "全 OFF"}
+            </span>
+            <span aria-hidden="true" className="text-slate-400 text-xs">
+              {layerPanelOpen ? "▲" : "▼"}
+            </span>
+          </button>
+          {layerPanelOpen && (
+            <div className="px-3 pb-3 pt-0 space-y-3 border-t border-slate-100">
+              {groupedLayers.map(([category, layers]) => (
+                <fieldset key={category} className="space-y-1.5">
+                  <legend className="text-xs font-semibold text-slate-500">
+                    {CATEGORY_LABELS[category]}
+                  </legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    {layers.map((l) => (
+                      <LayerChip
+                        key={l.id}
+                        layer={l}
+                        active={filters.layers[l.id] === true}
+                        onClick={() => toggleLayer(l.id)}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
+              <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5">
+                <FilterChip
+                  active={filters.barrierFreeOnly}
+                  label="バリアフリー"
+                  onClick={() => toggleAccessibility("barrierFreeOnly")}
+                />
+                <FilterChip
+                  active={filters.twentyFourOnly}
+                  label="24h"
+                  onClick={() => toggleAccessibility("twentyFourOnly")}
+                />
+              </div>
+            </div>
+          )}
         </div>
         {userLocation !== null && (
           <div
@@ -418,7 +485,6 @@ export default function MapClient({ points, initialFilters }: Props) {
                 key={String(opt.value)}
                 type="button"
                 onClick={() => setRadius(opt.value)}
-                // IDE jsx-a11y rule misreads expression form; build lint passes.
                 // eslint-disable-next-line jsx-a11y/aria-proptypes
                 aria-pressed={filters.radius === opt.value}
                 className={`text-xs px-3 py-1 rounded-full border transition-colors ${
@@ -444,59 +510,62 @@ export default function MapClient({ points, initialFilters }: Props) {
             周辺リスト ({nearbyList.length} 件)
           </header>
           <ul className="flex-1 overflow-y-auto divide-y divide-gray-100">
-            {nearbyList.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => focusPoint(p)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-                      p.type === "aed" ? "bg-red-600" : "bg-blue-600"
-                    }`}
-                  />
-                  <span className="flex-1 min-w-0">
-                    <span className="block truncate">{p.name}</span>
-                    <span className="block text-xs text-gray-500">
-                      {formatDistance(p.distance)}
+            {nearbyList.map((p) => {
+              const layer = isLayerId(p.type) ? getLayer(p.type) : null;
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => focusPoint(p)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: layer?.color ?? "#64748b" }}
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span className="block truncate">{p.name}</span>
+                      <span className="block text-xs text-gray-500">
+                        {formatDistance(p.distance)}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              </li>
-            ))}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </aside>
       )}
 
       {/* Detail panel */}
-      {selectedPoint && (
+      {selectedPoint && selectedLayer && (
         <div
           role="dialog"
           aria-modal="false"
           aria-labelledby="detail-title"
-          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-xl shadow-lg p-4 z-10 max-h-72 overflow-y-auto"
+          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-xl shadow-lg p-4 z-10 max-h-[60vh] overflow-y-auto"
         >
           <div className="flex items-start justify-between gap-2">
             <div>
               <div className="flex flex-wrap gap-1 mb-1">
                 <span
-                  className={`inline-block text-xs px-2 py-0.5 rounded-full text-white ${
-                    selectedPoint.type === "aed" ? "bg-red-600" : "bg-blue-600"
-                  }`}
+                  className="inline-block text-xs px-2 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: selectedLayer.color }}
                 >
-                  {selectedPoint.type === "aed" ? "AED" : "公衆トイレ"}
+                  {selectedLayer.label}
                 </span>
-                <span
-                  className={`inline-block text-xs px-2 py-0.5 rounded-full ${
-                    selectedPoint.source === "osm"
-                      ? "bg-amber-100 text-amber-800 border border-amber-300"
-                      : "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  }`}
-                >
-                  {selectedPoint.source === "osm" ? "OSM" : "江東区公式"}
-                </span>
+                {selectedPoint.source && (
+                  <span
+                    className={`inline-block text-xs px-2 py-0.5 rounded-full border ${
+                      selectedPoint.source === "osm"
+                        ? "bg-amber-100 text-amber-800 border-amber-300"
+                        : "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    }`}
+                  >
+                    {SOURCE_LABELS[selectedPoint.source]}
+                  </span>
+                )}
               </div>
               <h2 id="detail-title" className="text-base font-semibold">
                 {selectedPoint.name}
@@ -525,38 +594,59 @@ export default function MapClient({ points, initialFilters }: Props) {
             </p>
           )}
 
-          {selectedPoint.type === "aed" && (
-            <>
-              {selectedPoint.detail && (
-                <p className="text-sm text-gray-600 mt-1">
-                  <span className="font-medium">設置場所:</span> {selectedPoint.detail}
-                </p>
-              )}
-              {selectedPoint.hours && (
-                <p className="text-sm text-gray-600 mt-1">
-                  <span className="font-medium">利用可能時間:</span> {selectedPoint.hours}
-                </p>
-              )}
-              {selectedPoint.phone && (
-                <p className="text-sm text-gray-600 mt-1">
-                  <span className="font-medium">電話:</span> {selectedPoint.phone}
-                </p>
-              )}
-              {/* Safety notice — fixed text per plan S8 */}
-              <p className="mt-2 text-sm font-semibold text-red-700 bg-red-50 rounded px-3 py-2">
-                緊急時は119番への通報を最優先にしてください。
-              </p>
-            </>
+          {selectedPoint.detail && (
+            <p className="text-sm text-gray-600 mt-2">
+              <span className="font-medium">詳細:</span> {selectedPoint.detail}
+            </p>
+          )}
+          {selectedPoint.hours && (
+            <p className="text-sm text-gray-600 mt-1">
+              <span className="font-medium">利用可能時間:</span> {selectedPoint.hours}
+            </p>
+          )}
+          {selectedPoint.phone && (
+            <p className="text-sm text-gray-600 mt-1">
+              <span className="font-medium">電話:</span> {selectedPoint.phone}
+            </p>
           )}
 
-          {selectedPoint.type === "toilet" && selectedPoint.accessibility && (
+          {selectedHazards.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-slate-600 mb-1">
+                対応災害種別
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {selectedHazards.map((h) => (
+                  <span
+                    key={h}
+                    className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300"
+                  >
+                    {HAZARD_LABELS[h]}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedPoint.accessibility && (
             <div className="flex gap-2 mt-2 flex-wrap">
               <AccessBadge
                 label="バリアフリー"
                 active={selectedPoint.accessibility.barrier_free}
               />
-              <AccessBadge label="24時間" active={selectedPoint.accessibility.twenty_four_hour} />
+              {selectedPoint.type !== "shelter" && (
+                <AccessBadge
+                  label="24時間"
+                  active={selectedPoint.accessibility.twenty_four_hour}
+                />
+              )}
             </div>
+          )}
+
+          {selectedPoint.type === "aed" && (
+            <p className="mt-2 text-sm font-semibold text-red-700 bg-red-50 rounded px-3 py-2">
+              緊急時は119番への通報を最優先にしてください。
+            </p>
           )}
 
           {selectedPoint.note && (
@@ -579,28 +669,70 @@ export default function MapClient({ points, initialFilters }: Props) {
   );
 }
 
-function FilterButton({
+function LayerChip({
+  layer,
   active,
-  label,
-  color,
   onClick,
 }: {
+  layer: (typeof LAYERS)[number];
   active: boolean;
-  label: string;
-  color: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      // IDE jsx-a11y rule misreads expression form; build lint passes.
+      // eslint-disable-next-line jsx-a11y/aria-proptypes
+      aria-pressed={active ? "true" : "false"}
+      className="text-xs px-3 py-1 rounded-full border transition-colors flex items-center gap-1.5"
+      style={
+        active
+          ? {
+              backgroundColor: layer.color,
+              color: "white",
+              borderColor: "transparent",
+            }
+          : {
+              backgroundColor: "white",
+              color: "#475569",
+              borderColor: "#cbd5e1",
+            }
+      }
+    >
+      <span
+        aria-hidden="true"
+        className="inline-block w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center"
+        style={{
+          backgroundColor: active ? "rgba(255,255,255,0.3)" : layer.color,
+          color: "white",
+        }}
+      >
+        {layer.letter}
+      </span>
+      {layer.shortLabel}
+    </button>
+  );
+}
+
+function FilterChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
       // eslint-disable-next-line jsx-a11y/aria-proptypes
       aria-pressed={active ? "true" : "false"}
       className={`text-xs px-3 py-1 rounded-full border transition-colors ${
         active
-          ? `${color} text-white border-transparent`
-          : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+          ? "bg-slate-700 text-white border-transparent"
+          : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
       }`}
     >
       {label}

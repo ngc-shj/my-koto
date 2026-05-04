@@ -1,20 +1,57 @@
 import type { Metadata } from "next";
-import { parseAedData, parseToiletData } from "@/lib/map/validate";
+import {
+  parseAedData,
+  parseAssemblyPointData,
+  parseKotoFacilityData,
+  parseShelterData,
+  parseToiletData,
+  parseWaterSupplyData,
+} from "@/lib/map/validate";
+import {
+  LAYER_IDS,
+  isLayerId,
+  type LayerId,
+} from "@/lib/map/registry";
+import type { MapFilters } from "@/lib/map/types";
 import { MAP_TILE } from "@/config/map";
 import MapClient from "./MapClient";
 import BackToHome from "@/components/BackToHome";
 import ShareButton from "@/components/ShareButton";
 import aedRaw from "@/data/aed.json";
 import toiletRaw from "@/data/toilet.json";
+import shelterRaw from "@/data/shelter.json";
+import assemblyPointRaw from "@/data/assembly_point.json";
+import waterSupplyRaw from "@/data/water_supply.json";
+import parkRaw from "@/data/park.json";
+import libraryRaw from "@/data/library.json";
+import childCenterRaw from "@/data/child_center.json";
+import nurseryRaw from "@/data/nursery.json";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
 export const metadata: Metadata = {
-  title: "AED・公衆トイレマップ | My こうとう (非公式)",
-  description: "江東区内のAED設置場所と公衆トイレを地図で確認できます。",
+  title: "区民マップ (AED・トイレ・防災) | My こうとう (非公式)",
+  description:
+    "江東区内の AED・公衆トイレ・避難所・避難場所・給水拠点を地図で確認できます。",
 };
 
-type SearchParams = { type?: string };
+// `?layers=aed,toilet` (legacy `?type=aed,toilet` also accepted) narrows the
+// visible layers to a specific subset. When the parameter is omitted we
+// enable every registered layer so first-time visitors see what the map
+// covers without having to expand the toggle panel; explicit URLs keep
+// their narrower behaviour for bookmarks coming in from /gomi → AED quick
+// links etc.
+type SearchParams = { layers?: string; type?: string };
+
+function parseLayersParam(raw: string | undefined): LayerId[] {
+  if (!raw) return [...LAYER_IDS];
+  const out: LayerId[] = [];
+  for (const part of raw.split(",")) {
+    const t = part.trim();
+    if (isLayerId(t) && !out.includes(t)) out.push(t);
+  }
+  return out.length === 0 ? [...LAYER_IDS] : out;
+}
 
 export default async function MapPage({
   searchParams,
@@ -22,21 +59,29 @@ export default async function MapPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const typeParam = params.type ?? "aed,toilet";
-  const activeTypes = typeParam.split(",").map((t) => t.trim());
+  const activeTypes = parseLayersParam(params.layers ?? params.type);
 
-  const aedPoints = parseAedData(aedRaw);
-  const toiletPoints = parseToiletData(toiletRaw);
-  const allPoints = [...aedPoints, ...toiletPoints];
+  const allPoints = [
+    ...parseAedData(aedRaw),
+    ...parseToiletData(toiletRaw),
+    ...parseShelterData(shelterRaw),
+    ...parseAssemblyPointData(assemblyPointRaw),
+    ...parseWaterSupplyData(waterSupplyRaw),
+    ...parseKotoFacilityData("park", parkRaw),
+    ...parseKotoFacilityData("library", libraryRaw),
+    ...parseKotoFacilityData("child_center", childCenterRaw),
+    ...parseKotoFacilityData("nursery", nurseryRaw),
+  ];
 
-  const initialFilters = {
-    aed: activeTypes.includes("aed"),
-    toilet: activeTypes.includes("toilet"),
+  const layers: Partial<Record<LayerId, boolean>> = {};
+  for (const id of LAYER_IDS) {
+    layers[id] = activeTypes.includes(id);
+  }
+  const initialFilters: MapFilters = {
+    layers,
     barrierFreeOnly: false,
     twentyFourOnly: false,
-    // Radius applies only after geolocation consent. Default 1km is a
-    // reasonable walking-distance scope for AED/toilet finding.
-    radius: 1000 as const,
+    radius: 1000,
   };
 
   return (
@@ -45,9 +90,9 @@ export default async function MapPage({
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
             <BackToHome />
-            <h1 className="text-lg font-semibold text-slate-700">AED・公衆トイレマップ</h1>
+            <h1 className="text-lg font-semibold text-slate-700">区民マップ</h1>
           </div>
-          <ShareButton title="AED・公衆トイレマップ" url={`${SITE_URL}/map`} />
+          <ShareButton title="区民マップ" url={`${SITE_URL}/map`} />
         </div>
         <p className="text-xs text-gray-500 mt-0.5">
           地図:{" "}
@@ -59,7 +104,7 @@ export default async function MapPage({
           >
             {MAP_TILE.attribution}
           </a>
-          {" / "}施設データ: 江東区 (CC-BY 4.0) +{" "}
+          {" / "}施設データ: 江東区・東京都 (CC-BY 4.0) +{" "}
           <a
             href="https://www.openstreetmap.org/copyright"
             target="_blank"
