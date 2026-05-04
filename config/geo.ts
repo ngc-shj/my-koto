@@ -60,16 +60,18 @@ export function bboxAreaSqDeg(b: Bbox): number {
   return Math.max(0, b.north - b.south) * Math.max(0, b.east - b.west);
 }
 
-// Rounds bbox edges to a grid so callers requesting roughly the same view
+// Snap bbox edges to a grid so callers requesting roughly the same view
 // share KV cache entries. Default precision is 0.01 degrees ≈ 1.1 km in
-// latitude — coarse enough for cache locality, fine enough that nearby
-// queries do not snap to a single bucket.
+// latitude — coarse enough for cache locality, fine enough that adjacent
+// pans recompute. South/west floor and north/east ceil so the snapped box
+// always SUPERSETS the original (never collapses to zero area, which would
+// happen with a naive Math.round when both edges share a step bucket — the
+// classic failure mode at zoom 14+ where the viewport spans < step).
 export function snapBbox(b: Bbox, step = 0.01): Bbox {
-  const round = (n: number) => Math.round(n / step) * step;
   return {
-    south: round(b.south),
-    west: round(b.west),
-    north: round(b.north),
-    east: round(b.east),
+    south: Math.floor(b.south / step) * step,
+    west: Math.floor(b.west / step) * step,
+    north: Math.ceil(b.north / step) * step,
+    east: Math.ceil(b.east / step) * step,
   };
 }

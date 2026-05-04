@@ -16,6 +16,7 @@ import {
   bboxAreaSqDeg,
   isBboxInside,
   isInsideBbox,
+  snapBbox,
   type Bbox,
 } from "@/config/geo";
 
@@ -172,14 +173,11 @@ export default function MapClient({ points, initialFilters }: Props) {
       return;
     }
 
-    const step = 0.02;
-    const round = (n: number) => Math.round(n / step) * step;
-    const snapped: Bbox = {
-      south: round(live.south),
-      west: round(live.west),
-      north: round(live.north),
-      east: round(live.east),
-    };
+    // Snap to a 0.01° grid (matches the server's KV cache key granularity)
+    // using floor/ceil so the snapped bbox is always a superset of the
+    // viewport. Naive rounding collapsed at high zoom because both edges
+    // could land in the same step bucket.
+    const snapped: Bbox = snapBbox(live, 0.01);
     const types: PointType[] = [];
     if (filters.aed) types.push("aed");
     if (filters.toilet) types.push("toilet");
