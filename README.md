@@ -11,16 +11,21 @@
   地区検索、月次/週次/当日・翌日ビュー、`webcal://` 購読 (UA 判定で iOS は webcal、他は https)
 - **ゴミ品目検索** — wanakana を使った NFKC + ひら↔カナ + ローマ字 双方向の正規化検索。
   「ペットボトル」「ぺっとぼとる」「PET」「ﾍﾟｯﾄﾎﾞﾄﾙ」が同一結果
-- **区民マップ (5 レイヤ)** — AED (246) / 公衆トイレ (191) は江東区公式、避難所 (193) /
-  避難場所 (12, 8 種ハザード対応フラグ付) / 給水拠点 (6) は東京都公式。レイヤ抽象 (`lib/map/registry.ts`)
-  により同一の toggle UI / マーカー描画 / OSM Overpass フォールバック経路を共有。
-  地図を区外にパンすると Overpass から動的補完 (Tokyo 23 区内、bbox/area サーバ clamp、
-  KV キャッシュ、30 req/min/IP)。江東区内は OSM 由来を除外して同梱データを優先
+- **区民マップ (9 レイヤ)** — AED (246) / 公衆トイレ (191) は江東区公式、避難所 (193) /
+  避難場所 (12, 8 種ハザード対応フラグ付) / 給水拠点 (6) は東京都公式、
+  公園 (171) / 図書館 (12) / 児童館 (18) / 区立保育園 (43) は江東区公式。
+  レイヤ抽象 (`lib/map/registry.ts`) により同一の toggle UI / マーカー描画 /
+  OSM Overpass フォールバック経路を共有。地図を区外にパンすると Overpass から
+  動的補完 (Tokyo 23 区内、bbox/area サーバ clamp、KV キャッシュ、30 req/min/IP)。
+  江東区内は OSM 由来を除外して同梱データを優先
 - **イベントカレンダー + ICS** — `ical-generator` + `@touch4it/ical-timezones` で VTIMEZONE
   同梱、`STATUS:CANCELLED`、全テキストフィールドのエスケープ、URL は https only
 - **天気** — Open-Meteo を Edge proxy で取得、Vercel KV に stale-if-error キャッシュ、
   60 req/min/IP のレート制限、SSRF ハードニング (GET 限定 / redirect:'manual' / Zod 検証 /
   ヘッダ strip)
+- **WBGT (暑さ指数)** — 環境省 熱中症予防情報サイトの予測 CSV (東京観測所 44132)
+  を Edge proxy で取得・パース。注意 / 警戒 / 厳重警戒 / 危険のバンドで色分けし
+  6 時点先まで `/weather` に表示。30 分 KV キャッシュ + stale-if-error
 - **PWA** — Service Worker (build ID 付き cache name)、機内モードで `/offline`、
   Vercel preview では manifest を 404 にして本番との混同を防止
 - **プッシュ通知 (Web Push)** — 翌日のごみ収集を前日の指定時刻 (JST 18-22 時)
@@ -40,6 +45,7 @@
 | 給水拠点 | 東京都水道局 ([給水拠点一覧](https://catalog.data.metro.tokyo.lg.jp/dataset/t000019d0000000001)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
 | 23 区内マップレイヤ補完データ | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
 | 天気予報 | [Open-Meteo](https://open-meteo.com) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
+| WBGT (暑さ指数) | [環境省 熱中症予防情報サイト](https://www.wbgt.env.go.jp/) | [出典明示の上で利用可](https://www.wbgt.env.go.jp/sp/index_pre.php) |
 | 地図タイル | [国土地理院 標準地図](https://maps.gsi.go.jp/development/ichiran.html) | 国土地理院コンテンツ利用規約 |
 
 本サービスは上記オープンデータを一部加工して利用しています。
@@ -66,7 +72,7 @@ fetch する CSV は以下の URI です。Tokyo Met dataset (避難所・避難
 | 天気予報 | `https://api.open-meteo.com/v1/forecast` |
 | 地図タイル (国土地理院) | `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` |
 | OSM 補完 (Overpass) | `https://overpass-api.de/api/interpreter` |
-| WBGT 観測 (環境省) | `https://www.wbgt.env.go.jp/` (station 44132) |
+| WBGT 予測 (環境省) | `https://www.wbgt.env.go.jp/prev15WG/dl/yohou_44132.csv` (東京観測所) |
 
 ## 開発環境セットアップ
 
@@ -209,8 +215,7 @@ Sentry / Vercel Analytics 等の観測性ツールを導入する場合は、以
 3. **Lighthouse CI** — Performance/Accessibility/PWA スコアの継続監視
 4. **CSP report-uri / report-to** — 観測性ツール導入と合わせて違反検知を有効化
 5. **PMTiles 経由の GSI ベクトルタイル** — 描画品質向上 (現状はラスター)
-6. **WBGT (暑さ指数)** — 環境省データの日次バッチ取得を `/weather` 画面に統合
-7. **OSM タイル/データの地理範囲拡大** — 23 区から多摩地域・隣接 3 県へ拡大検討
+6. **OSM タイル/データの地理範囲拡大** — 23 区から多摩地域・隣接 3 県へ拡大検討
 
 ## ライセンス
 

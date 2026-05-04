@@ -21,6 +21,15 @@ export const ATTRIBUTIONS: DatasetAttribution[] = [
     modified: false,
   },
   {
+    id: "moe-wbgt",
+    name: "WBGT (暑さ指数) 予測値",
+    copyrightHolder: "環境省 熱中症予防情報サイト",
+    licenseUrl: "https://www.wbgt.env.go.jp/sp/index_pre.php",
+    licenseLabel: "出典明示の上で利用可 (環境省サイト利用規約)",
+    sourceUrl: "https://www.wbgt.env.go.jp/",
+    modified: true,
+  },
+  {
     id: "koto-gomi",
     name: "資源回収・ごみ収集日一覧",
     copyrightHolder: "東京都・江東区",

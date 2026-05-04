@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import BackToHome from "@/components/BackToHome";
 import DataFreshness from "@/components/DataFreshness";
 import ShareButton from "@/components/ShareButton";
+import WbgtPanel from "@/components/WbgtPanel";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -106,18 +107,7 @@ export default function WeatherPage() {
             (CC-BY 4.0) — 江東区中心 (35.6727°N, 139.8175°E) の予報
           </p>
 
-          <p className="text-xs text-gray-400">
-            WBGT（暑さ指数）はフェーズ 2 で対応予定です。当面は{" "}
-            <a
-              href="https://www.wbgt.env.go.jp/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline"
-            >
-              環境省熱中症予防情報サイト
-            </a>{" "}
-            をご確認ください。
-          </p>
+          <WbgtPanel />
         </div>
       )}
     </div>
