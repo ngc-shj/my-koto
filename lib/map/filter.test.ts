@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterPoints } from "./filter";
+import { filterPoints, nearestPoints } from "./filter";
 import type { MapPoint, MapFilters } from "./types";
 
 const aedPoint: MapPoint = {
@@ -38,6 +38,7 @@ const defaultFilters: MapFilters = {
   toilet: true,
   barrierFreeOnly: false,
   twentyFourOnly: false,
+  radius: null,
 };
 
 describe("filterPoints", () => {
@@ -79,5 +80,33 @@ describe("filterPoints", () => {
     const copy = [...allPoints];
     filterPoints(allPoints, { ...defaultFilters, aed: false });
     expect(allPoints).toEqual(copy);
+  });
+
+  it("filters by radius when reference point is given", () => {
+    const ref = { lat: 35.675, lng: 139.817 }; // ≈ aedPoint
+    // 500m radius — only aedPoint and toiletNoAccess (≈770m & 940m far in this fixture)
+    const within500 = filterPoints(allPoints, { ...defaultFilters, radius: 500 }, { referencePoint: ref });
+    expect(within500.map((p) => p.id)).toContain("aed-0");
+    // toiletBarrierFree24h is ~3km north-east, must be filtered out at any tight radius.
+    expect(within500.map((p) => p.id)).not.toContain("toilet-0");
+  });
+
+  it("ignores radius when reference point is missing", () => {
+    const result = filterPoints(allPoints, { ...defaultFilters, radius: 500 });
+    expect(result).toHaveLength(3);
+  });
+});
+
+describe("nearestPoints", () => {
+  it("returns points sorted by distance, capped to limit", () => {
+    const ref = { lat: 35.675, lng: 139.817 };
+    const result = nearestPoints(allPoints, ref, 2);
+    expect(result).toHaveLength(2);
+    // Distances must be ascending.
+    expect(result[0].distance).toBeLessThanOrEqual(result[1].distance);
+    // Distance is annotated as a positive number.
+    for (const p of result) {
+      expect(p.distance).toBeGreaterThanOrEqual(0);
+    }
   });
 });

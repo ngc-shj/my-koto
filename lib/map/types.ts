@@ -18,9 +18,16 @@ export type MapPoint = {
   };
 };
 
+// `null` means no radius limit (show all matched points).
+// Numeric values are radius in meters.
+export type RadiusOption = 500 | 1000 | 2000 | null;
+
 export type MapFilters = {
   aed: boolean;
   toilet: boolean;
   barrierFreeOnly: boolean;
   twentyFourOnly: boolean;
+  // Radius filter is only honoured when a reference location is provided.
+  // If userLocation is null in the calling code, this option is ignored.
+  radius: RadiusOption;
 };

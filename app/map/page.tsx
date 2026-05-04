@@ -34,6 +34,9 @@ export default async function MapPage({
     toilet: activeTypes.includes("toilet"),
     barrierFreeOnly: false,
     twentyFourOnly: false,
+    // Radius applies only after geolocation consent. Default 1km is a
+    // reasonable walking-distance scope for AED/toilet finding.
+    radius: 1000 as const,
   };
 
   return (

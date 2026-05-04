@@ -4,13 +4,24 @@
 // Without this stylesheet the map container collapses and nothing is drawn.
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
-import { filterPoints } from "@/lib/map/filter";
-import { haversineDistance } from "@/lib/distance";
-import type { MapPoint, MapFilters } from "@/lib/map/types";
+import { filterPoints, nearestPoints } from "@/lib/map/filter";
+import type { MapPoint, MapFilters, RadiusOption } from "@/lib/map/types";
+
+const RADIUS_OPTIONS: { label: string; value: RadiusOption }[] = [
+  { label: "500m", value: 500 },
+  { label: "1km", value: 1000 },
+  { label: "2km", value: 2000 },
+  { label: "全件", value: null },
+];
+
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
 
 // GSI raster style — single tile source, no per-feature layers needed.
 const GSI_STYLE = {
@@ -88,7 +99,19 @@ export default function MapClient({ points, initialFilters }: Props) {
     };
   }, []);
 
-  // Render markers when map is ready or filters/location change
+  // Apply radius + type filters once per dependency change. Memoise so the
+  // marker rendering effect and the nearby-list panel share the same view.
+  const visiblePoints = useMemo(
+    () => filterPoints(points, filters, { referencePoint: userLocation }),
+    [points, filters, userLocation],
+  );
+
+  const nearbyList = useMemo(() => {
+    if (userLocation === null) return [];
+    return nearestPoints(visiblePoints, userLocation, 10);
+  }, [visiblePoints, userLocation]);
+
+  // Render markers when map is ready or visiblePoints change.
   const renderMarkers = useCallback(async () => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -99,18 +122,7 @@ export default function MapClient({ points, initialFilters }: Props) {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    const filtered = filterPoints(points, filters);
-
-    // Sort by distance from user location if available
-    const sorted =
-      userLocation !== null
-        ? [...filtered].sort(
-            (a, b) =>
-              haversineDistance(userLocation, a) - haversineDistance(userLocation, b)
-          )
-        : filtered;
-
-    sorted.forEach((point) => {
+    visiblePoints.forEach((point) => {
       const el = document.createElement("div");
       el.className = "map-marker";
       el.setAttribute("role", "button");
@@ -138,7 +150,7 @@ export default function MapClient({ points, initialFilters }: Props) {
         .addTo(map);
       markersRef.current.push(marker);
     });
-  }, [points, filters, userLocation, mapReady]);
+  }, [visiblePoints, mapReady]);
 
   useEffect(() => {
     renderMarkers();
@@ -168,7 +180,9 @@ export default function MapClient({ points, initialFilters }: Props) {
         .setLngLat([userLocation.lng, userLocation.lat])
         .addTo(map);
 
-      map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 14 });
+      // Centre on the user a bit further in than the default initial view so
+      // the nearby radius (default 1km) fits comfortably on screen.
+      map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15 });
     };
 
     initUserMarker();
@@ -191,8 +205,17 @@ export default function MapClient({ points, initialFilters }: Props) {
     setShowConsentModal(false);
   }
 
-  function toggleFilter<K extends keyof MapFilters>(key: K) {
+  function toggleFilter<K extends Exclude<keyof MapFilters, "radius">>(key: K) {
     setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function setRadius(radius: RadiusOption) {
+    setFilters((prev) => ({ ...prev, radius }));
+  }
+
+  function focusPoint(point: MapPoint) {
+    setSelectedPoint(point);
+    mapRef.current?.flyTo({ center: [point.lng, point.lat], zoom: 17 });
   }
 
   const googleMapsUrl = selectedPoint
@@ -210,32 +233,94 @@ export default function MapClient({ points, initialFilters }: Props) {
       <div ref={mapContainerRef} className="w-full h-full" aria-label="地図" />
 
       {/* Filter bar */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-white rounded-full shadow px-3 py-1.5 flex gap-2 flex-wrap justify-center max-w-xs sm:max-w-none">
-        <FilterButton
-          active={filters.aed}
-          label="AED"
-          color="bg-red-600"
-          onClick={() => toggleFilter("aed")}
-        />
-        <FilterButton
-          active={filters.toilet}
-          label="トイレ"
-          color="bg-blue-600"
-          onClick={() => toggleFilter("toilet")}
-        />
-        <FilterButton
-          active={filters.barrierFreeOnly}
-          label="バリアフリー"
-          color="bg-green-600"
-          onClick={() => toggleFilter("barrierFreeOnly")}
-        />
-        <FilterButton
-          active={filters.twentyFourOnly}
-          label="24h"
-          color="bg-orange-500"
-          onClick={() => toggleFilter("twentyFourOnly")}
-        />
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-1.5 items-center max-w-xs sm:max-w-none">
+        <div className="bg-white rounded-full shadow px-3 py-1.5 flex gap-2 flex-wrap justify-center">
+          <FilterButton
+            active={filters.aed}
+            label="AED"
+            color="bg-red-600"
+            onClick={() => toggleFilter("aed")}
+          />
+          <FilterButton
+            active={filters.toilet}
+            label="トイレ"
+            color="bg-blue-600"
+            onClick={() => toggleFilter("toilet")}
+          />
+          <FilterButton
+            active={filters.barrierFreeOnly}
+            label="バリアフリー"
+            color="bg-green-600"
+            onClick={() => toggleFilter("barrierFreeOnly")}
+          />
+          <FilterButton
+            active={filters.twentyFourOnly}
+            label="24h"
+            color="bg-orange-500"
+            onClick={() => toggleFilter("twentyFourOnly")}
+          />
+        </div>
+        {userLocation !== null && (
+          <div
+            className="bg-white rounded-full shadow px-3 py-1.5 flex gap-2 flex-wrap justify-center items-center"
+            role="group"
+            aria-label="現在地からの距離で絞り込み"
+          >
+            <span className="text-xs text-gray-600 mr-1">表示範囲</span>
+            {RADIUS_OPTIONS.map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => setRadius(opt.value)}
+                aria-pressed={filters.radius === opt.value}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                  filters.radius === opt.value
+                    ? "bg-slate-700 text-white border-transparent"
+                    : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Nearby list panel */}
+      {userLocation !== null && nearbyList.length > 0 && !selectedPoint && (
+        <aside
+          aria-label="現在地から近い順のリスト"
+          className="absolute bottom-3 right-3 z-10 w-64 max-h-[40vh] bg-white rounded-xl shadow-lg overflow-hidden flex flex-col"
+        >
+          <header className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700">
+            周辺リスト ({nearbyList.length} 件)
+          </header>
+          <ul className="flex-1 overflow-y-auto divide-y divide-gray-100">
+            {nearbyList.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => focusPoint(p)}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                      p.type === "aed" ? "bg-red-600" : "bg-blue-600"
+                    }`}
+                  />
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate">{p.name}</span>
+                    <span className="block text-xs text-gray-500">
+                      {formatDistance(p.distance)}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
 
       {/* Detail panel */}
       {selectedPoint && (
