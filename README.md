@@ -29,7 +29,12 @@
   から `/api/push/dispatch` を叩く方式 (Vercel Hobby は cron が日次までのため)
 - **CSP** — 本番は `script-src 'self' 'nonce-XXX' 'strict-dynamic'` (unsafe-eval/inline なし)。
   middleware で nonce を生成 (`crypto.getRandomValues`、128bit Base64URL)。
-  HSTS / COOP / CORP / Permissions-Policy 全て付与
+  HSTS / COOP / CORP / Permissions-Policy 全て付与。`report-to` + `report-uri`
+  で違反を `/api/csp-report` に集約 (URL クエリ削除・UA はブラウザ名のみに正規化、
+  Vercel KV LIST 直近 50 件保持)
+- **観測性ダッシュボード `/status`** — 各データセットの最終更新時刻 (mtime)、
+  Push 配信 cron の直近実行サマリ (試行/成功/失効/失敗の件数)、CSP
+  違反レポートの直近 50 件を 1 ページに集約。運用者向け、ユーザ向けナビ非掲載
 
 ## データソース・ライセンス
 
@@ -207,7 +212,8 @@ Sentry / Vercel Analytics 等の観測性ツールを導入する場合は、以
 2. **PR 単位の test/lint workflow CI** — 現状 `data-sync` のみ MVP。フェーズ 2 で
    GitHub Actions に Vitest / lint / build / `npm audit` を追加
 3. **Lighthouse CI** — Performance/Accessibility/PWA スコアの継続監視
-4. **CSP report-uri / report-to** — 観測性ツール導入と合わせて違反検知を有効化
+4. ~~**CSP report-uri / report-to** — 観測性ツール導入と合わせて違反検知を有効化~~
+   → `/api/csp-report` + `/status` で対応済
 5. **PMTiles 経由の GSI ベクトルタイル** — 描画品質向上 (現状はラスター)
 6. **WBGT (暑さ指数)** — 環境省データの日次バッチ取得を `/weather` 画面に統合
 7. **OSM タイル/データの地理範囲拡大** — 23 区から多摩地域・隣接 3 県へ拡大検討
