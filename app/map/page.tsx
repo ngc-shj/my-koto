@@ -16,6 +16,7 @@ import type { MapFilters } from "@/lib/map/types";
 import { MAP_TILE } from "@/config/map";
 import MapClient from "./MapClient";
 import BackToHome from "@/components/BackToHome";
+import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import aedRaw from "@/data/aed.json";
 import toiletRaw from "@/data/toilet.json";
@@ -90,7 +91,9 @@ export default async function MapPage({
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
             <BackToHome />
-            <h1 className="text-lg font-semibold text-slate-700">区民マップ</h1>
+            <h1 className="text-lg font-semibold text-slate-700">
+              <KanjiText text="区民マップ" />
+            </h1>
           </div>
           <ShareButton title="区民マップ" url={`${SITE_URL}/map`} />
         </div>

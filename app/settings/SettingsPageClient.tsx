@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import A11ySettings from "@/components/A11ySettings";
 import ProfileManager from "@/components/ProfileManager";
 import PushOptIn from "@/components/PushOptIn";
 import { clearAllStorage } from "@/config/storage";
@@ -33,13 +34,15 @@ export default function SettingsPageClient() {
 
       <PushOptIn districtId={activeDistrictId} />
 
+      <A11ySettings />
+
       <section className="space-y-3 border-t border-gray-200 pt-6">
         <h2 className="text-lg font-semibold text-gray-800">プライバシー</h2>
         <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
           <li>このサイトは Cookie を使用しません。</li>
           <li>
-            設定（プロファイル・表示テーマ）はお使いのデバイスの LocalStorage
-            にのみ保存されます。
+            設定（プロファイル・表示テーマ・ふりがな表示）はお使いのデバイスの
+            LocalStorage にのみ保存されます。
           </li>
           <li>行動追跡・外部サービスへのデータ送信は行いません。</li>
         </ul>

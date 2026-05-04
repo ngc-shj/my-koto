@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import districts from "@/data/districts.json";
+import { Furigana, KanjiText, useFuriganaEnabled } from "@/components/Furigana";
 import type { District } from "@/lib/gomi/types";
 import { AREA_LABELS } from "@/lib/gomi/types";
 import { normalize } from "@/lib/search/normalize";
@@ -44,6 +45,10 @@ export default function DistrictSelector({
 }: Props) {
   const [selected, setSelected] = useState<string>(initialDistrictId ?? "");
   const [query, setQuery] = useState("");
+  // Toggle the secondary reading line: when furigana is enabled, the ruby
+  // attached to the label already conveys the yomigana, so the subtitle
+  // would just repeat it.
+  const furiganaEnabled = useFuriganaEnabled();
 
   // Re-seed selection from the prop each time the modal opens, so the
   // picker reflects whichever profile (or none) the caller is editing.
@@ -132,7 +137,7 @@ export default function DistrictSelector({
               <section key={group.area ?? "unknown"}>
                 {group.area && (
                   <div className="px-4 py-1.5 bg-gray-50 text-xs font-semibold text-gray-600 sticky top-0">
-                    {AREA_LABELS[group.area]}
+                    <KanjiText text={AREA_LABELS[group.area]} />
                   </div>
                 )}
                 {group.items.map((d) => (
@@ -147,8 +152,10 @@ export default function DistrictSelector({
                         : "hover:bg-gray-50 text-gray-800",
                     ].join(" ")}
                   >
-                    <span>{d.label}</span>
-                    {d.reading && (
+                    <span>
+                      <Furigana text={d.label} reading={d.reading} />
+                    </span>
+                    {d.reading && !furiganaEnabled && (
                       <span className="text-xs text-gray-500">{d.reading}</span>
                     )}
                   </button>

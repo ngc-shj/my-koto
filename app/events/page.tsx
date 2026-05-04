@@ -5,6 +5,7 @@ import { toEvent, filterUpcoming } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
 import Attribution from "@/components/Attribution";
 import BackToHome from "@/components/BackToHome";
+import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import EventsClient from "./EventsClient";
 
@@ -27,10 +28,14 @@ export default function EventsPage() {
     <main className="max-w-4xl mx-auto px-4 py-8">
       <BackToHome />
       <div className="flex items-start justify-between gap-4 mb-2">
-        <h1 className="text-2xl font-bold">イベントカレンダー</h1>
+        <h1 className="text-2xl font-bold">
+          <KanjiText text="イベントカレンダー" />
+        </h1>
         <ShareButton title="イベントカレンダー" url={`${SITE_URL}/events`} />
       </div>
-      <p className="text-sm text-gray-600 mb-6">直近 90 日のイベント情報</p>
+      <p className="text-sm text-gray-600 mb-6">
+        <KanjiText text="直近 90 日のイベント情報" />
+      </p>
 
       <EventsClient events={upcomingEvents} />
 

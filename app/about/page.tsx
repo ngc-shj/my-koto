@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import BackToHome from "@/components/BackToHome";
+import { KanjiAuto } from "@/components/Furigana";
 import { ATTRIBUTIONS } from "@/config/attribution";
 import { messages } from "@/lib/i18n/messages";
 
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
+    <KanjiAuto>
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       <BackToHome />
       <h1 className="text-2xl font-bold">{messages.about.heading}</h1>
@@ -83,5 +85,6 @@ export default function AboutPage() {
         </p>
       </section>
     </div>
+    </KanjiAuto>
   );
 }

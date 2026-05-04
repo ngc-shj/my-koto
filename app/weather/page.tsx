@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import BackToHome from "@/components/BackToHome";
 import DataFreshness from "@/components/DataFreshness";
+import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import WbgtPanel from "@/components/WbgtPanel";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
@@ -36,7 +37,9 @@ export default function WeatherPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       <BackToHome />
       <div className="flex items-start justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-slate-700">天気（江東区）</h1>
+        <h1 className="text-2xl font-bold text-slate-700">
+          <KanjiText text="天気（江東区）" />
+        </h1>
         <ShareButton title="天気（江東区）" url={`${SITE_URL}/weather`} />
       </div>
 
@@ -46,7 +49,7 @@ export default function WeatherPage() {
 
       {state.status === "error" && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-700">
-          天気情報を取得できませんでした。しばらく後でお試しください。
+          <KanjiText text="天気情報を取得できませんでした。しばらく後でお試しください。" />
         </div>
       )}
 
@@ -58,7 +61,9 @@ export default function WeatherPage() {
 
           {state.data.daily ? (
             <section>
-              <h2 className="text-lg font-semibold text-gray-800 mb-3">当日・翌日の予報</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">
+                <KanjiText text="当日・翌日の予報" />
+              </h2>
               <div className="space-y-3">
                 {state.data.daily.time.slice(0, 2).map((date, i) => {
                   const daily = state.data.daily!;
@@ -72,15 +77,21 @@ export default function WeatherPage() {
                     >
                       <div className="font-semibold text-gray-700 mb-2">{date}</div>
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                        <dt className="text-gray-500">最高気温</dt>
+                        <dt className="text-gray-500">
+                          <KanjiText text="最高気温" />
+                        </dt>
                         <dd className="font-medium text-red-600">
                           {maxTemp != null ? `${maxTemp}°C` : "—"}
                         </dd>
-                        <dt className="text-gray-500">最低気温</dt>
+                        <dt className="text-gray-500">
+                          <KanjiText text="最低気温" />
+                        </dt>
                         <dd className="font-medium text-blue-600">
                           {minTemp != null ? `${minTemp}°C` : "—"}
                         </dd>
-                        <dt className="text-gray-500">降水確率</dt>
+                        <dt className="text-gray-500">
+                          <KanjiText text="降水確率" />
+                        </dt>
                         <dd className="font-medium">
                           {precip != null ? `${precip}%` : "—"}
                         </dd>
@@ -91,11 +102,13 @@ export default function WeatherPage() {
               </div>
             </section>
           ) : (
-            <p className="text-gray-500">日別予報データなし</p>
+            <p className="text-gray-500">
+              <KanjiText text="日別予報データなし" />
+            </p>
           )}
 
           <p className="text-xs text-gray-400">
-            出典:{" "}
+            <KanjiText text="出典:" />{" "}
             <a
               href="https://open-meteo.com"
               className="underline"
@@ -104,7 +117,8 @@ export default function WeatherPage() {
             >
               Open-Meteo
             </a>{" "}
-            (CC-BY 4.0) — 江東区中心 (35.6727°N, 139.8175°E) の予報
+            (CC-BY 4.0) — <KanjiText text="江東区中心" /> (35.6727°N, 139.8175°E)
+            の<KanjiText text="予報" />
           </p>
 
           <WbgtPanel />

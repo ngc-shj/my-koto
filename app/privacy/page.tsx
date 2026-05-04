@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import BackToHome from "@/components/BackToHome";
+import { KanjiAuto } from "@/components/Furigana";
 import { messages } from "@/lib/i18n/messages";
 
 export const metadata: Metadata = {
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
+    <KanjiAuto>
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       <BackToHome />
       <h1 className="text-2xl font-bold">{messages.privacy.heading}</h1>
@@ -41,7 +43,8 @@ export default function PrivacyPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">LocalStorage の使用</h2>
         <p className="text-gray-700">
-          選択した地区などの設定情報のみ、お使いの端末の LocalStorage に保存します。
+          選択した地区・表示テーマ・ふりがな表示の設定情報のみ、
+          お使いの端末の LocalStorage に保存します。
           個人情報・健康情報・財務情報は保存しません。
         </p>
       </section>
@@ -119,5 +122,6 @@ export default function PrivacyPage() {
         </p>
       </section>
     </div>
+    </KanjiAuto>
   );
 }
