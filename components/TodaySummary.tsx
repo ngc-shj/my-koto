@@ -202,7 +202,7 @@ function GomiSection({
 }) {
   return (
     <section className="px-4 py-3 flex items-start gap-3">
-      <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0 mt-0.5">
+      <span className="text-xs font-medium text-gray-500 w-20 flex-shrink-0 mt-0.5 whitespace-nowrap">
         {label}のごみ
       </span>
       <div className="flex-1 min-w-0">
@@ -235,7 +235,7 @@ function GomiSection({
 function WeatherSection({ state }: { state: WeatherState }) {
   return (
     <section className="px-4 py-3 flex items-start gap-3">
-      <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0 mt-0.5">
+      <span className="text-xs font-medium text-gray-500 w-20 flex-shrink-0 mt-0.5 whitespace-nowrap">
         天気
       </span>
       <div className="flex-1 min-w-0">
@@ -283,7 +283,7 @@ function WbgtSection({ state }: { state: WbgtState }) {
   const band = classifyWbgt(reading.wbgt);
   return (
     <section className="px-4 py-3 flex items-start gap-3">
-      <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0 mt-0.5">
+      <span className="text-xs font-medium text-gray-500 w-20 flex-shrink-0 mt-0.5 whitespace-nowrap">
         暑さ指数
       </span>
       <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
@@ -304,7 +304,7 @@ function EventsSection({ events, today }: { events: Event[]; today: Date }) {
   if (events.length === 0) {
     return (
       <section className="px-4 py-3 flex items-start gap-3">
-        <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0 mt-0.5">
+        <span className="text-xs font-medium text-gray-500 w-20 flex-shrink-0 mt-0.5 whitespace-nowrap">
           イベント
         </span>
         <p className="text-sm text-gray-400">直近の区主催イベントはありません</p>
@@ -313,7 +313,7 @@ function EventsSection({ events, today }: { events: Event[]; today: Date }) {
   }
   return (
     <section className="px-4 py-3 flex items-start gap-3">
-      <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0 mt-0.5">
+      <span className="text-xs font-medium text-gray-500 w-20 flex-shrink-0 mt-0.5 whitespace-nowrap">
         イベント
       </span>
       <ul className="flex-1 min-w-0 space-y-1">
