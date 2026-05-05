@@ -485,6 +485,67 @@ Per R35 Tier-1 (Major) — this PR introduces a new long-running runtime artifac
 - Out of scope: WBGT integration (separate branch `feature/wbgt-integration`), home personalization, ICS download caching, observability metrics for the new caches.
 - **Adjacent follow-up filed (round-1 S9)**: removal of the `data-nonce` attribute from `<html>` in `app/layout.tsx:50` is a pre-existing security concern (per-request nonce should not be readable from any same-origin script). This plan does NOT introduce the leak and does NOT propagate it (C7 reads the nonce from `headers().get("x-nonce")` directly, NOT from `data-nonce`). Tracked as a separate hardening task: `TODO(security-data-nonce-removal): remove data-nonce HTML attribute and update any consumer that reads document.documentElement.dataset.nonce`.
 
+## Implementation Checklist (Phase 2-1)
+
+### Files touched (production)
+
+- `config/cache.ts` — NEW (C0).
+- `lib/api-shared.ts` — modify `jsonResponseHeaders` signature (C1) + `rateLimitResponse` body (C1.1).
+- `app/api/weather/route.ts` — pass `cache` arg to `jsonResponseHeaders` (C2). Build a fresh `no-store` Headers on 502/503 paths.
+- `app/api/pois/route.ts` — pass `cache` arg (C3). Build `no-store` on 400/502.
+- `app/map/MapClient.tsx` — `.toFixed(2)` on URL bbox (C2.1).
+- `lib/client-cache.ts` — NEW (C4).
+- `components/WeatherWidget.tsx` — switch from raw `fetch` to `cachedFetchJson` (C4 consumer).
+- `app/weather/page.tsx` — same (C4 consumer).
+- `lib/sw-runtime-caching.ts` — NEW (C5).
+- `next.config.ts` — import `swRuntimeCaching` from new module (C5).
+- `scripts/dev-sw-killer.js` — NEW (C6).
+- `scripts/install-dev-sw-killer.mjs` — NEW (C6).
+- `package.json` — add `predev` script (C6).
+- `lib/dev-sw-kill.ts` — NEW (C7).
+- `app/layout.tsx` — emit dev-only inline `<script nonce>` (C7). Read nonce from `headers().get("x-nonce")` directly.
+- `lib/opendata/schemas/weather.ts` — tighten ranges + WMO_CODES allowlist + length cap (C8).
+
+### Files touched (test)
+
+- `lib/api-shared.test.ts` — add custom-cache cases + C1.1 429 no-store case.
+- `lib/client-cache.test.ts` — NEW.
+- `lib/dev-sw-kill.test.ts` — NEW (DI four-cell + hostname allowlist + `shouldEmitDevSwKill`).
+- `lib/dev-sw-kill.smoke.test.ts` — NEW (round-3 T13 string-grep on wrapper).
+- `app/layout.test.tsx` — NEW (round-1 T7 + round-2 T10).
+- `app/api/weather/route.test.ts` — extend with new cache directive cases + 429/502 no-store.
+- `app/api/pois/route.test.ts` — extend with new cache directive cases + 400/429/502 no-store.
+- `app/map/MapClient.test.tsx` — NEW (round-2 F9 URL canonicalisation).
+- `lib/sw-runtime-caching.test.ts` — NEW (anchored-regex coverage).
+- `lib/opendata/schemas/weather.test.ts` — extend with tightened-bounds cases + WMO_CODES + boundary update.
+
+### Reusable code inventory (R1 candidates — MUST reuse, not reimplement)
+
+- `getAllowedOrigin()` — `lib/api-shared.ts:105`. Single source of truth for `Access-Control-Allow-Origin`. C2/C3 already use this.
+- `WeatherResponseSchema` — `lib/opendata/schemas/weather.ts:24`. Sole zod schema for Open-Meteo body. C4 imports this directly (no shadow schema).
+- `kvKey`, `parseSchemaVersion` — `lib/proxy.ts`. KV key namespacing. Untouched by this plan.
+- `enforceRateLimit` — `lib/proxy.ts`. Underlying primitive for rate limiting. C1.1 only modifies the response-header layer (`rateLimitResponse`), not the primitive.
+
+### High-frequency literals (R2 candidates — must come from `config/cache.ts`)
+
+- `3600` — appears in 5 files (already shared by Open-Meteo TTL). After C0, all cache-related uses MUST import from `WEATHER_CACHE.SHARED_MAX_AGE` / `POIS_CACHE.SHARED_MAX_AGE`.
+- `86400` — appears in 3 files. After C0, MUST import from `WEATHER_CACHE.STALE_IF_ERROR` / `POIS_CACHE.STALE_IF_ERROR`.
+- `300` — appears in 10 files (most non-cache, e.g., file-size limits). C0's `WEATHER_CACHE.BROWSER_MAX_AGE = 300` is for browser cache only; non-cache uses are untouched.
+
+### Patterns to follow consistently
+
+- All Edge route handlers use `runtime = "edge"` (preserved).
+- All response Headers built via `jsonResponseHeaders` with the new `cache` arg (C1) — never manually `.set("Cache-Control", "public, max-age=...")`.
+- All Zod schemas validated via `safeParse` + bail-on-error (existing convention).
+- No new `notify(...)` call sites (round-1 S8 invariant in C1).
+- All test files asserting Cache-Control directives import from `config/cache.ts` (round-2 T6 invariant in C0).
+
+### CI parity diff (Phase 2-1 step 7)
+
+- CI workflows: only `data-sync.yml` (scheduled at 18:00 UTC) and `push-dispatch.yml` (hourly cron). NO PR-triggered CI.
+- Local pre-PR: `npm run lint`, `npm test`, `npm run build`.
+- **Parity gap: NONE** — no CI-only gate exists. The local trio is the entire gate set.
+
 ### F10 (round-2) Minor — C1.1 forbidden-pattern brittleness — Accepted
 
 - **Anti-Deferral check**: "out of scope (different feature)" — the forbidden pattern is decorative; the real guard is the route-level test "429 response carries Cache-Control: no-store" plus the `lib/api-shared.test.ts` rate-limit case.

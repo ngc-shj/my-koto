@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { POIS_CACHE } from "@/config/cache";
 
 // In-memory @vercel/kv stub before route imports.
 const memory = new Map<string, unknown>();
@@ -140,6 +141,48 @@ describe("GET /api/pois", () => {
       makeReq("bbox=35.65,139.75,35.70,139.80&types=aed") as never,
     );
     expect(res.status).toBe(502);
+  });
+
+  it("200 response carries browser-cacheable Cache-Control directives", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ elements: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+      ),
+    );
+    const res = await GET(
+      makeReq("bbox=35.65,139.75,35.70,139.80&types=aed") as never,
+    );
+    expect(res.status).toBe(200);
+    const cc = res.headers.get("Cache-Control")!;
+    expect(cc).toContain(`max-age=${POIS_CACHE.BROWSER_MAX_AGE}`);
+    expect(cc).toContain(`s-maxage=${POIS_CACHE.SHARED_MAX_AGE}`);
+    expect(cc).toContain(`stale-while-revalidate=${POIS_CACHE.STALE_WHILE_REVALIDATE}`);
+    expect(cc).toContain(`stale-if-error=${POIS_CACHE.STALE_IF_ERROR}`);
+  });
+
+  it("400 response carries Cache-Control: no-store", async () => {
+    const res = await GET(makeReq("bbox=not,a,bbox") as never);
+    expect(res.status).toBe(400);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("502 response carries Cache-Control: no-store", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network");
+      }),
+    );
+    const res = await GET(
+      makeReq("bbox=35.65,139.75,35.70,139.80&types=aed") as never,
+    );
+    expect(res.status).toBe(502);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   it("maps Overpass elements into MapPoint records", async () => {

@@ -27,6 +27,7 @@ import {
   jsonResponseHeaders,
   getAllowedOrigin,
 } from "./api-shared";
+import { WEATHER_CACHE, POIS_CACHE } from "@/config/cache";
 
 beforeEach(() => {
   memory.clear();
@@ -109,16 +110,85 @@ describe("rateLimitResponse", () => {
     expect(second!.status).toBe(429);
     expect(second!.headers.get("Retry-After")).not.toBeNull();
   });
+
+  it("rateLimitResponse 429 emits Cache-Control: no-store and drops s-maxage", async () => {
+    // baseHeaders carries a positive cache directive from jsonResponseHeaders.
+    const baseHeaders = jsonResponseHeaders("https://koto.example", {
+      maxAge: WEATHER_CACHE.BROWSER_MAX_AGE,
+      sMaxAge: WEATHER_CACHE.SHARED_MAX_AGE,
+      staleWhileRevalidate: WEATHER_CACHE.STALE_WHILE_REVALIDATE,
+      staleIfError: WEATHER_CACHE.STALE_IF_ERROR,
+    });
+    const cfg = { bucket: "rlr3", limit: 1, windowSec: 60 };
+    // First call passes.
+    await rateLimitResponse(makeReq(), cfg, baseHeaders);
+    // Second call hits the 429 path.
+    const res = await rateLimitResponse(makeReq(), cfg, baseHeaders);
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(429);
+    const cc = res!.headers.get("Cache-Control");
+    expect(cc).toBe("no-store");
+    expect(cc).not.toContain("s-maxage");
+    expect(cc).not.toContain(`max-age=${WEATHER_CACHE.BROWSER_MAX_AGE}`);
+    expect(res!.headers.get("Retry-After")).not.toBeNull();
+  });
 });
 
 describe("jsonResponseHeaders", () => {
-  it("sets the standard cache + cors envelope", () => {
+  it("sets the standard cache + cors envelope (no cache arg)", () => {
     const h = jsonResponseHeaders("https://koto.example");
     expect(h.get("Content-Type")).toBe("application/json");
-    expect(h.get("Cache-Control")).toContain("s-maxage=3600");
-    expect(h.get("Cache-Control")).toContain("stale-if-error=86400");
+    const cc = h.get("Cache-Control")!;
+    // Default: public, s-maxage=3600, stale-if-error=86400 (no max-age/SWR).
+    expect(cc).toContain("public");
+    expect(cc).toContain(`s-maxage=${POIS_CACHE.SHARED_MAX_AGE}`);
+    expect(cc).toContain(`stale-if-error=${POIS_CACHE.STALE_IF_ERROR}`);
+    // No browser max-age in default — CDN-only caching.
+    expect(cc).not.toContain("max-age=");
     expect(h.get("Vary")).toBe("Accept-Encoding");
     expect(h.get("Access-Control-Allow-Origin")).toBe("https://koto.example");
+  });
+
+  it("emits all four directive tokens when cache arg is supplied (WEATHER_CACHE)", () => {
+    const h = jsonResponseHeaders("https://koto.example", {
+      maxAge: WEATHER_CACHE.BROWSER_MAX_AGE,
+      sMaxAge: WEATHER_CACHE.SHARED_MAX_AGE,
+      staleWhileRevalidate: WEATHER_CACHE.STALE_WHILE_REVALIDATE,
+      staleIfError: WEATHER_CACHE.STALE_IF_ERROR,
+    });
+    const cc = h.get("Cache-Control")!;
+    expect(cc).toContain("public");
+    expect(cc).toContain(`max-age=${WEATHER_CACHE.BROWSER_MAX_AGE}`);
+    expect(cc).toContain(`s-maxage=${WEATHER_CACHE.SHARED_MAX_AGE}`);
+    expect(cc).toContain(`stale-while-revalidate=${WEATHER_CACHE.STALE_WHILE_REVALIDATE}`);
+    expect(cc).toContain(`stale-if-error=${WEATHER_CACHE.STALE_IF_ERROR}`);
+  });
+
+  it("emits all four directive tokens when cache arg is supplied (POIS_CACHE)", () => {
+    const h = jsonResponseHeaders("https://koto.example", {
+      maxAge: POIS_CACHE.BROWSER_MAX_AGE,
+      sMaxAge: POIS_CACHE.SHARED_MAX_AGE,
+      staleWhileRevalidate: POIS_CACHE.STALE_WHILE_REVALIDATE,
+      staleIfError: POIS_CACHE.STALE_IF_ERROR,
+    });
+    const cc = h.get("Cache-Control")!;
+    expect(cc).toContain("public");
+    expect(cc).toContain(`max-age=${POIS_CACHE.BROWSER_MAX_AGE}`);
+    expect(cc).toContain(`s-maxage=${POIS_CACHE.SHARED_MAX_AGE}`);
+    expect(cc).toContain(`stale-while-revalidate=${POIS_CACHE.STALE_WHILE_REVALIDATE}`);
+    expect(cc).toContain(`stale-if-error=${POIS_CACHE.STALE_IF_ERROR}`);
+  });
+
+  it("emits no-cache instead of max-age=0 when maxAge is 0", () => {
+    const h = jsonResponseHeaders("https://koto.example", {
+      maxAge: 0,
+      sMaxAge: POIS_CACHE.SHARED_MAX_AGE,
+      staleWhileRevalidate: POIS_CACHE.STALE_WHILE_REVALIDATE,
+      staleIfError: POIS_CACHE.STALE_IF_ERROR,
+    });
+    const cc = h.get("Cache-Control")!;
+    expect(cc).toContain("no-cache");
+    expect(cc).not.toContain("max-age=0");
   });
 });
 

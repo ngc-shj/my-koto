@@ -3,6 +3,10 @@ import { headers } from "next/headers";
 import "./globals.css";
 import { SITE_TITLE, SITE_DESCRIPTION, SITE_THEME_COLOR } from "@/config/site";
 import { messages } from "@/lib/i18n/messages";
+import {
+  shouldEmitDevSwKill,
+  DEV_SW_KILL_SCRIPT,
+} from "@/lib/dev-sw-kill";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://example.com";
 
@@ -45,10 +49,24 @@ export default async function RootLayout({
   const headersList = await headers();
   const nonce = headersList.get("x-nonce") ?? undefined;
 
+  const emitKill = shouldEmitDevSwKill(process.env.NODE_ENV ?? "development");
+
+  if (emitKill && !nonce) {
+    console.warn(
+      "[koto-city dev] CSP nonce missing; SW kill bootstrap skipped — verify middleware.ts"
+    );
+  }
+
   return (
     // data-nonce exposes the per-request nonce for any inline scripts that require it.
     <html lang="ja" suppressHydrationWarning {...(nonce ? { "data-nonce": nonce } : {})}>
       <head>
+        {emitKill && nonce && (
+          <script
+            nonce={nonce}
+            dangerouslySetInnerHTML={{ __html: DEV_SW_KILL_SCRIPT }}
+          />
+        )}
         {/* Required for CC-BY 4.0 compliance: machine-readable license declaration */}
         <link rel="license" href="https://creativecommons.org/licenses/by/4.0/deed.ja" />
       </head>

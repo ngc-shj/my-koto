@@ -216,7 +216,7 @@ export default function MapClient({ points, initialFilters }: Props) {
     setExternalStatus("loading");
     try {
       const params = new URLSearchParams({
-        bbox: `${snapped.south},${snapped.west},${snapped.north},${snapped.east}`,
+        bbox: `${snapped.south.toFixed(2)},${snapped.west.toFixed(2)},${snapped.north.toFixed(2)},${snapped.east.toFixed(2)}`,
         types: sortedTypes.join(","),
       });
       const res = await fetch(`/api/pois?${params.toString()}`);
