@@ -38,12 +38,16 @@ export async function runDevSwKill(deps: DevSwKillDeps): Promise<void> {
       new URL(r.active.scriptURL).origin === deps.origin
   );
 
-  // Step 5: Unregister matching SWs
-  await Promise.all(targets.map((r) => r.unregister()));
-
-  // Step 6: Delete all caches
+  // Step 5: Delete all caches FIRST (mirrors killer SW order in
+  // scripts/dev-sw-killer.js — caches are page-scoped so they survive
+  // SW unregistration, but doing the delete first keeps the two cleanup
+  // mechanisms in lockstep so future readers don't have to reason about
+  // the difference. Phase 3 F1.)
   const keys = await deps.cachesKeys();
   await Promise.all(keys.map((k) => deps.cachesDelete(k)));
+
+  // Step 6: Unregister matching SWs LAST
+  await Promise.all(targets.map((r) => r.unregister()));
 
   // Step 7: Set flag and reload only if we found and unregistered something
   if (targets.length > 0) {
@@ -87,9 +91,9 @@ export const DEV_SW_KILL_SCRIPT: string = `
     (r) => r.active && r.active.scriptURL.endsWith("/sw.js") &&
       new URL(r.active.scriptURL).origin === deps.origin
   );
-  await Promise.all(targets.map((r) => r.unregister()));
   const keys = await deps.cachesKeys();
   await Promise.all(keys.map((k) => deps.cachesDelete(k)));
+  await Promise.all(targets.map((r) => r.unregister()));
   if (targets.length > 0) {
     deps.sessionSet(SESSION_FLAG, "1");
     deps.reload();

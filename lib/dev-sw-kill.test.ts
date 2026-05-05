@@ -71,6 +71,12 @@ describe("runDevSwKill — four-cell truth table", () => {
     }
     expect(deps.cachesDelete).toHaveBeenCalledWith("a");
     expect(deps.cachesDelete).toHaveBeenCalledWith("b");
+    // Phase 3 F1: cache wipe must run BEFORE any SW unregister (mirrors the
+    // killer SW order in scripts/dev-sw-killer.js so the two cleanup
+    // mechanisms stay in lockstep).
+    const cachesKeysOrder = deps.cachesKeys.mock.invocationCallOrder[0];
+    const firstUnregisterOrder = regs[0].unregister.mock.invocationCallOrder[0];
+    expect(cachesKeysOrder).toBeLessThan(firstUnregisterOrder);
     expect(deps.sessionSet).toHaveBeenCalledWith("kc:flag:v1:dev-sw-killed", "1");
     expect(deps.reload).toHaveBeenCalledTimes(1);
   });
@@ -85,6 +91,8 @@ describe("runDevSwKill — four-cell truth table", () => {
     // matched, since the SW may have been unregistered manually leaving caches
     // behind. (Self-R-check round-1 M1.)
     expect(deps.cachesKeys).toHaveBeenCalledTimes(1);
+    // Phase 3 T1: with no cache keys returned, cachesDelete must not run.
+    expect(deps.cachesDelete).toHaveBeenCalledTimes(0);
     expect(deps.sessionSet).not.toHaveBeenCalled();
     expect(deps.reload).not.toHaveBeenCalled();
   });
@@ -98,6 +106,11 @@ describe("runDevSwKill — four-cell truth table", () => {
     await runDevSwKill(deps);
 
     expect(deps.getRegistrations).toHaveBeenCalledTimes(0);
+    // Phase 3 T2: short-circuit must happen BEFORE any I/O — including the
+    // cache wipe — so a regression that moved the flag check after cachesKeys
+    // is caught here.
+    expect(deps.cachesKeys).not.toHaveBeenCalled();
+    expect(deps.cachesDelete).not.toHaveBeenCalled();
     expect(deps.reload).not.toHaveBeenCalled();
   });
 
@@ -107,6 +120,9 @@ describe("runDevSwKill — four-cell truth table", () => {
     await runDevSwKill(deps);
 
     expect(deps.getRegistrations).toHaveBeenCalledTimes(0);
+    // Phase 3 T2: same short-circuit guarantee as case 3.
+    expect(deps.cachesKeys).not.toHaveBeenCalled();
+    expect(deps.cachesDelete).not.toHaveBeenCalled();
     expect(deps.reload).not.toHaveBeenCalled();
   });
 });

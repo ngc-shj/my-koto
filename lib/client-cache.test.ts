@@ -116,13 +116,21 @@ describe("cachedFetchJson", () => {
     const payload: TestData = { value: 5 };
     mockFetchOnce(payload);
 
+    // Phase 3 T5: spy on sessionStorage.getItem so we can prove the SSR guard
+    // skipped the cache lookup. Without this assertion the test would still
+    // pass even if the production guard were removed (mocked fetch returns
+    // the same payload), giving a false-green on a regression.
+    const getItemSpy = vi.spyOn(Storage.prototype, "getItem");
+
     // Simulate SSR by hiding window.
     vi.stubGlobal("window", undefined);
     try {
       const result = await cachedFetchJson(CACHE_KEY, TEST_URL, TestSchema, makeOpts());
       expect(result).toEqual(payload);
+      expect(getItemSpy).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
+      getItemSpy.mockRestore();
     }
   });
 
