@@ -149,3 +149,20 @@ None — every finding has File / Evidence / Impact / Fix.
 ### T9 Minor (informational) — MapClient test reimplementation — Accepted
 - Anti-Deferral check: out of scope (different feature).
 - Justification: TODO for a future refactor — extract `buildPoisUrl` into `lib/map/url.ts` (or `config/geo`) so both MapClient and its test call the shared function. Tracked: `TODO(map-pois-url-helper): extract URL constructor for /api/pois into a shared module so the test exercises the production path`.
+
+---
+
+## Round 2 — verification (2026-05-05)
+
+Focused verification of commit `2a0ecf2` confirms:
+
+- F1: cache-delete-before-unregister applied in both `runDevSwKill` and `DEV_SW_KILL_SCRIPT`. The `invocationCallOrder` assertion in test case 1 locks the order. RESOLVED.
+- F3: `existsSync` + `mkdirSync` guard added to install script. RESOLVED.
+- S2: regex anchored to literal `sw\.js(\.map)?$` for the sw arm. `sw-utils.js` correctly excluded. RESOLVED.
+- T1: case 2 asserts `cachesDelete` called 0 times. RESOLVED.
+- T2: cases 3 and 4 assert `cachesKeys` / `cachesDelete` not called (locks the flag short-circuit). RESOLVED.
+- T5: SSR test spies on `Storage.prototype.getItem` and asserts `not.toHaveBeenCalled`. RESOLVED.
+
+No new findings. Loop terminates per Phase 3 Step 3-8 ("end the loop when all agents return No findings").
+
+**READY TO MERGE.**
