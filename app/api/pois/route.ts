@@ -8,6 +8,7 @@ import {
   snapBbox,
   type Bbox,
 } from "@/config/geo";
+import { POIS_CACHE } from "@/config/cache";
 import { UPSTREAM_HOSTS } from "@/config/proxy-allowlist";
 import {
   OVERPASS_HOST,
@@ -46,6 +47,14 @@ function jsonResponse(
   return new Response(JSON.stringify(body), { status, headers });
 }
 
+// Error responses must not be cached by browsers or CDNs.
+function errorHeaders(): Headers {
+  const h = new Headers();
+  h.set("Cache-Control", "no-store");
+  h.set("Content-Type", "application/json");
+  return h;
+}
+
 function parseBboxParam(value: string | null): Bbox | null {
   if (!value) return null;
   const parts = value.split(",").map((s) => Number(s.trim()));
@@ -76,7 +85,12 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const allowedOrigin = getAllowedOrigin();
-  const responseHeaders = jsonResponseHeaders(allowedOrigin);
+  const responseHeaders = jsonResponseHeaders(allowedOrigin, {
+    maxAge: POIS_CACHE.BROWSER_MAX_AGE,
+    sMaxAge: POIS_CACHE.SHARED_MAX_AGE,
+    staleWhileRevalidate: POIS_CACHE.STALE_WHILE_REVALIDATE,
+    staleIfError: POIS_CACHE.STALE_IF_ERROR,
+  });
 
   // Rate limit via shared pipeline (F-14). 30 rpm/IP — Overpass is a
   // community-run resource, polite usage policy applies.
@@ -91,27 +105,27 @@ export async function GET(request: NextRequest): Promise<Response> {
   const url = new URL(request.url);
   const bbox = parseBboxParam(url.searchParams.get("bbox"));
   if (bbox === null) {
-    return jsonResponse(400, { error: "Invalid or missing bbox parameter" }, responseHeaders);
+    return jsonResponse(400, { error: "Invalid or missing bbox parameter" }, errorHeaders());
   }
   if (!isBboxInside(bbox, TOKYO_23_BBOX)) {
     return jsonResponse(
       400,
       { error: "bbox must be inside Tokyo 23 wards" },
-      responseHeaders,
+      errorHeaders(),
     );
   }
   if (bboxAreaSqDeg(bbox) > MAX_BBOX_AREA_SQDEG) {
     return jsonResponse(
       400,
       { error: "bbox area exceeds limit" },
-      responseHeaders,
+      errorHeaders(),
     );
   }
 
   // Validate types.
   const types = parseTypesParam(url.searchParams.get("types"));
   if (types === null) {
-    return jsonResponse(400, { error: "Invalid types parameter" }, responseHeaders);
+    return jsonResponse(400, { error: "Invalid types parameter" }, errorHeaders());
   }
 
   const schemaVersion = parseSchemaVersion();
@@ -137,10 +151,10 @@ export async function GET(request: NextRequest): Promise<Response> {
   // Build Overpass URL & validate hostname strictly.
   const upstreamUrl = new URL(OVERPASS_URL);
   if (upstreamUrl.hostname !== UPSTREAM_HOSTS.overpass) {
-    return jsonResponse(500, { error: "Upstream host mismatch" }, responseHeaders);
+    return jsonResponse(500, { error: "Upstream host mismatch" }, errorHeaders());
   }
   if (upstreamUrl.hostname !== OVERPASS_HOST) {
-    return jsonResponse(500, { error: "Upstream host mismatch" }, responseHeaders);
+    return jsonResponse(500, { error: "Upstream host mismatch" }, errorHeaders());
   }
 
   // Build query with clamped bbox.
@@ -203,7 +217,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return jsonResponse(
       502,
       { error: "Upstream unavailable" },
-      responseHeaders,
+      errorHeaders(),
     );
   }
 
@@ -212,7 +226,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return jsonResponse(
       502,
       { error: "Upstream response schema mismatch" },
-      responseHeaders,
+      errorHeaders(),
     );
   }
 

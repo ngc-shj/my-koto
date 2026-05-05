@@ -85,7 +85,10 @@ export async function rateLimitResponse(
 ): Promise<Response | null> {
   const result = await checkRateLimit(request, cfg);
   if (result.ok) return null;
+  // C1.1: 429 must never advertise positive freshness — clone base headers
+  // and override Cache-Control to no-store, dropping any SWR/SIE directives.
   const headers = new Headers(baseHeaders);
+  headers.set("Cache-Control", "no-store");
   headers.set("Retry-After", String(result.retryAfter));
   return new Response(JSON.stringify({ error: "Too Many Requests" }), {
     status: 429,
@@ -93,9 +96,28 @@ export async function rateLimitResponse(
   });
 }
 
-export function jsonResponseHeaders(allowOrigin: string): Headers {
+export type CacheDirective = Readonly<{
+  maxAge: number;            // browser cache (seconds, integer >= 0)
+  sMaxAge: number;           // shared/CDN cache (seconds, integer >= 0)
+  staleWhileRevalidate: number; // SWR window (seconds, integer >= 0)
+  staleIfError: number;      // SIE window (seconds, integer >= 0)
+}>;
+
+export function jsonResponseHeaders(
+  allowOrigin: string,
+  cache?: CacheDirective,
+): Headers {
   const h = new Headers();
-  h.set("Cache-Control", "public, s-maxage=3600, stale-if-error=86400");
+  if (cache) {
+    const maxAgeToken =
+      cache.maxAge === 0 ? "no-cache" : `max-age=${cache.maxAge}`;
+    h.set(
+      "Cache-Control",
+      `public, ${maxAgeToken}, s-maxage=${cache.sMaxAge}, stale-while-revalidate=${cache.staleWhileRevalidate}, stale-if-error=${cache.staleIfError}`,
+    );
+  } else {
+    h.set("Cache-Control", "public, s-maxage=3600, stale-if-error=86400");
+  }
   h.set("Vary", "Accept-Encoding");
   h.set("Access-Control-Allow-Origin", allowOrigin);
   h.set("Content-Type", "application/json");

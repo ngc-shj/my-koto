@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
+import { swRuntimeCaching } from "./lib/sw-runtime-caching";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -60,41 +61,7 @@ const withPWA = withPWAInit({
     // Take control of all open clients immediately after installation
     skipWaiting: true,
     clientsClaim: true,
-    runtimeCaching: [
-      // Static pages: NetworkFirst with 3-second timeout then cache fallback
-      {
-        urlPattern: /^https?:\/\/[^/]+\/(|about|privacy|disclaimer|gomi|gomi\/search|map|events|weather|settings)$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: `pages-${buildId}`,
-          networkTimeoutSeconds: 3,
-          expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
-        },
-      },
-      // Static assets (_next/static): CacheFirst for long-lived immutable files
-      {
-        urlPattern: /\/_next\/static\/.*/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: `static-${buildId}`,
-          expiration: { maxEntries: 256, maxAgeSeconds: 365 * 24 * 60 * 60 },
-        },
-      },
-      // Images and icons: CacheFirst
-      {
-        urlPattern: /\.(png|svg|ico|webp|jpg|jpeg)$/,
-        handler: "CacheFirst",
-        options: {
-          cacheName: `images-${buildId}`,
-          expiration: { maxEntries: 64, maxAgeSeconds: 30 * 24 * 60 * 60 },
-        },
-      },
-      // /api/weather and /api/ics/*: do NOT cache via SW (Edge cache / client refetch handles these)
-      {
-        urlPattern: /\/api\/(weather|ics\/.*)/,
-        handler: "NetworkOnly",
-      },
-    ],
+    runtimeCaching: swRuntimeCaching(buildId),
   },
 });
 

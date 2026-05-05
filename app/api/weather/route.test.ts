@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { inMemoryKvStore, lruFallbackKvStore } from "@/lib/proxy";
+import { WEATHER_CACHE } from "@/config/cache";
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be at module scope before any imports of the route
@@ -156,7 +157,7 @@ describe("GET /api/weather", () => {
   // Response headers
   // -----------------------------------------------------------------------
 
-  it("returns Cache-Control with s-maxage=3600 and stale-if-error=86400", async () => {
+  it("returns Cache-Control with s-maxage and stale-if-error on 200", async () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(validWeatherPayload), {
         status: 200,
@@ -167,8 +168,11 @@ describe("GET /api/weather", () => {
     const req = makeRequest("GET");
     const res = await GET(req as import("next/server").NextRequest);
 
-    expect(res.headers.get("Cache-Control")).toContain("s-maxage=3600");
-    expect(res.headers.get("Cache-Control")).toContain("stale-if-error=86400");
+    const cc = res.headers.get("Cache-Control")!;
+    expect(cc).toContain(`s-maxage=${WEATHER_CACHE.SHARED_MAX_AGE}`);
+    expect(cc).toContain(`stale-if-error=${WEATHER_CACHE.STALE_IF_ERROR}`);
+    expect(cc).toContain(`max-age=${WEATHER_CACHE.BROWSER_MAX_AGE}`);
+    expect(cc).toContain(`stale-while-revalidate=${WEATHER_CACHE.STALE_WHILE_REVALIDATE}`);
   });
 
   it("returns Vary: Accept-Encoding", async () => {
@@ -228,6 +232,14 @@ describe("GET /api/weather", () => {
     const req = makeRequest("GET");
     const res = await GET(req as import("next/server").NextRequest);
     expect(res.status).toBe(502);
+  });
+
+  it("502 response carries Cache-Control: no-store", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+    const req = makeRequest("GET");
+    const res = await GET(req as import("next/server").NextRequest);
+    expect(res.status).toBe(502);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
   // -----------------------------------------------------------------------

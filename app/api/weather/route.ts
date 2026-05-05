@@ -1,6 +1,7 @@
 // Edge route handler: Open-Meteo proxy with KV cache, rate limiting, SSRF hardening.
 import type { NextRequest } from "next/server";
 import { KOTO_CENTER } from "@/config/geo";
+import { WEATHER_CACHE } from "@/config/cache";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import { buildWeatherUrl, validateUpstreamHost, WEATHER_ALLOWED_HOSTS } from "@/lib/opendata/weather";
 import { kvKey, parseSchemaVersion } from "@/lib/proxy";
@@ -25,7 +26,12 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const allowedOrigin = getAllowedOrigin();
-  const responseHeaders = jsonResponseHeaders(allowedOrigin);
+  const responseHeaders = jsonResponseHeaders(allowedOrigin, {
+    maxAge: WEATHER_CACHE.BROWSER_MAX_AGE,
+    sMaxAge: WEATHER_CACHE.SHARED_MAX_AGE,
+    staleWhileRevalidate: WEATHER_CACHE.STALE_WHILE_REVALIDATE,
+    staleIfError: WEATHER_CACHE.STALE_IF_ERROR,
+  });
 
   // Rate limiting via the shared pipeline (F-14). Future observability
   // upgrades happen in lib/api-shared.ts and propagate to every route.
@@ -47,9 +53,12 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   // Validate upstream hostname against allowlist.
   if (!validateUpstreamHost(upstreamUrl, WEATHER_ALLOWED_HOSTS)) {
+    const errHeaders = new Headers();
+    errHeaders.set("Cache-Control", "no-store");
+    errHeaders.set("Content-Type", "application/json");
     return new Response(JSON.stringify({ error: "Upstream host not allowed" }), {
       status: 500,
-      headers: responseHeaders,
+      headers: errHeaders,
     });
   }
 
@@ -133,31 +142,43 @@ export async function GET(request: NextRequest): Promise<Response> {
           headers: h,
         });
       }
-      // Stale data failed Zod — do not serve it.
+      // Stale data failed Zod — error responses must not be cached.
+      const errHeaders = new Headers();
+      errHeaders.set("Cache-Control", "no-store");
+      errHeaders.set("Content-Type", "application/json");
       return new Response(JSON.stringify({ error: "Cached data invalid" }), {
         status: 503,
-        headers: responseHeaders,
+        headers: errHeaders,
       });
     }
+    const errHeaders = new Headers();
+    errHeaders.set("Cache-Control", "no-store");
+    errHeaders.set("Content-Type", "application/json");
     return new Response(JSON.stringify({ error: "Upstream unavailable" }), {
       status: 502,
-      headers: responseHeaders,
+      headers: errHeaders,
     });
   }
 
   if (!upstreamOk || upstreamData == null) {
+    const errHeaders = new Headers();
+    errHeaders.set("Cache-Control", "no-store");
+    errHeaders.set("Content-Type", "application/json");
     return new Response(JSON.stringify({ error: "Upstream error" }), {
       status: 502,
-      headers: responseHeaders,
+      headers: errHeaders,
     });
   }
 
   // Zod validation of upstream response body.
   const parsed = WeatherResponseSchema.safeParse(upstreamData);
   if (!parsed.success) {
+    const errHeaders = new Headers();
+    errHeaders.set("Cache-Control", "no-store");
+    errHeaders.set("Content-Type", "application/json");
     return new Response(JSON.stringify({ error: "Upstream response schema mismatch" }), {
       status: 502,
-      headers: responseHeaders,
+      headers: errHeaders,
     });
   }
 

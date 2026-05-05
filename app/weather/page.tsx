@@ -6,7 +6,10 @@ import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import WbgtPanel from "@/components/WbgtPanel";
+import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
+import { cachedFetchJson } from "@/lib/client-cache";
+import { WEATHER_CACHE } from "@/config/cache";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -20,10 +23,13 @@ export default function WeatherPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/weather", { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as WeatherResponse;
+    void cachedFetchJson<WeatherResponse>(
+      "weather:v1",
+      "/api/weather",
+      WeatherResponseSchema,
+      { ttlMs: WEATHER_CACHE.CLIENT_TTL_MS, signal: controller.signal },
+    )
+      .then((data) => {
         setState({ status: "success", data, fetchedAt: new Date() });
       })
       .catch((err: unknown) => {
