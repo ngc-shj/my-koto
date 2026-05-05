@@ -38,8 +38,11 @@ describe("buildWeatherUrl", () => {
 
   it("includes required hourly parameters", () => {
     const url = buildWeatherUrl(KOTO_CENTER);
-    expect(url.searchParams.get("hourly")).toContain("temperature_2m");
-    expect(url.searchParams.get("hourly")).toContain("precipitation_probability");
+    const hourly = url.searchParams.get("hourly") ?? "";
+    expect(hourly).toContain("temperature_2m");
+    expect(hourly).toContain("apparent_temperature");
+    expect(hourly).toContain("relative_humidity_2m");
+    expect(hourly).toContain("precipitation_probability");
   });
 
   it("includes required daily parameters", () => {
@@ -47,6 +50,14 @@ describe("buildWeatherUrl", () => {
     const daily = url.searchParams.get("daily") ?? "";
     expect(daily).toContain("temperature_2m_max");
     expect(daily).toContain("temperature_2m_min");
+    expect(daily).toContain("apparent_temperature_max");
+    expect(daily).toContain("apparent_temperature_min");
+    expect(daily).toContain("precipitation_sum");
+    expect(daily).toContain("uv_index_max");
+    expect(daily).toContain("sunrise");
+    expect(daily).toContain("sunset");
+    expect(daily).toContain("wind_speed_10m_max");
+    expect(daily).toContain("wind_gusts_10m_max");
   });
 
   it("respects a custom base URL", () => {
@@ -105,14 +116,24 @@ const validWeatherPayload = {
   hourly: {
     time: ["2026-08-01T00:00"],
     temperature_2m: [30.5],
+    apparent_temperature: [33.0],
+    relative_humidity_2m: [65],
     precipitation_probability: [20],
   },
   daily: {
     time: ["2026-08-01"],
     temperature_2m_max: [35.0],
     temperature_2m_min: [25.0],
+    apparent_temperature_max: [38.0],
+    apparent_temperature_min: [27.0],
     precipitation_probability_max: [30],
+    precipitation_sum: [0.4],
     weathercode: [1],
+    uv_index_max: [9.5],
+    sunrise: ["2026-08-01T04:48"],
+    sunset: ["2026-08-01T18:34"],
+    wind_speed_10m_max: [4.2],
+    wind_gusts_10m_max: [8.7],
   },
 };
 
@@ -156,7 +177,7 @@ describe("fetchWeather", () => {
         timezone: "Asia/Tokyo",
         hourly: {
           time: ["2026-08-01T00:00"],
-          temperature_2m: [99999], // exceeds max(50)
+          temperature_2m: [99999], // exceeds Tokyo locale max(45)
         },
       }),
     });

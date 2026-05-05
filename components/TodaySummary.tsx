@@ -251,6 +251,8 @@ function WeatherSection({ state }: { state: WeatherState }) {
               const daily = state.data.daily!;
               const min = daily.temperature_2m_min[i];
               const max = daily.temperature_2m_max[i];
+              const apparentMin = daily.apparent_temperature_min?.[i];
+              const apparentMax = daily.apparent_temperature_max?.[i];
               const precip = daily.precipitation_probability_max?.[i];
               const labelDate = i === 0 ? "今日" : "明日";
               return (
@@ -261,6 +263,11 @@ function WeatherSection({ state }: { state: WeatherState }) {
                   <span>
                     {min != null && max != null ? `${min}°〜${max}°C` : "—"}
                   </span>
+                  {apparentMin != null && apparentMax != null && (
+                    <span className="text-xs text-gray-400">
+                      体感 {Math.round(apparentMin)}〜{Math.round(apparentMax)}°C
+                    </span>
+                  )}
                   {precip != null && (
                     <span className="text-xs text-blue-600">降水 {precip}%</span>
                   )}

@@ -147,4 +147,124 @@ describe("WeatherResponseSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  describe("extended fields", () => {
+    function withDaily(extra: Record<string, unknown>) {
+      return {
+        latitude: 35.6727,
+        longitude: 139.8175,
+        timezone: "Asia/Tokyo",
+        daily: {
+          time: ["2026-08-01"],
+          temperature_2m_max: [35.0],
+          temperature_2m_min: [25.0],
+          ...extra,
+        },
+      };
+    }
+
+    it("accepts apparent_temperature within wider bounds", () => {
+      const result = WeatherResponseSchema.safeParse({
+        latitude: 35.6727,
+        longitude: 139.8175,
+        timezone: "Asia/Tokyo",
+        hourly: {
+          time: ["2026-08-01T00:00"],
+          temperature_2m: [30],
+          apparent_temperature: [55],
+        },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects apparent_temperature beyond -30..60", () => {
+      const result = WeatherResponseSchema.safeParse({
+        latitude: 35.6727,
+        longitude: 139.8175,
+        timezone: "Asia/Tokyo",
+        hourly: {
+          time: ["2026-08-01T00:00"],
+          temperature_2m: [30],
+          apparent_temperature: [70],
+        },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects relative_humidity_2m above 100", () => {
+      const result = WeatherResponseSchema.safeParse({
+        latitude: 35.6727,
+        longitude: 139.8175,
+        timezone: "Asia/Tokyo",
+        hourly: {
+          time: ["2026-08-01T00:00"],
+          temperature_2m: [30],
+          relative_humidity_2m: [101],
+        },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects non-integer humidity", () => {
+      const result = WeatherResponseSchema.safeParse({
+        latitude: 35.6727,
+        longitude: 139.8175,
+        timezone: "Asia/Tokyo",
+        hourly: {
+          time: ["2026-08-01T00:00"],
+          temperature_2m: [30],
+          relative_humidity_2m: [65.5],
+        },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts uv_index_max within 0..15", () => {
+      const result = WeatherResponseSchema.safeParse(
+        withDaily({ uv_index_max: [11.5] }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects uv_index_max above 15", () => {
+      const result = WeatherResponseSchema.safeParse(
+        withDaily({ uv_index_max: [20] }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts wind_speed_10m_max and wind_gusts_10m_max", () => {
+      const result = WeatherResponseSchema.safeParse(
+        withDaily({
+          wind_speed_10m_max: [4.2],
+          wind_gusts_10m_max: [55.0],
+        }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects negative wind speed", () => {
+      const result = WeatherResponseSchema.safeParse(
+        withDaily({ wind_speed_10m_max: [-1] }),
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts sunrise/sunset ISO strings", () => {
+      const result = WeatherResponseSchema.safeParse(
+        withDaily({
+          sunrise: ["2026-08-01T04:48"],
+          sunset: ["2026-08-01T18:34"],
+        }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("accepts precipitation_sum at 0", () => {
+      const result = WeatherResponseSchema.safeParse(
+        withDaily({ precipitation_sum: [0] }),
+      );
+      expect(result.success).toBe(true);
+    });
+  });
 });
