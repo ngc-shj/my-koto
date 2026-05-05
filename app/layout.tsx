@@ -62,8 +62,14 @@ export default async function RootLayout({
     <html lang="ja" suppressHydrationWarning {...(nonce ? { "data-nonce": nonce } : {})}>
       <head>
         {emitKill && nonce && (
+          // suppressHydrationWarning: React 19 strips the nonce attribute on
+          // the client during hydration to prevent script-injection chaining,
+          // so the SSR'd `nonce="..."` always mismatches the empty client-side
+          // value. The script body itself is identical, and CSP enforcement
+          // happens server-side, so the warning is benign.
           <script
             nonce={nonce}
+            suppressHydrationWarning
             dangerouslySetInnerHTML={{ __html: DEV_SW_KILL_SCRIPT }}
           />
         )}
