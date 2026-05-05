@@ -49,7 +49,10 @@ yarn-error.log*
 .vscode/
 !.vscode/extensions.json
 
-# Claude Code session-local artifacts (keep settings.json shared)
+# Claude Code per-developer artifacts. settings.json carried allow/deny
+# permission lists that drift per machine; tracking it caused merge churn,
+# so we treat it the same as settings.local.json now.
+.claude/settings.json
 .claude/settings.local.json
 
 # Tokyo Met open-data CSVs cached by scripts/generate-pois.ts.
