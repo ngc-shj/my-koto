@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { format } from "date-fns";
+import { ja } from "date-fns/locale";
 import BackToHome from "@/components/BackToHome";
 import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
@@ -12,6 +14,29 @@ import { cachedFetchJson } from "@/lib/client-cache";
 import { WEATHER_CACHE } from "@/config/cache";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+// "2026-05-04" → "5月4日(月)" — match WeatherWidget format on the home page
+// so date strings line up wherever the weather schema is rendered.
+function formatDailyDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00+09:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return format(d, "M月d日(E)", { locale: ja });
+}
+
+// Open-Meteo emits sunrise/sunset as "YYYY-MM-DDTHH:mm" without a tz suffix
+// (timezone=Asia/Tokyo means values are already local). Trim the date portion
+// for display.
+function formatTimeOfDay(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const m = /T(\d{2}:\d{2})/.exec(iso);
+  return m ? m[1] : null;
+}
+
+// Round wind speed to one decimal for display.
+function fmtNum(v: number | null | undefined, digits = 0): string {
+  if (v == null) return "—";
+  return v.toFixed(digits);
+}
 
 type State =
   | { status: "loading" }
@@ -65,6 +90,43 @@ export default function WeatherPage() {
             <DataFreshness lastModified={state.fetchedAt} label="取得日時" />
           </div>
 
+          {state.data.hourly?.relative_humidity_2m && (
+            <section className="rounded-lg border border-gray-200 p-4">
+              <h2 className="text-lg font-semibold text-gray-800 mb-2">
+                <KanjiText text="現在の湿度" />
+              </h2>
+              <p className="text-sm text-gray-700">
+                {(() => {
+                  const hourly = state.data.hourly!;
+                  const now = state.fetchedAt.getTime();
+                  let bestIdx = 0;
+                  let bestDelta = Number.POSITIVE_INFINITY;
+                  for (let j = 0; j < hourly.time.length; j += 1) {
+                    const t = new Date(`${hourly.time[j]}+09:00`).getTime();
+                    if (Number.isNaN(t)) continue;
+                    const delta = Math.abs(t - now);
+                    if (delta < bestDelta) {
+                      bestDelta = delta;
+                      bestIdx = j;
+                    }
+                  }
+                  const humidity = hourly.relative_humidity_2m?.[bestIdx];
+                  const apparent = hourly.apparent_temperature?.[bestIdx];
+                  return (
+                    <>
+                      {humidity != null ? `${humidity}%` : "—"}
+                      {apparent != null && (
+                        <span className="ml-3 text-xs text-gray-400">
+                          <KanjiText text="体感" /> {fmtNum(apparent, 0)}°C
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
+              </p>
+            </section>
+          )}
+
           {state.data.daily ? (
             <section>
               <h2 className="text-lg font-semibold text-gray-800 mb-3">
@@ -75,32 +137,89 @@ export default function WeatherPage() {
                   const daily = state.data.daily!;
                   const maxTemp = daily.temperature_2m_max[i];
                   const minTemp = daily.temperature_2m_min[i];
+                  const apparentMax = daily.apparent_temperature_max?.[i];
+                  const apparentMin = daily.apparent_temperature_min?.[i];
                   const precip = daily.precipitation_probability_max?.[i];
+                  const precipSum = daily.precipitation_sum?.[i];
+                  const uv = daily.uv_index_max?.[i];
+                  const sunrise = formatTimeOfDay(daily.sunrise?.[i]);
+                  const sunset = formatTimeOfDay(daily.sunset?.[i]);
+                  const windMax = daily.wind_speed_10m_max?.[i];
+                  const windGusts = daily.wind_gusts_10m_max?.[i];
                   return (
                     <div
                       key={date}
                       className="rounded-lg border border-gray-200 p-4"
                     >
-                      <div className="font-semibold text-gray-700 mb-2">{date}</div>
+                      <div className="font-semibold text-gray-700 mb-2">
+                        {formatDailyDate(date)}
+                      </div>
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                         <dt className="text-gray-500">
                           <KanjiText text="最高気温" />
                         </dt>
                         <dd className="font-medium text-red-600">
                           {maxTemp != null ? `${maxTemp}°C` : "—"}
+                          {apparentMax != null && (
+                            <span className="ml-2 text-xs text-gray-400 font-normal">
+                              <KanjiText text="体感" /> {fmtNum(apparentMax, 0)}°C
+                            </span>
+                          )}
                         </dd>
                         <dt className="text-gray-500">
                           <KanjiText text="最低気温" />
                         </dt>
                         <dd className="font-medium text-blue-600">
                           {minTemp != null ? `${minTemp}°C` : "—"}
+                          {apparentMin != null && (
+                            <span className="ml-2 text-xs text-gray-400 font-normal">
+                              <KanjiText text="体感" /> {fmtNum(apparentMin, 0)}°C
+                            </span>
+                          )}
                         </dd>
                         <dt className="text-gray-500">
                           <KanjiText text="降水確率" />
                         </dt>
                         <dd className="font-medium">
                           {precip != null ? `${precip}%` : "—"}
+                          {precipSum != null && precipSum > 0 && (
+                            <span className="ml-2 text-xs text-gray-400 font-normal">
+                              ({fmtNum(precipSum, 1)}mm)
+                            </span>
+                          )}
                         </dd>
+                        {uv != null && (
+                          <>
+                            <dt className="text-gray-500">UV</dt>
+                            <dd className="font-medium">{fmtNum(uv, 0)}</dd>
+                          </>
+                        )}
+                        {(windMax != null || windGusts != null) && (
+                          <>
+                            <dt className="text-gray-500">
+                              <KanjiText text="風" />
+                            </dt>
+                            <dd className="font-medium">
+                              {windMax != null ? `${fmtNum(windMax, 1)}m/s` : "—"}
+                              {windGusts != null && (
+                                <span className="ml-1 text-xs text-gray-400 font-normal">
+                                  (<KanjiText text="瞬間" /> {fmtNum(windGusts, 1)}m/s)
+                                </span>
+                              )}
+                            </dd>
+                          </>
+                        )}
+                        {(sunrise || sunset) && (
+                          <>
+                            <dt className="text-gray-500">
+                              <KanjiText text="日の出" /> /{" "}
+                              <KanjiText text="日の入" />
+                            </dt>
+                            <dd className="font-medium tabular-nums">
+                              {sunrise ?? "—"} / {sunset ?? "—"}
+                            </dd>
+                          </>
+                        )}
                       </dl>
                     </div>
                   );

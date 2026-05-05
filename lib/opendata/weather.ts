@@ -25,11 +25,29 @@ export function buildWeatherUrl(
   url.searchParams.set("longitude", String(coord.lng));
   url.searchParams.set(
     "hourly",
-    "temperature_2m,precipitation_probability",
+    [
+      "temperature_2m",
+      "apparent_temperature",
+      "relative_humidity_2m",
+      "precipitation_probability",
+    ].join(","),
   );
   url.searchParams.set(
     "daily",
-    "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode",
+    [
+      "temperature_2m_max",
+      "temperature_2m_min",
+      "apparent_temperature_max",
+      "apparent_temperature_min",
+      "precipitation_probability_max",
+      "precipitation_sum",
+      "weathercode",
+      "uv_index_max",
+      "sunrise",
+      "sunset",
+      "wind_speed_10m_max",
+      "wind_gusts_10m_max",
+    ].join(","),
   );
   url.searchParams.set("timezone", "Asia/Tokyo");
   return url;
