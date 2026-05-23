@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { messages } from "@/lib/i18n/messages";
+import JmaWarningBanner from "@/components/JmaWarningBanner";
 import ShareButton from "@/components/ShareButton";
 import TodaySummary from "@/components/TodaySummary";
 import { KanjiText } from "@/components/Furigana";
@@ -42,6 +43,10 @@ export default function HomePage() {
           <ShareButton title={messages.brand.title} url={SITE_URL || undefined} />
         </div>
       </header>
+
+      <div className="mb-4">
+        <JmaWarningBanner />
+      </div>
 
       <div className="mb-8">
         <TodaySummary
