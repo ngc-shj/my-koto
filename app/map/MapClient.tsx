@@ -9,6 +9,7 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { KanjiText } from "@/components/Furigana";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
+import MapSearch from "@/components/MapSearch";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
 import { isLayerBundled } from "@/lib/map/registry";
@@ -529,7 +530,8 @@ export default function MapClient({ points, initialFilters }: Props) {
             </span>
           </button>
           {layerPanelOpen && (
-            <div className="px-3 pb-3 pt-0 space-y-3 border-t border-slate-100">
+            <div className="px-3 pb-3 pt-3 space-y-3 border-t border-slate-100">
+              <MapSearch points={points} onPick={focusPoint} />
               {groupedLayers.map(([category, layers]) => (
                 <fieldset key={category} className="space-y-1.5">
                   <legend className="text-xs font-semibold text-slate-500">
