@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { messages } from "@/lib/i18n/messages";
 import ShareButton from "@/components/ShareButton";
 import TodaySummary from "@/components/TodaySummary";
@@ -96,6 +97,18 @@ export default function HomePage() {
             <KanjiText text="気温・降水確率・WBGT" />
           </div>
         </a>
+        <Link
+          href="/bus"
+          aria-label="バス時刻表 — 都営バス系統・停留所別の発車時刻"
+          className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
+        >
+          <div className="text-lg font-medium">
+            <KanjiText text="バス時刻表" />
+          </div>
+          <div className="text-sm text-gray-500 mt-1">
+            <KanjiText text="都営バス・系統と停留所で検索" />
+          </div>
+        </Link>
         <a
           href="/settings"
           aria-label="設定 — プロファイル・通知・表示設定"

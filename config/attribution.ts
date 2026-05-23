@@ -117,6 +117,17 @@ export const ATTRIBUTIONS: DatasetAttribution[] = [
     // 利用)" when this flag is true (F-11).
     modified: true,
   },
+  {
+    id: "toei-bus",
+    name: "都営バス GTFS-JP",
+    copyrightHolder: "東京都交通局",
+    licenseUrl: "https://creativecommons.org/licenses/by/4.0/deed.ja",
+    licenseLabel: "CC-BY 4.0",
+    sourceUrl: "https://ckan.odpt.org/dataset/b_bus_gtfs_jp-toei",
+    // Filtered to routes serving Koto-ku and reshaped into a compact JSON
+    // schedule, so the published rows are derivative.
+    modified: true,
+  },
 ];
 
 export function getAttribution(id: string): DatasetAttribution | undefined {

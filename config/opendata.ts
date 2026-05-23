@@ -19,3 +19,8 @@ export const WBGT_BASE_URL = "https://www.wbgt.env.go.jp";
 
 // Open-Meteo base URL (weather forecast)
 export const OPEN_METEO_BASE_URL = "https://api.open-meteo.com";
+
+// Toei Bus GTFS-JP static feed (ODPT public mirror, no auth required).
+// CC-BY 4.0. Refreshed by the operator on roughly a quarterly cadence.
+export const TOEI_BUS_GTFS_URL =
+  "https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip";
