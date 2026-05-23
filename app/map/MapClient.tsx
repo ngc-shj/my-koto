@@ -11,6 +11,7 @@ import { KanjiText } from "@/components/Furigana";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
+import { isLayerBundled } from "@/lib/map/registry";
 import {
   HAZARD_LABELS,
   type HazardKind,
@@ -46,6 +47,7 @@ const CATEGORY_LABELS: Record<LayerCategory, string> = {
   civic: "公共施設",
   disaster: "防災",
   family: "子育て・暮らし",
+  transit: "交通",
 };
 
 function formatDistance(meters: number): string {
@@ -231,7 +233,12 @@ export default function MapClient({ points, initialFilters }: Props) {
         const seen = new Set(prev.map((p) => p.id));
         const fresh = body.records.filter((p) => {
           if (seen.has(p.id)) return false;
-          if (isInsideBbox(p, KOTO_BBOX)) return false;
+          // Only drop Koto-bbox OSM rows for layers we ship a bundled
+          // Koto dataset for; OSM-only layers (e.g. station) must keep
+          // their Koto rows or the map would be empty inside the ward.
+          if (isLayerId(p.type) && isLayerBundled(p.type) && isInsideBbox(p, KOTO_BBOX)) {
+            return false;
+          }
           return true;
         });
         return fresh.length === 0 ? prev : [...prev, ...fresh];

@@ -17,9 +17,11 @@ export type LayerId =
   | "park"
   | "library"
   | "child_center"
-  | "nursery";
+  | "nursery"
+  | "station"
+  | "station_exit";
 
-export type LayerCategory = "civic" | "disaster" | "family";
+export type LayerCategory = "civic" | "disaster" | "family" | "transit";
 
 export type OsmTag = { readonly key: string; readonly value: string };
 
@@ -37,6 +39,12 @@ export type LayerConfig = {
   readonly osmTags: readonly OsmTag[];
   // Fallback name used when an OSM row has no name tag.
   readonly defaultName: string;
+  // When true the app ships a curated Koto-ku dataset for this layer and
+  // OSM rows inside the Koto bbox are dropped to avoid double-pinning.
+  // When false the layer is OSM-only everywhere (no bundled JSON), so the
+  // bbox filter has to let Koto rows through. New layers should declare
+  // this explicitly rather than relying on a default.
+  readonly bundled: boolean;
 };
 
 export const LAYERS: readonly LayerConfig[] = [
@@ -52,6 +60,7 @@ export const LAYERS: readonly LayerConfig[] = [
       { key: "healthcare", value: "defibrillator" },
     ],
     defaultName: "AED",
+    bundled: true,
   },
   {
     id: "toilet",
@@ -62,6 +71,7 @@ export const LAYERS: readonly LayerConfig[] = [
     letter: "T",
     osmTags: [{ key: "amenity", value: "toilets" }],
     defaultName: "公衆トイレ",
+    bundled: true,
   },
   {
     id: "shelter",
@@ -75,6 +85,7 @@ export const LAYERS: readonly LayerConfig[] = [
       { key: "emergency", value: "shelter" },
     ],
     defaultName: "避難所",
+    bundled: true,
   },
   {
     id: "assembly_point",
@@ -85,6 +96,7 @@ export const LAYERS: readonly LayerConfig[] = [
     letter: "場",
     osmTags: [{ key: "emergency", value: "assembly_point" }],
     defaultName: "避難場所",
+    bundled: true,
   },
   {
     id: "water_supply",
@@ -98,6 +110,7 @@ export const LAYERS: readonly LayerConfig[] = [
       { key: "amenity", value: "drinking_water" },
     ],
     defaultName: "給水拠点",
+    bundled: true,
   },
   {
     id: "park",
@@ -111,6 +124,7 @@ export const LAYERS: readonly LayerConfig[] = [
       { key: "leisure", value: "garden" },
     ],
     defaultName: "公園",
+    bundled: true,
   },
   {
     id: "library",
@@ -121,6 +135,7 @@ export const LAYERS: readonly LayerConfig[] = [
     letter: "図",
     osmTags: [{ key: "amenity", value: "library" }],
     defaultName: "図書館",
+    bundled: true,
   },
   {
     id: "child_center",
@@ -134,6 +149,7 @@ export const LAYERS: readonly LayerConfig[] = [
     // precision because Koto-ku's bundled CSV dominates this layer.
     osmTags: [{ key: "amenity", value: "community_centre" }],
     defaultName: "児童館",
+    bundled: true,
   },
   {
     id: "nursery",
@@ -149,6 +165,32 @@ export const LAYERS: readonly LayerConfig[] = [
       { key: "amenity", value: "childcare" },
     ],
     defaultName: "保育園",
+    bundled: true,
+  },
+  {
+    id: "station",
+    label: "鉄道駅",
+    shortLabel: "駅",
+    category: "transit",
+    color: "#0369a1", // sky-700
+    letter: "駅",
+    // OSM tags subway/light_rail/JR/private-railway stations alike under
+    // railway=station. Operator (東京メトロ / 都営 / JR / りんかい / ゆりかもめ)
+    // is surfaced in the popup via the operator tag.
+    osmTags: [{ key: "railway", value: "station" }],
+    defaultName: "駅",
+    bundled: false,
+  },
+  {
+    id: "station_exit",
+    label: "地下鉄出入口",
+    shortLabel: "出入口",
+    category: "transit",
+    color: "#0ea5e9", // sky-500
+    letter: "出",
+    osmTags: [{ key: "railway", value: "subway_entrance" }],
+    defaultName: "地下鉄出入口",
+    bundled: false,
   },
 ];
 
@@ -168,6 +210,14 @@ export function getLayer(id: LayerId): LayerConfig {
 
 export function isLayerId(value: string): value is LayerId {
   return BY_ID.has(value as LayerId);
+}
+
+// True when the app ships a curated dataset that already covers Koto-ku
+// for this layer; the dynamic-OSM merge uses this to suppress duplicates
+// inside the Koto bbox. Returns false for OSM-only layers (e.g. station)
+// so their Koto rows are kept.
+export function isLayerBundled(id: LayerId): boolean {
+  return getLayer(id).bundled;
 }
 
 // Classify an OSM element's tags into a layer id, or null when no layer

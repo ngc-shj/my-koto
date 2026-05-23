@@ -30,9 +30,13 @@ export const KANJI_READINGS: Record<string, string> = {
   図書館: "としょかん",
   児童館: "じどうかん",
   保育園: "ほいくえん",
+  鉄道駅: "てつどうえき",
+  地下鉄出入口: "ちかてついりぐち",
   // shortLabels — separate keys because the registry uses both the
   // long label (popup) and short label (filter chip)
   給水: "きゅうすい",
+  駅: "えき",
+  出入口: "いりぐち",
 
   // ─── Hazard categories (lib/map/types.ts HAZARD_LABELS) ─────────────
   洪水: "こうずい",

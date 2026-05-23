@@ -4,6 +4,7 @@ import {
   LAYER_IDS,
   classifyOsmTags,
   getLayer,
+  isLayerBundled,
   isLayerId,
 } from "./registry";
 
@@ -37,6 +38,19 @@ describe("layer registry", () => {
   it("isLayerId is false for unrelated strings", () => {
     expect(isLayerId("nope")).toBe(false);
     expect(isLayerId("")).toBe(false);
+  });
+
+  it("includes the transit layers (station / station_exit)", () => {
+    expect(LAYER_IDS).toEqual(
+      expect.arrayContaining(["station", "station_exit"]),
+    );
+  });
+
+  it("marks bundled layers true and OSM-only layers false", () => {
+    expect(isLayerBundled("aed")).toBe(true);
+    expect(isLayerBundled("shelter")).toBe(true);
+    expect(isLayerBundled("station")).toBe(false);
+    expect(isLayerBundled("station_exit")).toBe(false);
   });
 });
 
