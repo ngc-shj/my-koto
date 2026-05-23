@@ -3,6 +3,7 @@ import { buildQuakeFeed } from "./quake";
 import type { JmaQuakeList } from "@/lib/opendata/schemas/jma-quake";
 
 const KOTO = "1310800";
+const KOTO_INT = [{ code: "13", maxi: "2", city: [{ code: KOTO, maxi: "2" }] }];
 
 function makeEvent(overrides: Partial<JmaQuakeList[number]> = {}): JmaQuakeList[number] {
   return {
@@ -13,46 +14,44 @@ function makeEvent(overrides: Partial<JmaQuakeList[number]> = {}): JmaQuakeList[
     anm: "宮城県沖",
     mag: "5.4",
     maxi: "5-",
-    int: [],
+    int: KOTO_INT,
     ...overrides,
   };
 }
 
 describe("buildQuakeFeed", () => {
-  it("trims to limit and preserves upstream order", () => {
-    const events: JmaQuakeList = Array.from({ length: 15 }, (_, i) =>
-      makeEvent({ eid: `evt-${i}` }),
-    );
-    const feed = buildQuakeFeed(events, KOTO, 5);
-    expect(feed.events.map((e) => e.eventId)).toEqual([
-      "evt-0",
-      "evt-1",
-      "evt-2",
-      "evt-3",
-      "evt-4",
-    ]);
+  it("keeps only events observed in 江東区 and trims to limit", () => {
+    const events: JmaQuakeList = [
+      makeEvent({ eid: "felt-1" }),
+      makeEvent({
+        eid: "not-felt",
+        int: [{ code: "02", maxi: "2", city: [{ code: "0220300", maxi: "2" }] }],
+      }),
+      makeEvent({ eid: "felt-2" }),
+      makeEvent({ eid: "felt-3" }),
+    ];
+    const feed = buildQuakeFeed(events, KOTO, 2);
+    expect(feed.events.map((e) => e.eventId)).toEqual(["felt-1", "felt-2"]);
   });
 
-  it("populates kotoShindo when 江東区 is in the city list", () => {
+  it("populates kotoShindo from the 江東区 city entry", () => {
     const events: JmaQuakeList = [
       makeEvent({
-        int: [{ code: "13", maxi: "2", city: [{ code: KOTO, maxi: "2" }] }],
+        int: [{ code: "13", maxi: "3", city: [{ code: KOTO, maxi: "3" }] }],
       }),
     ];
     const feed = buildQuakeFeed(events, KOTO);
-    expect(feed.events[0]?.kotoShindo).toBe("2");
-    expect(feed.feltInKotoCount).toBe(1);
+    expect(feed.events[0]?.kotoShindo).toBe("3");
   });
 
-  it("leaves kotoShindo null when 江東区 did not appear", () => {
+  it("excludes events where 江東区 did not appear", () => {
     const events: JmaQuakeList = [
       makeEvent({
         int: [{ code: "02", maxi: "2", city: [{ code: "0220300", maxi: "2" }] }],
       }),
     ];
     const feed = buildQuakeFeed(events, KOTO);
-    expect(feed.events[0]?.kotoShindo).toBeNull();
-    expect(feed.feltInKotoCount).toBe(0);
+    expect(feed.events).toHaveLength(0);
   });
 
   it("falls back to rdt when at is missing", () => {

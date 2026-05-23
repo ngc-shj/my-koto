@@ -11,14 +11,13 @@ type State =
   | { status: "success"; data: QuakeFeed; fetchedAt: Date }
   | { status: "error" };
 
-// Default view hides weak quakes nobody felt locally — 震度1〜2 nationwide
-// fill the list daily and bury the events that matter. 江東区 で有感の地震は
-// 震度に関わらず必ず残す。
+// Default view hides quakes 江東区 only barely felt (震度1〜2). The strong
+// ones (3+) always show; the rest are revealed by the toggle so a curious
+// resident can still browse them.
 const DEFAULT_MIN_SHINDO_DIGIT = 3;
 
 function meetsDefaultFilter(q: NormalizedQuake): boolean {
-  if (q.kotoShindo != null) return true;
-  const head = q.maxShindo[0];
+  const head = q.kotoShindo[0];
   if (head == null) return false;
   const digit = Number.parseInt(head, 10);
   return Number.isFinite(digit) && digit >= DEFAULT_MIN_SHINDO_DIGIT;
@@ -27,7 +26,7 @@ function meetsDefaultFilter(q: NormalizedQuake): boolean {
 function isQuakeFeed(v: unknown): v is QuakeFeed {
   if (v == null || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
-  return Array.isArray(o.events) && typeof o.feltInKotoCount === "number";
+  return Array.isArray(o.events);
 }
 
 // Tier color by max observed shindo nationally. JMA returns values such as
@@ -106,9 +105,7 @@ export default function JmaQuakePanel() {
           <KanjiText text="最近の地震" />
         </h2>
         <p className="text-xs text-gray-500 mt-0.5">
-          <KanjiText
-            text={`直近 ${data.events.length} 件中、江東区で観測 ${data.feltInKotoCount} 件`}
-          />
+          <KanjiText text={`江東区で観測された直近 ${data.events.length} 件`} />
         </p>
       </div>
 
@@ -117,52 +114,45 @@ export default function JmaQuakePanel() {
           <KanjiText
             text={
               showAll
-                ? "直近の有感地震はありません。"
-                : "直近で最大震度3以上の地震はありません。"
+                ? "江東区で観測された直近の地震はありません。"
+                : "江東区で震度3以上を観測した直近の地震はありません。"
             }
           />
         </div>
       ) : (
         <ul className="space-y-2">
-          {events.map((q: NormalizedQuake) => {
-            const felt = q.kotoShindo != null;
-            return (
-              <li
-                key={q.eventId}
-                className={`rounded-lg border p-3 ${
-                  felt ? "border-amber-300 bg-amber-50" : "border-gray-200"
-                }`}
-              >
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="text-sm text-gray-600 tabular-nums">
-                    {formatDateTime(q.occurredAt)}
+          {events.map((q: NormalizedQuake) => (
+            <li
+              key={q.eventId}
+              className="rounded-lg border border-amber-300 bg-amber-50 p-3"
+            >
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-sm text-gray-600 tabular-nums">
+                  {formatDateTime(q.occurredAt)}
+                </span>
+                <span className="font-semibold text-gray-800">
+                  <KanjiText text={q.epicenter} />
+                </span>
+                {q.magnitude != null && (
+                  <span className="text-xs text-gray-600 tabular-nums">
+                    M {q.magnitude}
                   </span>
-                  <span className="font-semibold text-gray-800">
-                    <KanjiText text={q.epicenter} />
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap mt-1 text-xs">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold bg-amber-200 text-amber-900">
+                  <KanjiText text="江東区" /> 震度 {q.kotoShindo}
+                </span>
+                {q.maxShindo.length > 0 && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold ${shindoTone(q.maxShindo)}`}
+                  >
+                    <KanjiText text="最大震度" /> {q.maxShindo}
                   </span>
-                  {q.magnitude != null && (
-                    <span className="text-xs text-gray-600 tabular-nums">
-                      M {q.magnitude}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2 flex-wrap mt-1 text-xs">
-                  {q.maxShindo.length > 0 && (
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold ${shindoTone(q.maxShindo)}`}
-                    >
-                      <KanjiText text="最大震度" /> {q.maxShindo}
-                    </span>
-                  )}
-                  {felt && q.kotoShindo != null && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold bg-amber-200 text-amber-900">
-                      <KanjiText text="江東区" /> 震度 {q.kotoShindo}
-                    </span>
-                  )}
-                </div>
-              </li>
-            );
-          })}
+                )}
+              </div>
+            </li>
+          ))}
         </ul>
       )}
 

@@ -39,7 +39,6 @@ export function pickBannerQuake(
   now: Date,
 ): NormalizedQuake | null {
   for (const q of feed.events) {
-    if (q.kotoShindo == null) continue;
     const head = q.kotoShindo[0];
     if (head == null) continue;
     const digit = Number.parseInt(head, 10);

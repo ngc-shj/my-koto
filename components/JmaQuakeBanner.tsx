@@ -15,7 +15,7 @@ type State =
 function isQuakeFeed(v: unknown): v is QuakeFeed {
   if (v == null || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
-  return Array.isArray(o.events) && typeof o.feltInKotoCount === "number";
+  return Array.isArray(o.events);
 }
 
 function shindoTone(maxi: string): string {
@@ -60,7 +60,7 @@ export default function JmaQuakeBanner() {
   if (state.status !== "active") return null;
 
   const { quake } = state;
-  const tone = shindoTone(quake.kotoShindo ?? "");
+  const tone = shindoTone(quake.kotoShindo);
 
   return (
     <Link

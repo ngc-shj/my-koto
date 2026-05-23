@@ -63,10 +63,7 @@ function makeQuake(overrides: Partial<NormalizedQuake> = {}): NormalizedQuake {
 }
 
 function quakeFeed(events: NormalizedQuake[]): QuakeFeed {
-  return {
-    events,
-    feltInKotoCount: events.filter((e) => e.kotoShindo != null).length,
-  };
+  return { events };
 }
 
 const NOW = new Date("2026-05-23T14:00:00+09:00");
@@ -76,11 +73,6 @@ describe("pickBannerQuake", () => {
     expect(pickBannerQuake(quakeFeed([makeQuake()]), NOW)?.eventId).toBe(
       "evt-1",
     );
-  });
-
-  it("skips quakes the ward did not feel", () => {
-    const q = makeQuake({ kotoShindo: null });
-    expect(pickBannerQuake(quakeFeed([q]), NOW)).toBeNull();
   });
 
   it("skips quakes below 震度 2", () => {

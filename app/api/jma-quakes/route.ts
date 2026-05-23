@@ -144,7 +144,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 function isQuakeFeed(v: unknown): v is QuakeFeed {
   if (v == null || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
-  return Array.isArray(o.events) && typeof o.feltInKotoCount === "number";
+  return Array.isArray(o.events);
 }
 
 export async function POST(): Promise<Response> {
