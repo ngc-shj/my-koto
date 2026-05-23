@@ -37,3 +37,7 @@ export function buildJmaWarningUrl(prefectureCode: string): URL {
     JMA_WARNING_BASE_URL,
   );
 }
+
+// JMA quake list — latest ~200 felt events nationwide. The list is one
+// JSON file with no path parameter, so the URL is hard-coded.
+export const JMA_QUAKE_LIST_URL = `${JMA_WARNING_BASE_URL}/bosai/quake/data/list.json`;

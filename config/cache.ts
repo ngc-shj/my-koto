@@ -25,3 +25,15 @@ export const JMA_WARNING_CACHE = {
   STALE_IF_ERROR: 3600,
   CLIENT_TTL_MS: 60_000,
 } as const;
+
+// Quake list grows only when a felt earthquake occurs, so a longer TTL is
+// appropriate. Stale-if-error is one day because the page must keep
+// showing the most recent known event even if the upstream is briefly
+// unreachable.
+export const JMA_QUAKE_CACHE = {
+  BROWSER_MAX_AGE: 300,
+  SHARED_MAX_AGE: 300,
+  STALE_WHILE_REVALIDATE: 600,
+  STALE_IF_ERROR: 86400,
+  CLIENT_TTL_MS: 5 * 60_000,
+} as const;

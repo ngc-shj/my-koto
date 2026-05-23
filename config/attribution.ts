@@ -139,6 +139,17 @@ export const ATTRIBUTIONS: DatasetAttribution[] = [
     // resolve code -> Japanese label, so the rendered output is derivative.
     modified: true,
   },
+  {
+    id: "jma-quake",
+    name: "震源・震度情報",
+    copyrightHolder: "気象庁",
+    licenseUrl: "https://www.jma.go.jp/jma/kishou/info/coment.html",
+    licenseLabel: "気象庁ホームページ コンテンツの利用について (出典明示で利用可)",
+    sourceUrl: "https://www.jma.go.jp/bosai/quake/",
+    // We trim to the latest 10 events and surface only Koto-ku's observed
+    // intensity, so the rendered output is derivative.
+    modified: true,
+  },
 ];
 
 export function getAttribution(id: string): DatasetAttribution | undefined {

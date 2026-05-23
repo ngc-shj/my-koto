@@ -7,6 +7,7 @@ import BackToHome from "@/components/BackToHome";
 import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
+import JmaQuakePanel from "@/components/JmaQuakePanel";
 import JmaWarningPanel from "@/components/JmaWarningPanel";
 import WbgtPanel from "@/components/WbgtPanel";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
@@ -88,6 +89,7 @@ export default function WeatherPage() {
       {state.status === "success" && (
         <div className="space-y-6">
           <JmaWarningPanel />
+          <JmaQuakePanel />
 
           <div>
             <DataFreshness lastModified={state.fetchedAt} label="取得日時" />
