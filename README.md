@@ -2,27 +2,45 @@
 
 **このサービスは江東区の公式サイトではありません。**
 
-江東区民が日常的に使う行政情報（ゴミ収集、AED、公衆トイレ、区主催イベント、天気）を
-一画面に集約した非公式 PWA です。江東区・東京都・各データ提供元は本サービスとは無関係です。
+江東区民が日常的に使う行政情報（ゴミ収集、AED、公衆トイレ、区主催イベント、天気、
+気象警報・地震、都営バス時刻表など）を一画面に集約した非公式 PWA です。
+江東区・東京都・各データ提供元は本サービスとは無関係です。
 
 ## 主な機能
 
+- **ホームバナー (気象警報・地震)** — JMA bosai フィードから江東区に発表中の警報
+  / 特別警報、および直近 24h で江東区が震度 2 以上を観測した地震をホーム上部に
+  バナー表示。クリックで `/weather` の詳細パネルへ
 - **ゴミ収集カレンダー** — 公式 CSV (CC-BY 4.0) を取り込んだ 58 区分の収集ルートに対応。
   地区検索、月次/週次/当日・翌日ビュー、`webcal://` 購読 (UA 判定で iOS は webcal、他は https)
 - **ゴミ品目検索** — wanakana を使った NFKC + ひら↔カナ + ローマ字 双方向の正規化検索。
   「ペットボトル」「ぺっとぼとる」「PET」「ﾍﾟｯﾄﾎﾞﾄﾙ」が同一結果
-- **区民マップ (9 レイヤ)** — AED (246) / 公衆トイレ (191) は江東区公式、避難所 (193) /
-  避難場所 (12, 8 種ハザード対応フラグ付) / 給水拠点 (6) は東京都公式、
-  公園 (171) / 図書館 (12) / 児童館 (18) / 区立保育園 (43) は江東区公式。
-  レイヤ抽象 (`lib/map/registry.ts`) により同一の toggle UI / マーカー描画 /
-  OSM Overpass フォールバック経路を共有。地図を区外にパンすると Overpass から
-  動的補完 (Tokyo 23 区内、bbox/area サーバ clamp、KV キャッシュ、30 req/min/IP)。
-  江東区内は OSM 由来を除外して同梱データを優先
-- **イベントカレンダー + ICS** — `ical-generator` + `@touch4it/ical-timezones` で VTIMEZONE
-  同梱、`STATUS:CANCELLED`、全テキストフィールドのエスケープ、URL は https only
+- **区民マップ (14 レイヤ + 検索)** — AED (246) / 公衆トイレ (191) / 公園 (171) /
+  図書館 (12) / 児童館 (18) / 区立保育園 (43) は江東区公式、避難所 (193) /
+  避難場所 (12, 8 種ハザード対応フラグ付) / 給水拠点 (6) は東京都公式。
+  追加で OSM-only レイヤ: 駅・地下鉄出入口 (transit カテゴリ)、病院・診療所・薬局
+  (medical カテゴリ)。レイヤ抽象 (`lib/map/registry.ts`) で同一の toggle UI /
+  マーカー描画 / OSM Overpass フォールバックを共有し、`bundled` フラグで
+  Koto-bbox dedupe を制御。レイヤパネルに POI 名・住所の部分一致検索と
+  件数バッジを実装。低ズーム時はピクセルグリッドで自動クラスタリング
+- **バス時刻表** — 都営バス GTFS-JP (CC-BY 4.0) から江東区を通る 68 系統 ×
+  879 停留所を bundled JSON (3.3 MB) に取込。停留所名で部分一致検索 →
+  通る系統の方向別時刻表へ展開。江東区コミュニティバス「しおかぜ」(江東01) は
+  同梱データに含まれており、ルートエイリアスで識別。アクティブ
+  プロファイルの district label (丁目除去後) で初期検索値をプリセット
+- **イベントカレンダー + ICS + 検索** — `ical-generator` + `@touch4it/ical-timezones`
+  で VTIMEZONE 同梱、`STATUS:CANCELLED`、全テキストフィールドのエスケープ、
+  URL は https only。タイトル / 場所 / 主催 / 説明にまたがる検索フィルタを実装
 - **天気** — Open-Meteo を Edge proxy で取得、Vercel KV に stale-if-error キャッシュ、
   60 req/min/IP のレート制限、SSRF ハードニング (GET 限定 / redirect:'manual' / Zod 検証 /
   ヘッダ strip)
+- **気象警報・注意報 (江東区)** — JMA `bosai/warning/data/warning/130000.json` を
+  Edge proxy で取得、`areaTypes[1]` から江東区 (class20s 1310800) のみ抽出、
+  警報コードを日本語ラベル + tier (特別警報 / 警報 / 気象情報 / 注意報) に解決。
+  KV TTL=60s、stale-if-error 1h
+- **地震情報 (江東区震度ハイライト)** — JMA `bosai/quake/data/list.json` の最新 10 件を
+  Edge proxy で正規化、江東区 (city.code 1310800) で観測された震度をイベントごとに
+  突合せ。KV TTL=5min、stale-if-error 24h
 - **WBGT (暑さ指数)** — 環境省 熱中症予防情報サイトの予測 CSV (東京観測所 44132)
   を Edge proxy で取得・パース。注意 / 警戒 / 厳重警戒 / 危険のバンドで色分けし
   6 時点先まで `/weather` に表示。30 分 KV キャッシュ + stale-if-error
@@ -48,7 +66,9 @@
 | ゴミ収集・AED・公衆トイレ・イベント | 東京都・江東区 ([東京都オープンデータカタログ](https://catalog.data.metro.tokyo.lg.jp/dataset?organization=t131083)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
 | 避難所・避難場所 | 東京都総務局 ([東京都防災マップ 避難所・避難場所一覧](https://catalog.data.metro.tokyo.lg.jp/dataset/t000003d0000000093)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
 | 給水拠点 | 東京都水道局 ([給水拠点一覧](https://catalog.data.metro.tokyo.lg.jp/dataset/t000019d0000000001)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
-| 23 区内マップレイヤ補完データ | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
+| 23 区内マップレイヤ補完データ (駅・出入口・病院・診療所・薬局を含む) | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
+| 都営バス GTFS-JP (江東01「しおかぜ」を含む) | 東京都交通局 ([ODPT 経由](https://ckan.odpt.org/dataset/b_bus_gtfs_jp-toei)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
+| 気象警報・注意報 / 震源・震度情報 | [気象庁 防災情報](https://www.jma.go.jp/bosai/) | [気象庁ホームページ コンテンツの利用について](https://www.jma.go.jp/jma/kishou/info/coment.html) (出典明示で利用可) |
 | 天気予報 | [Open-Meteo](https://open-meteo.com) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
 | WBGT (暑さ指数) | [環境省 熱中症予防情報サイト](https://www.wbgt.env.go.jp/) | [出典明示の上で利用可](https://www.wbgt.env.go.jp/sp/index_pre.php) |
 | 地図タイル | [国土地理院 標準地図](https://maps.gsi.go.jp/development/ichiran.html) | 国土地理院コンテンツ利用規約 |
@@ -78,6 +98,9 @@ fetch する CSV は以下の URI です。Tokyo Met dataset (避難所・避難
 | 地図タイル (国土地理院) | `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` |
 | OSM 補完 (Overpass) | `https://overpass-api.de/api/interpreter` |
 | WBGT 予測 (環境省) | `https://www.wbgt.env.go.jp/prev15WG/dl/yohou_44132.csv` (東京観測所) |
+| 都営バス GTFS-JP (ODPT 公開ミラー) | `https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip` |
+| 気象警報・注意報 (気象庁) | `https://www.jma.go.jp/bosai/warning/data/warning/130000.json` (東京都) |
+| 震源・震度情報 (気象庁) | `https://www.jma.go.jp/bosai/quake/data/list.json` |
 
 ## 開発環境セットアップ
 
@@ -110,6 +133,10 @@ npx tsx scripts/generate-pois.ts
 
 # 開発時に東京都オープンデータ API のレスポンスを fixture として保存
 npx tsx scripts/refresh-fixtures.ts
+
+# 都営バス GTFS-JP → 江東区を通る系統に絞った data/bus-toei.json
+# (`adm-zip` で zip 解凍、CSV をストリームパース)
+npx tsx scripts/fetch-bus-toei.ts
 ```
 
 ## GitHub Actions data-sync ワークフロー
@@ -222,6 +249,11 @@ Sentry / Vercel Analytics 等の観測性ツールを導入する場合は、以
    → `/api/csp-report` + `/status` で対応済
 5. **PMTiles 経由の GSI ベクトルタイル** — 描画品質向上 (現状はラスター)
 6. **OSM タイル/データの地理範囲拡大** — 23 区から多摩地域・隣接 3 県へ拡大検討
+7. **救急当番医・休日急患診療所** — 東京都救急医療情報センターのライブデータ調査、
+   江東区休日急患診療所の固定エントリ追加
+8. **行政手続きガイド** — 転入・転出・各種申請のステップ、必要書類、窓口の混雑時間
+9. **ODPT リアルタイム** — 都営バスの位置情報。`acl:consumerKey` を Vercel 環境変数に
+   セットして `/api/bus/realtime` を Edge route で実装
 
 ## ライセンス
 
