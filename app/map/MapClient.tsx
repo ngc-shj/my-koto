@@ -48,6 +48,7 @@ const CATEGORY_LABELS: Record<LayerCategory, string> = {
   disaster: "防災",
   family: "子育て・暮らし",
   transit: "交通",
+  medical: "医療",
 };
 
 function formatDistance(meters: number): string {

@@ -46,11 +46,20 @@ describe("layer registry", () => {
     );
   });
 
+  it("includes the medical layers (hospital / clinic / pharmacy)", () => {
+    expect(LAYER_IDS).toEqual(
+      expect.arrayContaining(["hospital", "clinic", "pharmacy"]),
+    );
+  });
+
   it("marks bundled layers true and OSM-only layers false", () => {
     expect(isLayerBundled("aed")).toBe(true);
     expect(isLayerBundled("shelter")).toBe(true);
     expect(isLayerBundled("station")).toBe(false);
     expect(isLayerBundled("station_exit")).toBe(false);
+    expect(isLayerBundled("hospital")).toBe(false);
+    expect(isLayerBundled("clinic")).toBe(false);
+    expect(isLayerBundled("pharmacy")).toBe(false);
   });
 });
 

@@ -19,9 +19,17 @@ export type LayerId =
   | "child_center"
   | "nursery"
   | "station"
-  | "station_exit";
+  | "station_exit"
+  | "hospital"
+  | "clinic"
+  | "pharmacy";
 
-export type LayerCategory = "civic" | "disaster" | "family" | "transit";
+export type LayerCategory =
+  | "civic"
+  | "disaster"
+  | "family"
+  | "transit"
+  | "medical";
 
 export type OsmTag = { readonly key: string; readonly value: string };
 
@@ -190,6 +198,45 @@ export const LAYERS: readonly LayerConfig[] = [
     letter: "出",
     osmTags: [{ key: "railway", value: "subway_entrance" }],
     defaultName: "地下鉄出入口",
+    bundled: false,
+  },
+  {
+    id: "hospital",
+    label: "病院",
+    shortLabel: "病院",
+    category: "medical",
+    color: "#be123c", // rose-700
+    letter: "病",
+    osmTags: [{ key: "amenity", value: "hospital" }],
+    defaultName: "病院",
+    bundled: false,
+  },
+  {
+    id: "clinic",
+    label: "診療所",
+    shortLabel: "診療所",
+    category: "medical",
+    color: "#ea580c", // orange-600
+    letter: "診",
+    // OSM tags doctors-only practices as amenity=doctors and small clinics
+    // as amenity=clinic. Treat them as one layer so users searching for a
+    // 内科 see both without juggling toggles.
+    osmTags: [
+      { key: "amenity", value: "clinic" },
+      { key: "amenity", value: "doctors" },
+    ],
+    defaultName: "診療所",
+    bundled: false,
+  },
+  {
+    id: "pharmacy",
+    label: "薬局",
+    shortLabel: "薬局",
+    category: "medical",
+    color: "#15803d", // green-700
+    letter: "薬",
+    osmTags: [{ key: "amenity", value: "pharmacy" }],
+    defaultName: "薬局",
     bundled: false,
   },
 ];
