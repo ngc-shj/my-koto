@@ -1,0 +1,72 @@
+// Pure helpers that turn the bundled Toei bus catalog into a GeoJSON
+// FeatureCollection of LineStrings the map can render as colored
+// "subway-map" style polylines. Stops within a direction are connected
+// in stopSequence order, and each route gets a deterministic HSL color
+// so the same line keeps the same hue across renders.
+
+import type { BusToeiData } from "@/lib/opendata/schemas/bus";
+
+export type BusRouteLineFeature = {
+  readonly type: "Feature";
+  readonly geometry: {
+    readonly type: "LineString";
+    readonly coordinates: readonly (readonly [number, number])[];
+  };
+  readonly properties: {
+    readonly routeId: string;
+    readonly directionId: "0" | "1";
+    readonly shortName: string;
+    readonly headsign: string;
+    readonly color: string;
+  };
+};
+
+export type BusRouteLines = {
+  readonly type: "FeatureCollection";
+  readonly features: readonly BusRouteLineFeature[];
+};
+
+// FNV-1a 32-bit, plenty for ~70 route ids. Stable so the same route
+// always paints the same hue across server/client renders.
+function hashRouteId(routeId: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < routeId.length; i++) {
+    h ^= routeId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+export function routeColor(routeId: string): string {
+  const hue = hashRouteId(routeId) % 360;
+  return `hsl(${hue} 70% 45%)`;
+}
+
+export function buildBusRouteLines(data: BusToeiData): BusRouteLines {
+  const features: BusRouteLineFeature[] = [];
+  for (const route of data.routes) {
+    const color = routeColor(route.routeId);
+    for (const dir of route.directions) {
+      const coords: [number, number][] = [];
+      for (const stopId of dir.stopSequence) {
+        const stop = data.stops[stopId];
+        if (stop == null) continue;
+        coords.push([stop.lng, stop.lat]);
+      }
+      // A LineString needs at least two points to render.
+      if (coords.length < 2) continue;
+      features.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: coords },
+        properties: {
+          routeId: route.routeId,
+          directionId: dir.directionId,
+          shortName: route.shortName,
+          headsign: dir.headsign,
+          color,
+        },
+      });
+    }
+  }
+  return { type: "FeatureCollection", features };
+}

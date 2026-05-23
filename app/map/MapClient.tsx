@@ -10,6 +10,7 @@ import GeolocationConsent from "@/components/GeolocationConsent";
 import { KanjiText } from "@/components/Furigana";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import MapSearch from "@/components/MapSearch";
+import type { BusRouteLines } from "@/lib/map/bus-routes";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
 import { isLayerBundled } from "@/lib/map/registry";
@@ -89,6 +90,10 @@ type Props = {
   // 区民 jumping from /bus lands on the pin instead of having to find
   // it by hand.
   initialFocusId?: string | null;
+  // Pre-built GeoJSON of every Koto-passing route, one LineString per
+  // route+direction with a deterministic color baked in. Rendered as a
+  // line layer visible only while the bus_stop layer is on.
+  busRouteLines?: BusRouteLines;
 };
 
 const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
@@ -101,6 +106,7 @@ export default function MapClient({
   points,
   initialFilters,
   initialFocusId = null,
+  busRouteLines,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -165,6 +171,62 @@ export default function MapClient({
     () => LAYERS.filter((l) => filters.layers[l.id]).map((l) => l.id),
     [filters.layers],
   );
+
+  // Register the colored bus route lines as a MapLibre GeoJSON layer.
+  // Runs once after the map is ready; the visibility toggle below keeps
+  // it in sync with the bus_stop layer chip.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || busRouteLines == null) return;
+    if (map.getSource("bus-routes")) return;
+    map.addSource("bus-routes", {
+      type: "geojson",
+      // MapLibre's GeoJSON typing wants mutable arrays; our value is
+      // readonly by construction but never mutated downstream.
+      data: busRouteLines as unknown as GeoJSON.FeatureCollection,
+    });
+    map.addLayer({
+      id: "bus-routes-line",
+      type: "line",
+      source: "bus-routes",
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
+        visibility: filters.layers.bus_stop ? "visible" : "none",
+      },
+      paint: {
+        "line-color": ["get", "color"],
+        // Lines thicken with zoom so they stay visible while panned out
+        // but do not bury the markers when zoomed in close to one stop.
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          11,
+          1.5,
+          14,
+          3,
+          17,
+          6,
+        ],
+        "line-opacity": 0.65,
+      },
+    });
+    // filters.layers.bus_stop is read once at setup; the visibility
+    // effect below picks up subsequent toggles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady, busRouteLines]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (!map.getLayer("bus-routes-line")) return;
+    map.setLayoutProperty(
+      "bus-routes-line",
+      "visibility",
+      filters.layers.bus_stop ? "visible" : "none",
+    );
+  }, [mapReady, filters.layers.bus_stop]);
 
   // Merge bundled official points with whatever has been fetched from
   // /api/pois. Dedupe by id so refreshes do not double-pin.

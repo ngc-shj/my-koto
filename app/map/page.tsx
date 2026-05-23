@@ -29,10 +29,11 @@ import childCenterRaw from "@/data/child_center.json";
 import nurseryRaw from "@/data/nursery.json";
 import busRaw from "@/data/bus-toei.json";
 import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
+import { buildBusRouteLines, type BusRouteLines } from "@/lib/map/bus-routes";
 
-function loadBusStopPoints(): MapPoint[] {
+function loadBusBundle(): { stops: MapPoint[]; routes: BusRouteLines } {
   const data = BusToeiDataSchema.parse(busRaw);
-  return Object.values(data.stops).map((s) => ({
+  const stops: MapPoint[] = Object.values(data.stops).map((s) => ({
     id: `bus-stop-${s.stopId}`,
     type: "bus_stop",
     source: "tokyo-met",
@@ -41,6 +42,7 @@ function loadBusStopPoints(): MapPoint[] {
     lat: s.lat,
     lng: s.lng,
   }));
+  return { stops, routes: buildBusRouteLines(data) };
 }
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -78,6 +80,7 @@ export default async function MapPage({
   const activeTypes = parseLayersParam(params.layers ?? params.type);
   const initialFocusId = typeof params.focus === "string" ? params.focus : null;
 
+  const bus = loadBusBundle();
   const allPoints = [
     ...parseAedData(aedRaw),
     ...parseToiletData(toiletRaw),
@@ -88,7 +91,7 @@ export default async function MapPage({
     ...parseKotoFacilityData("library", libraryRaw),
     ...parseKotoFacilityData("child_center", childCenterRaw),
     ...parseKotoFacilityData("nursery", nurseryRaw),
-    ...loadBusStopPoints(),
+    ...bus.stops,
   ];
 
   const layers: Partial<Record<LayerId, boolean>> = {};
@@ -139,6 +142,7 @@ export default async function MapPage({
       <div className="flex-1 overflow-hidden">
         <MapClient
           points={allPoints}
+          busRouteLines={bus.routes}
           initialFilters={initialFilters}
           initialFocusId={initialFocusId}
         />
