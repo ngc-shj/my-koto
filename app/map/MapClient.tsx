@@ -695,7 +695,7 @@ export default function MapClient({
             </span>
           </button>
           {layerPanelOpen && (
-            <div className="px-3 pb-3 pt-3 space-y-3 border-t border-slate-100">
+            <div className="px-3 pb-3 pt-3 space-y-3 border-t border-slate-100 max-h-[70vh] overflow-y-auto">
               <MapSearch points={points} onPick={focusPoint} />
               {groupedLayers.map(([category, layers]) => (
                 <fieldset key={category} className="space-y-1.5">
