@@ -4,6 +4,7 @@
 // Without this stylesheet the map container collapses and nothing is drawn.
 import "maplibre-gl/dist/maplibre-gl.css";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
@@ -11,11 +12,25 @@ import { KanjiText } from "@/components/Furigana";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import MapSearch from "@/components/MapSearch";
 import { haversineDistance } from "@/lib/distance";
+import { displayRouteName } from "@/lib/bus/aliases";
+import {
+  loadGeolocationConsent,
+  saveGeolocationConsent,
+} from "@/lib/geolocation-consent";
+import { loadBusCache, saveBusCache } from "@/lib/map/bus-cache";
+import {
+  buildStopRouteIndex,
+  type StopRouteIndex,
+} from "@/lib/map/bus-routes";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints } from "@/lib/map/filter";
 import { loadMapFilters, saveMapFilters } from "@/lib/map/filters-storage";
 import { loadCachedPois, saveCachedPois } from "@/lib/map/poi-cache";
 import { isLayerBundled } from "@/lib/map/registry";
+import {
+  BusToeiDataSchema,
+  type BusToeiData,
+} from "@/lib/opendata/schemas/bus";
 import {
   HAZARD_LABELS,
   type HazardKind,
@@ -97,6 +112,10 @@ type Props = {
   // authoritative and we skip the localStorage rehydration so deep links
   // don't get overwritten by the visitor's prior session.
   urlHasLayersParam?: boolean;
+  // True when the deep-link `?focus=` targets a bus_stop pin. We OR
+  // bus_stop=true on top of the visitor's stored filters so the focused
+  // pin is visible even if their saved state had the layer off.
+  focusIsBusStop?: boolean;
   // When set, the map flies to and selects the point with this id on
   // first ready.
   initialFocusId?: string | null;
@@ -112,6 +131,7 @@ export default function MapClient({
   points,
   initialFilters,
   urlHasLayersParam = false,
+  focusIsBusStop = false,
   initialFocusId = null,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -122,8 +142,33 @@ export default function MapClient({
   const [filters, setFilters] = useState<MapFilters>(initialFilters);
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
-  const [showConsentModal, setShowConsentModal] = useState(true);
+  // Start hidden — we either skip the modal entirely (consent already
+  // recorded) or flip to true after the mount-time check below.
+  const [showConsentModal, setShowConsentModal] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+
+  // Honour the previously-recorded consent: silently re-request the
+  // browser geolocation when previously granted, stay silent when
+  // previously denied, only show the modal on the first ever visit.
+  useEffect(() => {
+    const choice = loadGeolocationConsent();
+    if (choice === "granted") {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        () => {
+          // Browser-level revocation since the last visit — stay silent
+          // rather than re-popping the modal mid-session.
+        },
+      );
+    } else if (choice == null) {
+      setShowConsentModal(true);
+    }
+  }, []);
   // The chip drawer ("カテゴリで選ぶ") is collapsed by default; the search
   // box is the primary affordance. Visitors who want to browse rather
   // than search expand the drawer once.
@@ -132,7 +177,9 @@ export default function MapClient({
   const filtersHydratedRef = useRef(false);
 
   // Hydrate filters from localStorage on mount unless the URL already
-  // specified `?layers=` (deep links win).
+  // specified `?layers=` (deep links win). When `?focus=` targets a bus
+  // stop, OR bus_stop=true on top so the focused pin is visible even if
+  // the visitor's saved filter had it off.
   useEffect(() => {
     if (urlHasLayersParam) {
       filtersHydratedRef.current = true;
@@ -140,10 +187,22 @@ export default function MapClient({
     }
     const stored = loadMapFilters();
     if (stored != null) {
-      setFilters({ ...stored, layers: { ...stored.layers } });
+      const next: MapFilters = {
+        ...stored,
+        layers: { ...stored.layers },
+      };
+      if (focusIsBusStop) next.layers.bus_stop = true;
+      setFilters(next);
+    } else if (focusIsBusStop) {
+      // No stored filters yet: still ensure the focus target's layer is
+      // on, otherwise the bus pin would render off-map.
+      setFilters((prev) => ({
+        ...prev,
+        layers: { ...prev.layers, bus_stop: true },
+      }));
     }
     filtersHydratedRef.current = true;
-  }, [urlHasLayersParam]);
+  }, [urlHasLayersParam, focusIsBusStop]);
 
   useEffect(() => {
     if (!filtersHydratedRef.current) return;
@@ -164,6 +223,53 @@ export default function MapClient({
     if (externalPoints.length === 0) return;
     saveCachedPois(externalPoints);
   }, [externalPoints]);
+
+  // Toei bus bundle, fetched only for the stop coordinates so the
+  // bus_stop layer can render pins on /map. The route picker, polyline,
+  // and schedule UI all live on /bus — here we just want positions so
+  // the visitor can spot where stops are while looking for something
+  // else (e.g. AED near a known bus stop). IndexedDB-cached for
+  // instant revisits.
+  const [busData, setBusData] = useState<BusToeiData | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const cached = await loadBusCache();
+      if (!cancelled && cached != null) setBusData(cached);
+      try {
+        const res = await fetch("/api/map/bus");
+        if (!res.ok) return;
+        const raw: unknown = await res.json();
+        const parsed = BusToeiDataSchema.safeParse(raw);
+        if (!parsed.success || cancelled) return;
+        setBusData(parsed.data);
+        void saveBusCache(parsed.data);
+      } catch {
+        // Network failure — cached data (if any) keeps pins visible.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const busStopPoints = useMemo<MapPoint[]>(() => {
+    if (busData == null) return [];
+    return Object.values(busData.stops).map((s) => ({
+      id: `bus-stop-${s.stopId}`,
+      type: "bus_stop",
+      source: "tokyo-met",
+      name: s.name,
+      address: "",
+      lat: s.lat,
+      lng: s.lng,
+    }));
+  }, [busData]);
+
+  const busStopRouteIndex = useMemo<StopRouteIndex | null>(
+    () => (busData != null ? buildStopRouteIndex(busData) : null),
+    [busData],
+  );
 
   // Bumped on map zoom/move so renderMarkers re-runs and re-clusters using
   // the current pixel projection.
@@ -223,11 +329,18 @@ export default function MapClient({
   );
 
   // Merge bundled official points with whatever has been fetched from
-  // /api/pois. Dedupe by id so refreshes do not double-pin.
+  // /api/pois plus the bus_stop pins derived from the client-fetched
+  // bus bundle. Dedupe by id so refreshes do not double-pin.
   const mergedPoints = useMemo(() => {
     const seen = new Set<string>();
     const out: MapPoint[] = [];
     for (const p of points) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        out.push(p);
+      }
+    }
+    for (const p of busStopPoints) {
       if (!seen.has(p.id)) {
         seen.add(p.id);
         out.push(p);
@@ -240,7 +353,7 @@ export default function MapClient({
       }
     }
     return out;
-  }, [points, externalPoints]);
+  }, [points, busStopPoints, externalPoints]);
 
   const visiblePoints = useMemo(
     () => filterPoints(mergedPoints, filters, { referencePoint: userLocation }),
@@ -495,15 +608,17 @@ export default function MapClient({
     };
   }, [mapReady]);
 
-  // Render user location marker
+  // Render the user-location marker whenever the location is known.
+  // Marker rendering is separated from the auto-flyTo below because we
+  // always want the dot drawn, but only sometimes want the viewport to
+  // jump to it.
   useEffect(() => {
     if (!mapReady || userLocation === null) return;
-
-    const initUserMarker = async () => {
+    let cancelled = false;
+    void (async () => {
       const maplibregl = (await import("maplibre-gl")).default;
       const map = mapRef.current;
-      if (!map) return;
-
+      if (cancelled || !map) return;
       userMarkerRef.current?.remove();
       const el = document.createElement("div");
       el.style.cssText = `
@@ -518,17 +633,29 @@ export default function MapClient({
       userMarkerRef.current = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([userLocation.lng, userLocation.lat])
         .addTo(map);
-
-      map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15 });
-    };
-
-    initUserMarker();
-
+    })();
     return () => {
+      cancelled = true;
       userMarkerRef.current?.remove();
       userMarkerRef.current = null;
     };
   }, [userLocation, mapReady]);
+
+  // Auto-center on the visitor's location once on first grant — but
+  // only when nothing else is competing for the viewport. A `?focus=`
+  // deep link or a clicked pin both win, so a visitor who landed on a
+  // bus stop in another ward sees their target, not their own house.
+  const autoFlyDoneRef = useRef(false);
+  useEffect(() => {
+    if (autoFlyDoneRef.current) return;
+    if (!mapReady || userLocation === null) return;
+    if (initialFocusId != null || selectedPoint != null) return;
+    mapRef.current?.flyTo({
+      center: [userLocation.lng, userLocation.lat],
+      zoom: 15,
+    });
+    autoFlyDoneRef.current = true;
+  }, [userLocation, mapReady, initialFocusId, selectedPoint]);
 
   function handleConsentGrant(position: GeolocationPosition) {
     setShowConsentModal(false);
@@ -540,6 +667,40 @@ export default function MapClient({
 
   function handleConsentDeny() {
     setShowConsentModal(false);
+  }
+
+  // Floating "現在地" button — flies the viewport to the visitor's
+  // location, requesting it from scratch if not yet known. A previously
+  // denied app-level choice gets promoted to "granted" when the visitor
+  // taps the button (it's an explicit re-consent gesture).
+  function handleLocateMe() {
+    if (userLocation != null) {
+      mapRef.current?.flyTo({
+        center: [userLocation.lng, userLocation.lat],
+        zoom: 15,
+      });
+      return;
+    }
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        saveGeolocationConsent("granted");
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        mapRef.current?.flyTo({
+          center: [position.coords.longitude, position.coords.latitude],
+          zoom: 15,
+        });
+      },
+      () => {
+        // Browser-level deny — surface a hint rather than failing silent.
+        window.alert(
+          "現在地を取得できませんでした。ブラウザの位置情報設定を確認してください。",
+        );
+      },
+    );
   }
 
   function toggleLayer(id: LayerId) {
@@ -574,16 +735,23 @@ export default function MapClient({
     }
   }, []);
 
-  // Handle ?focus=<id> deep links exactly once.
-  const focusAppliedRef = useRef(false);
+  // Handle ?focus=<id> deep links exactly once per id. We search
+  // `mergedPoints` (not just SSR `points`) so bus-stop deep links
+  // resolve once busData arrives — the ref guards against repeated
+  // firings as mergedPoints is rebuilt during POI fetches. Reset the
+  // ref whenever the focus target id itself changes so soft-navigation
+  // between two `?focus=` URLs (e.g. /map?focus=A → /map?focus=B) still
+  // applies the second focus instead of bailing on a stale ref.
+  const focusAppliedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (focusAppliedRef.current) return;
-    if (!mapReady || initialFocusId == null) return;
-    const target = points.find((p) => p.id === initialFocusId);
+    if (initialFocusId == null) return;
+    if (focusAppliedRef.current === initialFocusId) return;
+    if (!mapReady) return;
+    const target = mergedPoints.find((p) => p.id === initialFocusId);
     if (target == null) return;
-    focusAppliedRef.current = true;
+    focusAppliedRef.current = initialFocusId;
     focusPoint(target);
-  }, [mapReady, initialFocusId, points, focusPoint]);
+  }, [mapReady, initialFocusId, mergedPoints, focusPoint]);
 
   const googleMapsUrl = selectedPoint
     ? `https://www.google.com/maps?q=${selectedPoint.lat},${selectedPoint.lng}`
@@ -738,6 +906,36 @@ export default function MapClient({
           )}
       </div>
 
+      {/* Floating "現在地へ" button (bottom-right). Hidden while the
+          detail panel is open so the two don't share the same corner. */}
+      {!selectedPoint && (
+        <button
+          type="button"
+          onClick={handleLocateMe}
+          aria-label="現在地へ移動"
+          className="absolute bottom-3 right-3 z-10 w-11 h-11 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-5 h-5"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+            <line x1="12" y1="2" x2="12" y2="5" />
+            <line x1="12" y1="19" x2="12" y2="22" />
+            <line x1="2" y1="12" x2="5" y2="12" />
+            <line x1="19" y1="12" x2="22" y2="12" />
+          </svg>
+        </button>
+      )}
+
       {/* Detail panel */}
       {selectedPoint && selectedLayer && (
         <div
@@ -849,6 +1047,13 @@ export default function MapClient({
             </p>
           )}
 
+          {selectedPoint.type === "bus_stop" && busStopRouteIndex != null && (
+            <BusStopRoutesList
+              stopId={selectedPoint.id.replace(/^bus-stop-/, "")}
+              index={busStopRouteIndex}
+            />
+          )}
+
           {selectedPoint.note && (
             <p className="text-xs text-gray-500 mt-2">{selectedPoint.note}</p>
           )}
@@ -958,5 +1163,56 @@ function AccessBadge({ label, active }: { label: string; active: boolean }) {
     >
       {label}: {active ? "○" : "×"}
     </span>
+  );
+}
+
+// Routes serving the currently-selected bus stop. Each entry links into
+// the dedicated /bus page with the matching direction pre-selected, so
+// /map stays out of the route/schedule UX it doesn't own.
+function BusStopRoutesList({
+  stopId,
+  index,
+}: {
+  stopId: string;
+  index: StopRouteIndex;
+}) {
+  const serving = index[stopId];
+  if (serving == null || serving.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <p className="text-xs font-semibold text-slate-600 mb-1">
+        <KanjiText
+          text={`この停留所を通る系統 (${serving.length} 件)`}
+        />
+      </p>
+      <p className="text-xs text-slate-500 mb-2">
+        <KanjiText text="選ぶとバス時刻表へ移動します" />
+      </p>
+      <ul className="grid grid-cols-1 gap-1">
+        {serving.map((s) => (
+          <li key={`${s.routeId}-${s.directionId}`}>
+            <Link
+              href={`/bus/${encodeURIComponent(s.routeId)}/${encodeURIComponent(stopId)}?dir=${s.directionId}&from=map`}
+              className="w-full flex items-center gap-2 text-left px-2 py-1.5 rounded border bg-white text-slate-700 border-slate-200 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            >
+              <span
+                aria-hidden="true"
+                className="inline-block w-3 h-2 rounded-sm flex-shrink-0"
+                style={{ backgroundColor: s.color }}
+              />
+              <span className="font-medium tabular-nums">
+                {displayRouteName(s.shortName)}
+              </span>
+              <span className="text-xs text-slate-500 truncate">
+                <KanjiText text={`${s.headsign} 方面`} />
+              </span>
+              <span className="ml-auto text-xs text-blue-600" aria-hidden="true">
+                →
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

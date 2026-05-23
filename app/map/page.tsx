@@ -77,9 +77,16 @@ export default async function MapPage({
     ...parseKotoFacilityData("nursery", nurseryRaw),
   ];
 
+  // Auto-enable bus_stop when a deep link focuses one, so the focused
+  // pin renders even on a fresh visitor (no localStorage yet) — without
+  // this the visitor sees the detail panel referenced from elsewhere
+  // but no pin on the map.
+  const focusIsBusStop =
+    initialFocusId != null && initialFocusId.startsWith("bus-stop-");
+
   const layers: Partial<Record<LayerId, boolean>> = {};
   for (const id of LAYER_IDS) {
-    layers[id] = activeTypes.includes(id);
+    layers[id] = activeTypes.includes(id) || (id === "bus_stop" && focusIsBusStop);
   }
   const initialFilters: MapFilters = {
     layers,
@@ -129,6 +136,7 @@ export default async function MapPage({
           points={allPoints}
           initialFilters={initialFilters}
           urlHasLayersParam={urlHasLayersParam}
+          focusIsBusStop={focusIsBusStop}
           initialFocusId={initialFocusId}
         />
       </div>
