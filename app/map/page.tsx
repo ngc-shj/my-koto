@@ -12,7 +12,7 @@ import {
   isLayerId,
   type LayerId,
 } from "@/lib/map/registry";
-import type { MapFilters } from "@/lib/map/types";
+import type { MapFilters, MapPoint } from "@/lib/map/types";
 import { MAP_TILE } from "@/config/map";
 import MapClient from "./MapClient";
 import BackToHome from "@/components/BackToHome";
@@ -27,6 +27,21 @@ import parkRaw from "@/data/park.json";
 import libraryRaw from "@/data/library.json";
 import childCenterRaw from "@/data/child_center.json";
 import nurseryRaw from "@/data/nursery.json";
+import busRaw from "@/data/bus-toei.json";
+import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
+
+function loadBusStopPoints(): MapPoint[] {
+  const data = BusToeiDataSchema.parse(busRaw);
+  return Object.values(data.stops).map((s) => ({
+    id: `bus-stop-${s.stopId}`,
+    type: "bus_stop",
+    source: "tokyo-met",
+    name: s.name,
+    address: "",
+    lat: s.lat,
+    lng: s.lng,
+  }));
+}
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -72,6 +87,7 @@ export default async function MapPage({
     ...parseKotoFacilityData("library", libraryRaw),
     ...parseKotoFacilityData("child_center", childCenterRaw),
     ...parseKotoFacilityData("nursery", nurseryRaw),
+    ...loadBusStopPoints(),
   ];
 
   const layers: Partial<Record<LayerId, boolean>> = {};
