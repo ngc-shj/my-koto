@@ -128,6 +128,17 @@ export const ATTRIBUTIONS: DatasetAttribution[] = [
     // schedule, so the published rows are derivative.
     modified: true,
   },
+  {
+    id: "jma-warning",
+    name: "気象警報・注意報 (江東区)",
+    copyrightHolder: "気象庁",
+    licenseUrl: "https://www.jma.go.jp/jma/kishou/info/coment.html",
+    licenseLabel: "気象庁ホームページ コンテンツの利用について (出典明示で利用可)",
+    sourceUrl: "https://www.jma.go.jp/bosai/warning/",
+    // We extract only Koto-ku's row from the Tokyo prefecture JSON and
+    // resolve code -> Japanese label, so the rendered output is derivative.
+    modified: true,
+  },
 ];
 
 export function getAttribution(id: string): DatasetAttribution | undefined {

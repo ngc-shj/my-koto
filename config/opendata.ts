@@ -24,3 +24,16 @@ export const OPEN_METEO_BASE_URL = "https://api.open-meteo.com";
 // CC-BY 4.0. Refreshed by the operator on roughly a quarterly cadence.
 export const TOEI_BUS_GTFS_URL =
   "https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip";
+
+// JMA disaster prevention info — current warnings/advisories. Tokyo
+// prefecture feed (130000) carries every ward and island; the route layer
+// pre-filters down to Koto-ku (class20s code 1310800).
+export const JMA_WARNING_BASE_URL = "https://www.jma.go.jp";
+export const JMA_TOKYO_PREFECTURE_CODE = "130000";
+export const JMA_KOTO_AREA_CODE = "1310800";
+export function buildJmaWarningUrl(prefectureCode: string): URL {
+  return new URL(
+    `/bosai/warning/data/warning/${encodeURIComponent(prefectureCode)}.json`,
+    JMA_WARNING_BASE_URL,
+  );
+}

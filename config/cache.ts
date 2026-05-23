@@ -14,3 +14,14 @@ export const POIS_CACHE = {
   STALE_WHILE_REVALIDATE: 86400,
   STALE_IF_ERROR: 86400,
 } as const;
+
+// JMA warning/advisory feed updates often during severe weather, so the
+// cache is intentionally short. STALE_IF_ERROR keeps a stale value visible
+// for an hour if the upstream goes down — better than blanking the panel.
+export const JMA_WARNING_CACHE = {
+  BROWSER_MAX_AGE: 60,
+  SHARED_MAX_AGE: 60,
+  STALE_WHILE_REVALIDATE: 60,
+  STALE_IF_ERROR: 3600,
+  CLIENT_TTL_MS: 60_000,
+} as const;
