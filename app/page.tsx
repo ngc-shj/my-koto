@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { messages } from "@/lib/i18n/messages";
-import JmaQuakeBanner from "@/components/JmaQuakeBanner";
-import JmaWarningBanner from "@/components/JmaWarningBanner";
+import HomeBanners from "@/components/HomeBanners";
 import ShareButton from "@/components/ShareButton";
 import TodaySummary from "@/components/TodaySummary";
 import { KanjiText } from "@/components/Furigana";
@@ -46,8 +45,7 @@ export default function HomePage() {
       </header>
 
       <div className="mb-4 space-y-2">
-        <JmaWarningBanner />
-        <JmaQuakeBanner />
+        <HomeBanners />
       </div>
 
       <div className="mb-8">
