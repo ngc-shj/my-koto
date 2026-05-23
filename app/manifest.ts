@@ -26,5 +26,46 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icons/icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
       { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
+    // Long-press the installed-app icon to jump straight into the most
+    // frequent flows. Limited to four because Android shows at most that
+    // many; ordering reflects expected daily-use frequency.
+    shortcuts: [
+      {
+        name: "ゴミ収集",
+        short_name: "ゴミ",
+        description: "収集日カレンダーと品目検索",
+        url: "/gomi",
+        icons: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+        ],
+      },
+      {
+        name: "バス時刻表",
+        short_name: "バス",
+        description: "バス停名で検索 (都営バス・しおかぜ)",
+        url: "/bus",
+        icons: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+        ],
+      },
+      {
+        name: "天気・防災情報",
+        short_name: "天気",
+        description: "気象警報・地震・WBGT",
+        url: "/weather",
+        icons: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+        ],
+      },
+      {
+        name: "区民マップ",
+        short_name: "マップ",
+        description: "AED・避難所・公園・駅・病院",
+        url: "/map",
+        icons: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+        ],
+      },
+    ],
   };
 }
