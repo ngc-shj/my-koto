@@ -5,6 +5,7 @@ import Attribution from "@/components/Attribution";
 import BackToHome from "@/components/BackToHome";
 import { KanjiText } from "@/components/Furigana";
 import busData from "@/data/bus-toei.json";
+import { displayRouteName } from "@/lib/bus/aliases";
 import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
 
 type Params = { routeId: string };
@@ -25,9 +26,10 @@ export async function generateMetadata({
   const { routeId } = await params;
   const found = loadRoute(decodeURIComponent(routeId));
   if (found == null) return { title: "バス系統 | My こうとう" };
+  const name = displayRouteName(found.route.shortName);
   return {
-    title: `${found.route.shortName} 系統 | バス時刻表 | My こうとう`,
-    description: `都営バス ${found.route.shortName} 系統の停留所一覧と時刻表（江東区を通る系統）`,
+    title: `${name} 系統 | バス時刻表 | My こうとう`,
+    description: `都営バス ${name} 系統の停留所一覧と時刻表（江東区を通る系統）`,
   };
 }
 
@@ -50,7 +52,7 @@ export default async function RoutePage({
     <main className="max-w-4xl mx-auto px-4 py-8">
       <BackToHome href="/bus" label="バス系統一覧へ" />
       <h1 className="text-2xl font-bold mb-2">
-        <KanjiText text={`${route.shortName} 系統`} />
+        <KanjiText text={`${displayRouteName(route.shortName)} 系統`} />
       </h1>
       {route.longName.length > 0 && (
         <p className="text-sm text-gray-600 mb-6">

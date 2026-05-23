@@ -7,6 +7,7 @@ import BusDeparturesPanel from "@/components/BusDeparturesPanel";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import busData from "@/data/bus-toei.json";
+import { displayRouteName } from "@/lib/bus/aliases";
 import {
   BusToeiDataSchema,
   type DirectionPattern,
@@ -68,9 +69,10 @@ export async function generateMetadata({
   const { routeId, stopId } = await params;
   const found = loadStop(decodeURIComponent(routeId), decodeURIComponent(stopId));
   if (found == null) return { title: "停留所時刻表 | My こうとう" };
+  const routeName = displayRouteName(found.route.shortName);
   return {
-    title: `${found.stop.name} ・ ${found.route.shortName} | バス時刻表`,
-    description: `${found.route.shortName} 系統 ${found.direction.headsign} 方面 ${found.stop.name} の時刻表`,
+    title: `${found.stop.name} ・ ${routeName} | バス時刻表`,
+    description: `${routeName} 系統 ${found.direction.headsign} 方面 ${found.stop.name} の時刻表`,
   };
 }
 
@@ -100,7 +102,7 @@ export default async function StopPage({
     <main className="max-w-2xl mx-auto px-4 py-8">
       <BackToHome
         href={`/bus/${encodeURIComponent(route.routeId)}`}
-        label={`${route.shortName} 系統へ戻る`}
+        label={`${displayRouteName(route.shortName)} 系統へ戻る`}
       />
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
@@ -109,11 +111,14 @@ export default async function StopPage({
           </h1>
           <p className="text-sm text-gray-600 mt-1">
             <KanjiText
-              text={`${route.shortName}系統 / ${direction.headsign} 方面`}
+              text={`${displayRouteName(route.shortName)}系統 / ${direction.headsign} 方面`}
             />
           </p>
         </div>
-        <ShareButton title={`${stop.name} (${route.shortName})`} url={shareUrl} />
+        <ShareButton
+          title={`${stop.name} (${displayRouteName(route.shortName)})`}
+          url={shareUrl}
+        />
       </div>
 
       <div className="mt-6">

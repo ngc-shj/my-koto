@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { KanjiText } from "@/components/Furigana";
+import { displayRouteName } from "@/lib/bus/aliases";
 import { stripChomeSuffix } from "@/lib/bus/normalize";
 import { getActiveDistrictId } from "@/lib/profiles";
 
@@ -97,11 +98,11 @@ export default function BusStopSearch({ stops, districtLabelById }: Props) {
                     <Link
                       href={`/bus/${encodeURIComponent(s.routeId)}/${encodeURIComponent(stop.stopId)}?dir=${s.directionId}`}
                       className="flex items-baseline justify-between gap-2 rounded px-2 py-1 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                      aria-label={`${s.shortName} 系統 ${s.headsign} 方面の時刻表を開く`}
+                      aria-label={`${displayRouteName(s.shortName)} 系統 ${s.headsign} 方面の時刻表を開く`}
                     >
                       <span className="text-sm">
                         <span className="font-medium text-gray-800 tabular-nums">
-                          <KanjiText text={s.shortName} />
+                          <KanjiText text={displayRouteName(s.shortName)} />
                         </span>
                         <span className="text-gray-500 ml-2">
                           <KanjiText text={`${s.headsign} 方面`} />

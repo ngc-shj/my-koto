@@ -65,7 +65,7 @@ export default function BusIndexPage() {
         <ShareButton title="バス時刻表" url={`${SITE_URL}/bus`} />
       </div>
       <p className="text-sm text-gray-600 mb-6">
-        <KanjiText text="バス停名で検索して、そのバス停を通る系統と時刻表を確認できます。" />
+        <KanjiText text="バス停名で検索して、そのバス停を通る系統と時刻表を確認できます。江東区コミュニティバス「しおかぜ」(江東01) も含まれます。" />
       </p>
 
       <BusStopSearch stops={stops} districtLabelById={districtLabelById} />
