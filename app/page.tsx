@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
 import { messages } from "@/lib/i18n/messages";
 import HomeBanners from "@/components/HomeBanners";
 import ShareButton from "@/components/ShareButton";
@@ -18,15 +21,24 @@ import eventsRaw from "@/data/events.json";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
+// Home is a Client Component so the page has no Server→Client boundary
+// inside it. We hit a Next 15 dev-mode chunk-resolution race when the
+// soft navigation /map → / arrived before the banner chunks loaded
+// ("Cannot read properties of undefined (reading 'call')"). The static
+// JSON parse stays cheap (~58 districts + 2 overlays + 10 events) so
+// running it once on mount is essentially free, and `useMemo` keeps the
+// parse from re-running on prop-less re-renders.
 export default function HomePage() {
-  // Server-side data prep so the Today summary's first paint already has
-  // every district / overlay / event it needs without a client roundtrip.
-  // Each parse is cheap (~58 districts, ~2 overlays, ~10 events).
-  const districts: District[] = DistrictSchema.array().parse(districtsRaw);
-  const overlays: SpecialOverlay[] = SpecialOverlaySchema.array().parse(overlaysRaw);
-  const events = EventResponseSchema.parse(eventsRaw)
-    .result.records.map(toEvent);
-  const upcomingEvents = filterUpcoming(events).slice(0, 5);
+  const { districts, overlays, upcomingEvents } = useMemo(() => {
+    const districts: District[] = DistrictSchema.array().parse(districtsRaw);
+    const overlays: SpecialOverlay[] =
+      SpecialOverlaySchema.array().parse(overlaysRaw);
+    const events = EventResponseSchema.parse(eventsRaw).result.records.map(
+      toEvent,
+    );
+    const upcomingEvents = filterUpcoming(events).slice(0, 5);
+    return { districts, overlays, upcomingEvents };
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
