@@ -137,6 +137,10 @@ export default function MapClient({
   // the current pixel projection. visiblePoints alone does not change with
   // zoom, which is why it cannot serve as the re-render trigger.
   const [renderTick, setRenderTick] = useState(0);
+  // Route picked from the legend or detail panel — when set, the bus
+  // route line paint expression fades non-matching lines down so the
+  // selected route stands out without unloading the others.
+  const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -235,6 +239,62 @@ export default function MapClient({
       filters.layers.bus_stop ? "visible" : "none",
     );
   }, [mapReady, filters.layers.bus_stop]);
+
+  // Dim every line that does not match the highlighted route. When no
+  // route is picked, fall back to the default opacity so the lines stay
+  // legible together.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (!map.getLayer("bus-routes-line")) return;
+    if (highlightedRouteId == null) {
+      map.setPaintProperty("bus-routes-line", "line-opacity", 0.65);
+      map.setPaintProperty("bus-routes-line", "line-width", [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        11,
+        1.5,
+        14,
+        3,
+        17,
+        6,
+      ]);
+      return;
+    }
+    map.setPaintProperty("bus-routes-line", "line-opacity", [
+      "case",
+      ["==", ["get", "routeId"], highlightedRouteId],
+      0.95,
+      0.12,
+    ]);
+    map.setPaintProperty("bus-routes-line", "line-width", [
+      "case",
+      ["==", ["get", "routeId"], highlightedRouteId],
+      [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        11,
+        2.5,
+        14,
+        5,
+        17,
+        9,
+      ],
+      [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        11,
+        1,
+        14,
+        2,
+        17,
+        4,
+      ],
+    ]);
+  }, [mapReady, highlightedRouteId]);
 
   // Merge bundled official points with whatever has been fetched from
   // /api/pois. Dedupe by id so refreshes do not double-pin.
@@ -668,7 +728,13 @@ export default function MapClient({
                 />
               </div>
               {filters.layers.bus_stop && busRouteLegend != null && busRouteLegend.length > 0 && (
-                <BusRouteLegend entries={busRouteLegend} />
+                <BusRouteLegend
+                  entries={busRouteLegend}
+                  highlightedRouteId={highlightedRouteId}
+                  onPick={(id) =>
+                    setHighlightedRouteId((prev) => (prev === id ? null : id))
+                  }
+                />
               )}
             </div>
           )}
@@ -958,28 +1024,51 @@ function FilterChip({
 
 function BusRouteLegend({
   entries,
+  highlightedRouteId,
+  onPick,
 }: {
   entries: readonly BusRouteLegendEntry[];
+  highlightedRouteId: string | null;
+  onPick: (routeId: string) => void;
 }) {
   return (
-    <details className="pt-2 border-t border-slate-100">
+    <details className="pt-2 border-t border-slate-100" open={highlightedRouteId != null}>
       <summary className="cursor-pointer text-xs font-semibold text-slate-500 select-none">
         路線凡例 ({entries.length} 系統)
+        {highlightedRouteId != null && (
+          <span className="ml-2 text-amber-700">
+            ハイライト中 — もう一度押すと解除
+          </span>
+        )}
       </summary>
       <ul className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 max-h-48 overflow-y-auto">
-        {entries.map((entry) => (
-          <li
-            key={entry.routeId}
-            className="flex items-center gap-1.5 text-xs text-slate-700"
-          >
-            <span
-              aria-hidden="true"
-              className="inline-block w-3 h-1.5 rounded-sm flex-shrink-0"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="truncate">{displayRouteName(entry.shortName)}</span>
-          </li>
-        ))}
+        {entries.map((entry) => {
+          const isActive = entry.routeId === highlightedRouteId;
+          return (
+            <li key={entry.routeId}>
+              <button
+                type="button"
+                onClick={() => onPick(entry.routeId)}
+                // eslint-disable-next-line jsx-a11y/aria-proptypes
+                aria-pressed={isActive ? "true" : "false"}
+                className={`w-full flex items-center gap-1.5 text-xs text-left px-1 py-0.5 rounded ${
+                  isActive
+                    ? "bg-amber-100 text-amber-900 font-semibold"
+                    : "text-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-3 h-1.5 rounded-sm flex-shrink-0"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="truncate">
+                  {displayRouteName(entry.shortName)}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </details>
   );
