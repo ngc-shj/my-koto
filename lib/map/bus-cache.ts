@@ -64,3 +64,13 @@ export async function saveBusCache(data: BusToeiData): Promise<void> {
     // Quota exceeded or private mode — fall back to network-only.
   }
 }
+
+export async function clearBusCache(): Promise<void> {
+  if (!hasIndexedDB()) return;
+  try {
+    const db = await getDb();
+    await db.delete(STORE, KEY);
+  } catch {
+    // ignore
+  }
+}

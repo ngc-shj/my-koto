@@ -75,3 +75,12 @@ export function saveCachedPois(points: readonly MapPoint[]): void {
     // Quota or private mode — fall back to in-memory only.
   }
 }
+
+export function clearCachedPois(): void {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}

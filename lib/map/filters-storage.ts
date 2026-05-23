@@ -71,3 +71,12 @@ export function saveMapFilters(filters: MapFilters): void {
     // filters still work for the current session.
   }
 }
+
+export function clearMapFilters(): void {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
