@@ -1,5 +1,10 @@
 import type { ServiceCategory, StopDepartures } from "@/lib/opendata/schemas/bus";
 
+// Re-export so client code that already imports the time helpers from
+// here can also pick up the matching tag type without reaching into the
+// schema module.
+export type { ServiceCategory } from "@/lib/opendata/schemas/bus";
+
 // Minutes-since-midnight for a GTFS-style "HH:MM" or "HH:MM:SS" token.
 // GTFS lets hours exceed 23 (e.g. "25:30" means 01:30 of the following day
 // under the same service id). Returns null if the token is malformed.

@@ -18,6 +18,17 @@ import {
 } from "@/config/map";
 import MapSearch from "@/components/MapSearch";
 import { displayRouteName } from "@/lib/bus/aliases";
+import {
+  categorizeServiceDay,
+  formatBusTime,
+  nextDepartures,
+  parseBusTimeMinutes,
+  type ServiceCategory,
+} from "@/lib/bus/normalize";
+import type {
+  StopTimesResponse,
+  StopTimesRow,
+} from "@/lib/bus/stop-times";
 import type {
   BusRouteLegendEntry,
   BusRouteLines,
@@ -114,6 +125,9 @@ type Props = {
   // bus_stop pin reveals which lines pass through it and lets the
   // user pick one to highlight.
   busStopRouteIndex?: StopRouteIndex;
+  // Deep-link from /bus: pre-select this (route, direction) so the
+  // line and its stops render without the user having to pick again.
+  initialSelectedRoute?: { routeId: string; directionId: "0" | "1" } | null;
 };
 
 const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
@@ -129,6 +143,7 @@ export default function MapClient({
   busRouteLines,
   busRouteLegend,
   busStopRouteIndex,
+  initialSelectedRoute = null,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -155,10 +170,12 @@ export default function MapClient({
   // tapping the same selection clears it back to null. When the
   // bus_stop layer is on we render *only* this route + its stops, so
   // the map stays focused on what the 区民 actually wants to follow.
+  // Hydrated from initialSelectedRoute so a deep link from /bus lands
+  // with the line already drawn.
   const [selectedRoute, setSelectedRoute] = useState<{
     routeId: string;
     directionId: "0" | "1";
-  } | null>(null);
+  } | null>(initialSelectedRoute);
   // Opt-in toggle to surface every route at once (network overview).
   // Off by default so the bus_stop layer does not flood the viewport.
   const [showAllRoutes, setShowAllRoutes] = useState(false);
@@ -168,6 +185,11 @@ export default function MapClient({
   // the prefs API is shared with other pages.
   const [tileStyleId, setTileStyleId] =
     useState<TileStyleId>(DEFAULT_TILE_STYLE);
+  // Schedule data for the currently selected bus stop, fetched on
+  // demand from /api/bus/stop-times. Null until the user clicks a
+  // bus stop pin (or the deep link auto-selects one). Cleared when the
+  // detail panel closes so the next stop starts fresh.
+  const [stopTimes, setStopTimes] = useState<StopTimesResponse | null>(null);
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -681,6 +703,43 @@ export default function MapClient({
     focusPoint(target);
   }, [mapReady, initialFocusId, points]);
 
+  // Fetch the schedule slice for the currently selected bus stop. Re-runs
+  // on selection change; an AbortController guards against the user
+  // switching stops faster than the network can respond.
+  useEffect(() => {
+    if (selectedPoint == null || selectedPoint.type !== "bus_stop") {
+      setStopTimes(null);
+      return;
+    }
+    const stopId = selectedPoint.id.replace(/^bus-stop-/, "");
+    const controller = new AbortController();
+    void fetch(`/api/bus/stop-times?stop=${encodeURIComponent(stopId)}`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          setStopTimes(null);
+          return;
+        }
+        const raw = (await res.json()) as unknown;
+        if (
+          raw != null &&
+          typeof raw === "object" &&
+          "stopId" in raw &&
+          Array.isArray((raw as { routes?: unknown }).routes)
+        ) {
+          setStopTimes(raw as StopTimesResponse);
+        } else {
+          setStopTimes(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setStopTimes(null);
+      });
+    return () => controller.abort();
+  }, [selectedPoint]);
+
   const googleMapsUrl = selectedPoint
     ? `https://www.google.com/maps?q=${selectedPoint.lat},${selectedPoint.lng}`
     : null;
@@ -1009,6 +1068,7 @@ export default function MapClient({
               stopId={selectedPoint.id.replace(/^bus-stop-/, "")}
               index={busStopRouteIndex}
               selectedRoute={selectedRoute}
+              stopTimes={stopTimes}
               onSelect={(routeId, directionId) =>
                 setSelectedRoute((prev) =>
                   prev != null &&
@@ -1167,15 +1227,190 @@ function TileStyleSwitcher({
   );
 }
 
+// Compact timetable shown under the selected (route, direction) inside
+// the bus stop detail panel. Today's bucket (weekday/saturday/sunday)
+// is preselected and the next-three departures are pulled out at the
+// top; the rest of the day reads as an hour-grouped list. The user can
+// switch buckets via a small tab strip without leaving the panel.
+function StopTimetablePreview({ rows }: { rows: readonly StopTimesRow[] }) {
+  const row = rows[0];
+  const [now, setNow] = useState<Date | null>(null);
+  const [tab, setTab] = useState<ServiceCategory | null>(null);
+
+  useEffect(() => {
+    const tick = (): void => setNow(new Date());
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (row == null) {
+    return (
+      <p className="mt-1 text-xs text-slate-500 px-2">
+        この方面の時刻表データはありません。
+      </p>
+    );
+  }
+
+  const today: ServiceCategory =
+    now != null ? categorizeServiceDay(now) : "weekday";
+  const active: ServiceCategory = tab ?? today;
+  const times: readonly string[] =
+    active === "weekday"
+      ? row.weekday
+      : active === "saturday"
+        ? row.saturday
+        : row.sunday;
+
+  const upcoming =
+    now != null && active === today
+      ? nextDepartures(
+          { stopId: "current", times },
+          now,
+          3,
+        )
+      : [];
+
+  const grouped = new Map<number, string[]>();
+  for (const token of times) {
+    const minutes = parseBusTimeMinutes(token);
+    if (minutes == null) continue;
+    const hour = Math.floor(minutes / 60);
+    const list = grouped.get(hour) ?? [];
+    list.push(token);
+    grouped.set(hour, list);
+  }
+  const nowMinutes =
+    now != null && active === today
+      ? now.getHours() * 60 + now.getMinutes()
+      : -1;
+  const nextToken =
+    nowMinutes >= 0
+      ? times.find((t) => {
+          const m = parseBusTimeMinutes(t);
+          return m != null && m >= nowMinutes;
+        }) ?? null
+      : null;
+
+  const tabs: readonly { id: ServiceCategory; label: string }[] = [
+    { id: "weekday", label: "平日" },
+    { id: "saturday", label: "土曜" },
+    { id: "sunday", label: "休日" },
+  ];
+
+  return (
+    <div className="mt-2 px-2 pb-2 space-y-1.5">
+      {upcoming.length > 0 ? (
+        <div>
+          <p className="text-[10px] font-semibold text-amber-700">
+            次の発車 ({today === "weekday" ? "平日" : today === "saturday" ? "土曜" : "休日"})
+          </p>
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {upcoming.map((t) => (
+              <span
+                key={t}
+                className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 tabular-nums"
+              >
+                {formatBusTime(t)}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        now != null &&
+        active === today && (
+          <p className="text-[10px] text-slate-500">
+            本日の残りの便はありません。
+          </p>
+        )
+      )}
+
+      <details>
+        <summary className="cursor-pointer text-[11px] text-blue-600 hover:underline select-none">
+          全時刻表を見る
+        </summary>
+        <div
+          role="tablist"
+          aria-label="曜日切り替え"
+          className="flex gap-1 mt-2 mb-2"
+        >
+          {tabs.map((t) => {
+            const isActive = t.id === active;
+            const isToday = t.id === today;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                // eslint-disable-next-line jsx-a11y/aria-proptypes
+                aria-selected={isActive ? "true" : "false"}
+                onClick={() => setTab(t.id)}
+                className={`text-xs px-2 py-0.5 rounded ${
+                  isActive
+                    ? "bg-slate-700 text-white"
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {t.label}
+                {isToday && <span className="ml-1 text-[10px]">本日</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {times.length === 0 ? (
+          <p className="text-xs text-slate-500">この曜日の運行はありません。</p>
+        ) : (
+          <ol className="border border-slate-100 rounded divide-y divide-slate-100 max-h-48 overflow-y-auto">
+            {Array.from(grouped.entries())
+              .sort((a, b) => a[0] - b[0])
+              .map(([hour, list]) => (
+                <li
+                  key={hour}
+                  className="flex items-baseline gap-2 px-2 py-1 text-xs"
+                >
+                  <span className="w-6 shrink-0 font-semibold text-slate-700 tabular-nums">
+                    {(hour % 24).toString().padStart(2, "0")}
+                    {hour >= 24 && (
+                      <span className="ml-0.5 text-[10px] text-slate-400">
+                        翌
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex flex-wrap gap-x-2 text-slate-700 tabular-nums">
+                    {list.map((t) => (
+                      <span
+                        key={t}
+                        className={
+                          t === nextToken
+                            ? "rounded bg-amber-100 px-1 text-amber-900 font-semibold"
+                            : ""
+                        }
+                      >
+                        {t.slice(3)}
+                      </span>
+                    ))}
+                  </span>
+                </li>
+              ))}
+          </ol>
+        )}
+      </details>
+    </div>
+  );
+}
+
 function BusStopRoutesSection({
   stopId,
   index,
   selectedRoute,
+  stopTimes,
   onSelect,
 }: {
   stopId: string;
   index: StopRouteIndex;
   selectedRoute: { routeId: string; directionId: "0" | "1" } | null;
+  stopTimes: StopTimesResponse | null;
   onSelect: (routeId: string, directionId: "0" | "1") => void;
 }) {
   const serving = index[stopId];
@@ -1219,6 +1454,15 @@ function BusStopRoutesSection({
                   {s.headsign} 方面
                 </span>
               </button>
+              {isActive && stopTimes != null && (
+                <StopTimetablePreview
+                  rows={stopTimes.routes.filter(
+                    (r) =>
+                      r.routeId === s.routeId &&
+                      r.directionId === s.directionId,
+                  )}
+                />
+              )}
             </li>
           );
         })}

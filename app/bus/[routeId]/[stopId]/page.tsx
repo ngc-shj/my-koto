@@ -131,10 +131,10 @@ export default async function StopPage({
 
       <div className="mt-4">
         <Link
-          href={`/map?layers=bus_stop&focus=${encodeURIComponent(`bus-stop-${stop.stopId}`)}`}
+          href={`/map?layers=bus_stop&focus=${encodeURIComponent(`bus-stop-${stop.stopId}`)}&route=${encodeURIComponent(route.routeId)}&dir=${direction.directionId}`}
           className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
         >
-          <KanjiText text="地図でこのバス停を見る" />
+          <KanjiText text="地図でこのバス停と路線を見る" />
           <span aria-hidden="true">→</span>
         </Link>
       </div>

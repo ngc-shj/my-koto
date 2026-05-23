@@ -75,7 +75,13 @@ export const metadata: Metadata = {
 // enable a curated essentials subset so first-time visitors see useful
 // pins without 16 layers fighting for attention. The other layers ride
 // behind the layer panel toggle; explicit URLs override this default.
-type SearchParams = { layers?: string; type?: string; focus?: string };
+type SearchParams = {
+  layers?: string;
+  type?: string;
+  focus?: string;
+  route?: string;
+  dir?: string;
+};
 
 const DEFAULT_LAYER_IDS: readonly LayerId[] = [
   "aed",
@@ -102,6 +108,12 @@ export default async function MapPage({
   const params = await searchParams;
   const activeTypes = parseLayersParam(params.layers ?? params.type);
   const initialFocusId = typeof params.focus === "string" ? params.focus : null;
+  const initialSelectedRoute: { routeId: string; directionId: "0" | "1" } | null =
+    typeof params.route === "string" &&
+    params.route.length > 0 &&
+    (params.dir === "0" || params.dir === "1")
+      ? { routeId: params.route, directionId: params.dir }
+      : null;
 
   const bus = loadBusBundle();
   const allPoints = [
@@ -175,6 +187,7 @@ export default async function MapPage({
           busStopRouteIndex={bus.stopRouteIndex}
           initialFilters={initialFilters}
           initialFocusId={initialFocusId}
+          initialSelectedRoute={initialSelectedRoute}
         />
       </div>
     </div>
