@@ -196,4 +196,12 @@ describe("buildBusRouteLegend", () => {
     const legend = buildBusRouteLegend(sampleData());
     expect(legend.map((e) => e.shortName)).toEqual(["海01", "業10"]);
   });
+
+  it("carries every direction with its headsign", () => {
+    const legend = buildBusRouteLegend(sampleData());
+    const r1 = legend.find((e) => e.routeId === "R1");
+    expect(r1?.directions.map((d) => d.headsign)).toEqual(["東京", "深川"]);
+    const r2 = legend.find((e) => e.routeId === "R2");
+    expect(r2?.directions).toHaveLength(1);
+  });
 });

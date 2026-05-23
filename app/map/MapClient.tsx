@@ -144,10 +144,17 @@ export default function MapClient({
   // the current pixel projection. visiblePoints alone does not change with
   // zoom, which is why it cannot serve as the re-render trigger.
   const [renderTick, setRenderTick] = useState(0);
-  // Route picked from the legend or detail panel — when set, the bus
-  // route line paint expression fades non-matching lines down so the
-  // selected route stands out without unloading the others.
-  const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
+  // The chosen (route, direction) pair. Picking from the panel sets it;
+  // tapping the same selection clears it back to null. When the
+  // bus_stop layer is on we render *only* this route + its stops, so
+  // the map stays focused on what the 区民 actually wants to follow.
+  const [selectedRoute, setSelectedRoute] = useState<{
+    routeId: string;
+    directionId: "0" | "1";
+  } | null>(null);
+  // Opt-in toggle to surface every route at once (network overview).
+  // Off by default so the bus_stop layer does not flood the viewport.
+  const [showAllRoutes, setShowAllRoutes] = useState(false);
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -240,61 +247,38 @@ export default function MapClient({
     const map = mapRef.current;
     if (!map || !mapReady) return;
     if (!map.getLayer("bus-routes-line")) return;
+    // Visible only when bus_stop is enabled AND the user has picked
+    // either a specific route or the "全系統" override. The default
+    // empty state shows the picker without any lines.
+    const shouldShow =
+      filters.layers.bus_stop === true &&
+      (selectedRoute != null || showAllRoutes);
     map.setLayoutProperty(
       "bus-routes-line",
       "visibility",
-      filters.layers.bus_stop ? "visible" : "none",
+      shouldShow ? "visible" : "none",
     );
-  }, [mapReady, filters.layers.bus_stop]);
+  }, [mapReady, filters.layers.bus_stop, selectedRoute, showAllRoutes]);
 
-  // Dim every line that does not match the highlighted route. When no
-  // route is picked, fall back to the default opacity so the lines stay
-  // legible together.
+  // Apply MapLibre's `setFilter` instead of opacity tricks so a single
+  // route+direction is the only feature painted. When the user opts in
+  // to "全系統" we drop the filter; when nothing is chosen we leave the
+  // layer's filter alone — the visibility effect below hides it entirely.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     if (!map.getLayer("bus-routes-line")) return;
-    if (highlightedRouteId == null) {
-      map.setPaintProperty("bus-routes-line", "line-opacity", 0.65);
-      map.setPaintProperty("bus-routes-line", "line-width", [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        11,
-        1.5,
-        14,
-        3,
-        17,
-        6,
+    if (selectedRoute != null) {
+      map.setFilter("bus-routes-line", [
+        "all",
+        ["==", ["get", "routeId"], selectedRoute.routeId],
+        ["==", ["get", "directionId"], selectedRoute.directionId],
       ]);
-      return;
+    } else {
+      // No filter — relevant when showAllRoutes is on.
+      map.setFilter("bus-routes-line", null);
     }
-    // Hide non-matching lines entirely (opacity 0) when a route is
-    // picked — fading them down to 0.12 still left a tangled mesh that
-    // 区民 reported as hard to read.
-    map.setPaintProperty("bus-routes-line", "line-opacity", [
-      "case",
-      ["==", ["get", "routeId"], highlightedRouteId],
-      0.95,
-      0,
-    ]);
-    map.setPaintProperty("bus-routes-line", "line-width", [
-      "case",
-      ["==", ["get", "routeId"], highlightedRouteId],
-      [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        11,
-        2.5,
-        14,
-        5,
-        17,
-        9,
-      ],
-      0,
-    ]);
-  }, [mapReady, highlightedRouteId]);
+  }, [mapReady, selectedRoute]);
 
   // Merge bundled official points with whatever has been fetched from
   // /api/pois. Dedupe by id so refreshes do not double-pin.
@@ -426,7 +410,37 @@ export default function MapClient({
     // Each cluster bubble is 36 px, matching the bucket size so two adjacent
     // singletons cannot visually touch a cluster.
     const BUCKET_SIZE = 36;
-    const layerPoints = visiblePoints.filter((p) => isLayerId(p.type));
+    // Pre-compute the set of bus stops we should render. When a route is
+    // selected, only the stops it actually serves stay; if the user has
+    // opted in to 全系統 we keep all bus stops; otherwise we drop them
+    // so the empty state matches the bus-routes-line layer's hidden
+    // visibility. Other layer types are unaffected.
+    const allowedBusStopIds = (() => {
+      if (selectedRoute != null && busStopRouteIndex != null) {
+        const ids = new Set<string>();
+        for (const [stopId, routes] of Object.entries(busStopRouteIndex)) {
+          if (
+            routes.some(
+              (r) =>
+                r.routeId === selectedRoute.routeId &&
+                r.directionId === selectedRoute.directionId,
+            )
+          ) {
+            ids.add(`bus-stop-${stopId}`);
+          }
+        }
+        return ids;
+      }
+      if (showAllRoutes) return null; // all bus stops kept
+      return new Set<string>(); // empty — none kept
+    })();
+    const layerPoints = visiblePoints.filter((p) => {
+      if (!isLayerId(p.type)) return false;
+      if (p.type === "bus_stop" && allowedBusStopIds != null) {
+        return allowedBusStopIds.has(p.id);
+      }
+      return true;
+    });
     const clusters = clusterByPixelBucket(
       layerPoints,
       (p) => map.project([p.lng, p.lat]),
@@ -510,7 +524,7 @@ export default function MapClient({
         markersRef.current.push(marker);
       }
     }
-  }, [visiblePoints, mapReady]);
+  }, [visiblePoints, mapReady, selectedRoute, showAllRoutes, busStopRouteIndex]);
 
   useEffect(() => {
     void renderMarkers();
@@ -728,12 +742,24 @@ export default function MapClient({
                 />
               </div>
               {filters.layers.bus_stop && busRouteLegend != null && busRouteLegend.length > 0 && (
-                <BusRouteLegend
+                <BusRoutePicker
                   entries={busRouteLegend}
-                  highlightedRouteId={highlightedRouteId}
-                  onPick={(id) =>
-                    setHighlightedRouteId((prev) => (prev === id ? null : id))
+                  selectedRoute={selectedRoute}
+                  showAllRoutes={showAllRoutes}
+                  onSelectRoute={(routeId, directionId) =>
+                    setSelectedRoute((prev) =>
+                      prev != null &&
+                      prev.routeId === routeId &&
+                      prev.directionId === directionId
+                        ? null
+                        : { routeId, directionId }
+                    )
                   }
+                  onClearSelection={() => setSelectedRoute(null)}
+                  onToggleShowAll={() => {
+                    setShowAllRoutes((prev) => !prev);
+                    if (!showAllRoutes) setSelectedRoute(null);
+                  }}
                 />
               )}
             </div>
@@ -919,9 +945,15 @@ export default function MapClient({
             <BusStopRoutesSection
               stopId={selectedPoint.id.replace(/^bus-stop-/, "")}
               index={busStopRouteIndex}
-              highlightedRouteId={highlightedRouteId}
-              onPick={(id) =>
-                setHighlightedRouteId((prev) => (prev === id ? null : id))
+              selectedRoute={selectedRoute}
+              onSelect={(routeId, directionId) =>
+                setSelectedRoute((prev) =>
+                  prev != null &&
+                  prev.routeId === routeId &&
+                  prev.directionId === directionId
+                    ? null
+                    : { routeId, directionId }
+                )
               }
             />
           )}
@@ -1036,13 +1068,13 @@ function FilterChip({
 function BusStopRoutesSection({
   stopId,
   index,
-  highlightedRouteId,
-  onPick,
+  selectedRoute,
+  onSelect,
 }: {
   stopId: string;
   index: StopRouteIndex;
-  highlightedRouteId: string | null;
-  onPick: (routeId: string) => void;
+  selectedRoute: { routeId: string; directionId: "0" | "1" } | null;
+  onSelect: (routeId: string, directionId: "0" | "1") => void;
 }) {
   const serving = index[stopId];
   if (serving == null || serving.length === 0) return null;
@@ -1052,16 +1084,19 @@ function BusStopRoutesSection({
         この停留所を通る系統 ({serving.length} 件)
       </p>
       <p className="text-xs text-slate-500 mb-2">
-        系統を選ぶと該当の路線だけが地図上に残ります。もう一度押すと全表示に戻ります。
+        系統を選ぶと地図上にその路線と停留所だけが表示されます。
       </p>
       <ul className="grid grid-cols-1 gap-1">
         {serving.map((s) => {
-          const isActive = s.routeId === highlightedRouteId;
+          const isActive =
+            selectedRoute != null &&
+            selectedRoute.routeId === s.routeId &&
+            selectedRoute.directionId === s.directionId;
           return (
             <li key={`${s.routeId}-${s.directionId}`}>
               <button
                 type="button"
-                onClick={() => onPick(s.routeId)}
+                onClick={() => onSelect(s.routeId, s.directionId)}
                 // eslint-disable-next-line jsx-a11y/aria-proptypes
                 aria-pressed={isActive ? "true" : "false"}
                 className={`w-full flex items-center gap-2 text-left px-2 py-1.5 rounded border ${
@@ -1090,58 +1125,132 @@ function BusStopRoutesSection({
   );
 }
 
-function BusRouteLegend({
+// Two-step picker: type-to-filter the route list, click a route to
+// either auto-select its only direction (5 of 68 routes) or expand an
+// inline direction radio. A separate toggle reveals every route at
+// once for users who want the network overview.
+function BusRoutePicker({
   entries,
-  highlightedRouteId,
-  onPick,
+  selectedRoute,
+  showAllRoutes,
+  onSelectRoute,
+  onClearSelection,
+  onToggleShowAll,
 }: {
   entries: readonly BusRouteLegendEntry[];
-  highlightedRouteId: string | null;
-  onPick: (routeId: string) => void;
+  selectedRoute: { routeId: string; directionId: "0" | "1" } | null;
+  showAllRoutes: boolean;
+  onSelectRoute: (routeId: string, directionId: "0" | "1") => void;
+  onClearSelection: () => void;
+  onToggleShowAll: () => void;
 }) {
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+  const filtered = useMemo(() => {
+    if (trimmed.length === 0) return entries;
+    return entries.filter(
+      (e) =>
+        e.shortName.includes(trimmed) ||
+        displayRouteName(e.shortName).includes(trimmed) ||
+        e.directions.some((d) => d.headsign.includes(trimmed)),
+    );
+  }, [entries, trimmed]);
+
   return (
-    <details className="pt-2 border-t border-slate-100" open={highlightedRouteId != null}>
-      <summary className="cursor-pointer text-xs font-semibold text-slate-500 select-none">
-        路線凡例 ({entries.length} 系統)
+    <div className="pt-2 border-t border-slate-100 space-y-2">
+      <p className="text-xs font-semibold text-slate-500">
+        路線を選ぶ
         <span className="ml-2 font-normal text-slate-400">
-          — 系統名をクリックでその路線だけ表示
+          {selectedRoute != null
+            ? "— もう一度押すと解除"
+            : showAllRoutes
+              ? "— 全系統を表示中"
+              : "— 一つ選ぶと路線と停留所が現れます"}
         </span>
-        {highlightedRouteId != null && (
-          <span className="ml-2 text-amber-700">
-            (もう一度押すと解除)
-          </span>
+      </p>
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="系統名・方面名で絞り込み (例: 業10 / 豊洲)"
+        autoComplete="off"
+        enterKeyHint="search"
+        className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <div className="flex flex-wrap gap-2 text-xs">
+        <button
+          type="button"
+          onClick={onToggleShowAll}
+          // eslint-disable-next-line jsx-a11y/aria-proptypes
+          aria-pressed={showAllRoutes ? "true" : "false"}
+          className={`px-2 py-1 rounded-full border ${
+            showAllRoutes
+              ? "bg-slate-700 text-white border-transparent"
+              : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+          }`}
+        >
+          全系統を表示
+        </button>
+        {selectedRoute != null && (
+          <button
+            type="button"
+            onClick={onClearSelection}
+            className="px-2 py-1 rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+          >
+            選択を解除
+          </button>
         )}
-      </summary>
-      <ul className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 max-h-80 overflow-y-auto">
-        {entries.map((entry) => {
-          const isActive = entry.routeId === highlightedRouteId;
+      </div>
+      <ul className="max-h-80 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded">
+        {filtered.length === 0 && (
+          <li className="px-2 py-3 text-xs text-slate-500">
+            該当する系統がありません。
+          </li>
+        )}
+        {filtered.map((entry) => {
+          const isSelectedRoute = selectedRoute?.routeId === entry.routeId;
           return (
-            <li key={entry.routeId}>
-              <button
-                type="button"
-                onClick={() => onPick(entry.routeId)}
-                // eslint-disable-next-line jsx-a11y/aria-proptypes
-                aria-pressed={isActive ? "true" : "false"}
-                className={`w-full flex items-center gap-1.5 text-xs text-left px-1 py-0.5 rounded ${
-                  isActive
-                    ? "bg-amber-100 text-amber-900 font-semibold"
-                    : "text-slate-700 hover:bg-slate-100"
-                }`}
-              >
+            <li key={entry.routeId} className="px-2 py-1.5">
+              <div className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
                   className="inline-block w-3 h-1.5 rounded-sm flex-shrink-0"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="truncate">
+                <span className="text-sm font-medium text-slate-800 truncate">
                   {displayRouteName(entry.shortName)}
                 </span>
-              </button>
+              </div>
+              <div className="mt-1 ml-5 flex flex-wrap gap-1">
+                {entry.directions.map((dir) => {
+                  const isActive =
+                    isSelectedRoute &&
+                    selectedRoute?.directionId === dir.directionId;
+                  return (
+                    <button
+                      key={dir.directionId}
+                      type="button"
+                      onClick={() =>
+                        onSelectRoute(entry.routeId, dir.directionId)
+                      }
+                      // eslint-disable-next-line jsx-a11y/aria-proptypes
+                      aria-pressed={isActive ? "true" : "false"}
+                      className={`text-xs px-2 py-0.5 rounded-full border ${
+                        isActive
+                          ? "bg-amber-100 text-amber-900 border-amber-300 font-semibold"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {dir.headsign} 方面
+                    </button>
+                  );
+                })}
+              </div>
             </li>
           );
         })}
       </ul>
-    </details>
+    </div>
   );
 }
 

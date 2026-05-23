@@ -42,13 +42,19 @@ export function routeColor(routeId: string): string {
   return `hsl(${hue} 70% 45%)`;
 }
 
-// Compact metadata for the legend UI. One entry per route (regardless of
-// direction count). Sorted alphabetically by shortName so the legend
-// reads predictably.
+// Compact metadata for the picker UI. One entry per route, with the
+// per-direction headsigns so RoutePicker can render a direction radio
+// for routes that serve more than one way. Sorted by shortName.
+export type BusRouteLegendDirection = {
+  readonly directionId: "0" | "1";
+  readonly headsign: string;
+};
+
 export type BusRouteLegendEntry = {
   readonly routeId: string;
   readonly shortName: string;
   readonly color: string;
+  readonly directions: readonly BusRouteLegendDirection[];
 };
 
 export function buildBusRouteLegend(
@@ -59,6 +65,10 @@ export function buildBusRouteLegend(
       routeId: r.routeId,
       shortName: r.shortName,
       color: routeColor(r.routeId),
+      directions: r.directions.map((d) => ({
+        directionId: d.directionId,
+        headsign: d.headsign,
+      })),
     }))
     .sort((a, b) => a.shortName.localeCompare(b.shortName, "ja"));
 }
