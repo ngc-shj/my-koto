@@ -59,29 +59,35 @@ export default async function RoutePage({
   if (found == null) notFound();
   const { data, route } = found;
 
-  // Build the map's per-direction view. The polyline (`shape`) is
-  // optional upstream (shapes.txt is missing from some GTFS-JP exports);
-  // when absent the map falls back to just the stop pins.
+  // Build the map's per-direction view. `shapes` carries every variant
+  // (terminals, detours) so the renderer can draw them all without
+  // gaps; `shape` is the legacy singular field used by older bundles.
   const color = routeColor(route.routeId);
-  const mapDirections = route.directions.map((d) => ({
-    directionId: d.directionId,
-    headsign: d.headsign,
-    color,
-    shape: (d.shape ?? []) as ReadonlyArray<readonly [number, number]>,
-    stops: d.stopSequence
-      .map((stopId) => data.stops[stopId])
-      .filter((s): s is NonNullable<typeof s> => s != null)
-      .map((s) => ({
-        stopId: s.stopId,
-        name: s.name,
-        lat: s.lat,
-        lng: s.lng,
-      })),
-  }));
+  const mapDirections = route.directions.map((d) => {
+    const shapes: ReadonlyArray<ReadonlyArray<readonly [number, number]>> =
+      (d.shapes ?? (d.shape != null ? [d.shape] : [])) as ReadonlyArray<
+        ReadonlyArray<readonly [number, number]>
+      >;
+    return {
+      directionId: d.directionId,
+      headsign: d.headsign,
+      color,
+      shapes,
+      stops: d.stopSequence
+        .map((stopId) => data.stops[stopId])
+        .filter((s): s is NonNullable<typeof s> => s != null)
+        .map((s) => ({
+          stopId: s.stopId,
+          name: s.name,
+          lat: s.lat,
+          lng: s.lng,
+        })),
+    };
+  });
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
-      <BackToHome href="/bus" label="バス系統一覧へ" />
+      <BackToHome href="/bus" label="バス時刻表へ" />
       <h1 className="text-2xl font-bold mb-2">
         <KanjiText text={`${displayRouteName(route.shortName)} 系統`} />
       </h1>

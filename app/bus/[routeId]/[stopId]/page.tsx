@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Attribution from "@/components/Attribution";
-import BackToHome from "@/components/BackToHome";
 import BusDeparturesPanel from "@/components/BusDeparturesPanel";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
@@ -16,7 +15,7 @@ import {
 import RouteMapClient from "../RouteMapClient";
 
 type Params = { routeId: string; stopId: string };
-type Search = { dir?: string };
+type Search = { dir?: string; from?: string };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -86,7 +85,9 @@ export default async function StopPage({
   searchParams: Promise<Search>;
 }) {
   const { routeId, stopId } = await params;
-  const { dir } = await searchParams;
+  const { dir, from } = await searchParams;
+  const cameFromMap = from === "map";
+  const cameFromBus = from === "bus";
   const found = loadStop(
     decodeURIComponent(routeId),
     decodeURIComponent(stopId),
@@ -99,12 +100,17 @@ export default async function StopPage({
   // stop highlighted so the visitor sees where they are on the line.
   const color = routeColor(route.routeId);
   const data = BusToeiDataSchema.parse(busData);
+  const shapes: ReadonlyArray<ReadonlyArray<readonly [number, number]>> =
+    (direction.shapes ??
+      (direction.shape != null
+        ? [direction.shape]
+        : [])) as ReadonlyArray<ReadonlyArray<readonly [number, number]>>;
   const mapDirections = [
     {
       directionId: direction.directionId,
       headsign: direction.headsign,
       color,
-      shape: (direction.shape ?? []) as ReadonlyArray<readonly [number, number]>,
+      shapes,
       stops: direction.stopSequence
         .map((sid) => data.stops[sid])
         .filter((s): s is NonNullable<typeof s> => s != null)
@@ -122,12 +128,61 @@ export default async function StopPage({
       ? `${SITE_URL}/bus/${encodeURIComponent(route.routeId)}/${encodeURIComponent(stop.stopId)}?dir=${direction.directionId}`
       : undefined;
 
+  // Three entry flows reach this page; the primary "戻る" link is
+  // tailored to where the visitor actually came from (?from=...) so the
+  // word "戻る" never points at a page they didn't visit. The route
+  // page is always offered as a secondary "stop list of this 系統" link
+  // because exploring the rest of the line is a likely next move.
+  const routeListLink = (
+    <Link
+      href={`/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}`}
+      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+    >
+      <span aria-hidden="true">←</span>
+      <span>
+        <KanjiText text={`${displayRouteName(route.shortName)} 系統へ戻る`} />
+      </span>
+    </Link>
+  );
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
-      <BackToHome
-        href={`/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}`}
-        label={`${displayRouteName(route.shortName)} 系統へ戻る`}
-      />
+      <nav aria-label="ページ内ナビゲーション" className="mb-4 flex flex-wrap gap-x-4 gap-y-1">
+        {cameFromBus ? (
+          <>
+            <Link
+              href="/bus"
+              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+            >
+              <span aria-hidden="true">←</span>
+              <span>
+                <KanjiText text="バス時刻表へ戻る" />
+              </span>
+            </Link>
+            <Link
+              href={`/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}`}
+              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+            >
+              <span>
+                <KanjiText text={`${displayRouteName(route.shortName)} 系統の停留所一覧`} />
+              </span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </>
+        ) : (
+          routeListLink
+        )}
+        {cameFromMap && (
+          <Link
+            href={`/map?focus=${encodeURIComponent(`bus-stop-${stop.stopId}`)}`}
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+          >
+            <span aria-hidden="true">←</span>
+            <span>
+              <KanjiText text="区民マップへ戻る" />
+            </span>
+          </Link>
+        )}
+      </nav>
       <div className="flex items-start justify-between gap-4 mb-2">
         <div>
           <h1 className="text-2xl font-bold">

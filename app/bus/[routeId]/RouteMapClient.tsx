@@ -17,9 +17,11 @@ type DirectionView = {
   readonly directionId: "0" | "1";
   readonly headsign: string;
   readonly color: string;
-  // Polyline along the road network. Empty when shapes.txt was missing
-  // upstream — we fall back to stop-connected lines in that case.
-  readonly shape: ReadonlyArray<readonly [number, number]>;
+  // Polylines along the road network. A direction usually has several
+  // variants (terminal branches, detours); we render every one so the
+  // line never has gaps where a variant runs. Empty when shapes.txt
+  // was missing upstream entirely.
+  readonly shapes: ReadonlyArray<ReadonlyArray<readonly [number, number]>>;
   readonly stops: ReadonlyArray<Stop>;
 };
 
@@ -88,19 +90,25 @@ export default function RouteMapClient({
   const geojson = useMemo(() => {
     return {
       type: "FeatureCollection" as const,
-      features: directions
-        .filter((d) => d.shape.length >= 2)
-        .map((d) => ({
-          type: "Feature" as const,
-          geometry: {
-            type: "LineString" as const,
-            coordinates: d.shape.map(([lng, lat]) => [lng, lat] as const),
-          },
-          properties: {
-            directionId: d.directionId,
-            color: d.color,
-          },
-        })),
+      // Flatten each direction's shape variants into separate
+      // LineString features so all branches (terminals, detours) are
+      // drawn — a single canonical shape would leave visible gaps for
+      // routes like 亀29 that fan out at the ends.
+      features: directions.flatMap((d) =>
+        d.shapes
+          .filter((s) => s.length >= 2)
+          .map((s) => ({
+            type: "Feature" as const,
+            geometry: {
+              type: "LineString" as const,
+              coordinates: s.map(([lng, lat]) => [lng, lat] as const),
+            },
+            properties: {
+              directionId: d.directionId,
+              color: d.color,
+            },
+          })),
+      ),
     };
   }, [directions]);
 
@@ -194,6 +202,22 @@ export default function RouteMapClient({
       ]);
     }
   }, [activeDirection, mapReady]);
+
+  // Pan + zoom to the highlighted stop. Without this the visitor only
+  // sees a red dot somewhere on the polyline — long routes leave that
+  // dot off-screen, defeating the purpose of the "地図" button on the
+  // stop list. Triggered every time the highlight target changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || highlightStopId == null) return;
+    for (const d of directions) {
+      const stop = d.stops.find((s) => s.stopId === highlightStopId);
+      if (stop != null) {
+        map.flyTo({ center: [stop.lng, stop.lat], zoom: 15 });
+        return;
+      }
+    }
+  }, [highlightStopId, directions, mapReady]);
 
   // Stop pins. Re-render on direction change or highlight change so the
   // visible set matches the polylines.
