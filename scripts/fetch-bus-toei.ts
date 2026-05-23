@@ -367,6 +367,46 @@ type BuildResult = {
   stops: Record<string, BusStop>;
 };
 
+// Best-effort union of stop sequences across all trips in one direction.
+// `trips` is expected sorted longest-first so the base path is the most
+// complete one. Variant-only stops are inserted just before the next
+// shared stop downstream, which keeps geographical order intact for
+// typical terminal/branch patterns. Stops with no downstream anchor
+// (variant terminals beyond the base path) are appended.
+function mergeStopSequences(
+  trips: readonly (readonly StopTime[])[],
+): readonly string[] {
+  const base = trips[0];
+  if (base == null) return [];
+  const result: string[] = base.map((st) => st.stopId);
+  const inResult = new Set(result);
+  for (let t = 1; t < trips.length; t++) {
+    const trip = trips[t];
+    if (trip == null) continue;
+    for (let i = 0; i < trip.length; i++) {
+      const sid = trip[i]?.stopId;
+      if (sid == null || inResult.has(sid)) continue;
+      let inserted = false;
+      for (let j = i + 1; j < trip.length; j++) {
+        const anchor = trip[j]?.stopId;
+        if (anchor == null) continue;
+        const pos = result.indexOf(anchor);
+        if (pos >= 0) {
+          result.splice(pos, 0, sid);
+          inResult.add(sid);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) {
+        result.push(sid);
+        inResult.add(sid);
+      }
+    }
+  }
+  return result;
+}
+
 function buildRoutes(args: {
   stops: Map<string, BusStop>;
   kotoStopIds: Set<string>;
@@ -407,12 +447,16 @@ function buildRoutes(args: {
     const dir: DirectionKey = dirRaw === "1" ? "1" : "0";
     seenRoutes.add(routeId);
 
-    // Use the longest trip in this direction as the canonical stop order.
+    // Merge every trip's stop list in this direction. Picking only the
+    // longest trip as canonical dropped variant-only stops (terminals,
+    // branch detours), leaving polylines drawn through stops the map had
+    // no pin for and breaking /bus/[stopId] / search lookups for those
+    // same stops. We anchor each variant-only stop to the next shared
+    // stop downstream so the merged order stays geographically sensible.
     const trips = tripIds
       .map((id) => args.stopTimesByTrip.get(id) ?? [])
       .sort((a, b) => b.length - a.length);
-    const canonical = trips[0] ?? [];
-    const stopSequence: readonly string[] = canonical.map((st) => st.stopId);
+    const stopSequence: readonly string[] = mergeStopSequences(trips);
 
     // headsign: most common across the trips in this direction.
     const headsignCount = new Map<string, number>();
