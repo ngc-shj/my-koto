@@ -9,6 +9,7 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { KanjiText } from "@/components/Furigana";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
+import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
 import {
   HAZARD_LABELS,
@@ -105,6 +106,10 @@ export default function MapClient({ points, initialFilters }: Props) {
   const [externalPoints, setExternalPoints] = useState<MapPoint[]>([]);
   const [externalStatus, setExternalStatus] = useState<"idle" | "loading" | "error">("idle");
   const fetchedBboxesRef = useRef<Set<string>>(new Set());
+  // Bumped on map zoom/move so renderMarkers re-runs and re-clusters using
+  // the current pixel projection. visiblePoints alone does not change with
+  // zoom, which is why it cannot serve as the re-render trigger.
+  const [renderTick, setRenderTick] = useState(0);
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -258,7 +263,9 @@ export default function MapClient({ points, initialFilters }: Props) {
     };
   }, [mapReady, maybeFetchExternalPois]);
 
-  // Render markers when map is ready or visiblePoints change.
+  // Render markers when map is ready or visiblePoints change. Points that
+  // collapse into the same pixel bucket are aggregated into one cluster
+  // bubble; clicking the bubble zooms in until the bucket separates.
   const renderMarkers = useCallback(async () => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -268,46 +275,119 @@ export default function MapClient({ points, initialFilters }: Props) {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    visiblePoints.forEach((point) => {
-      if (!isLayerId(point.type)) return;
-      const layer = getLayer(point.type);
-      const el = document.createElement("div");
-      el.className = "map-marker";
-      el.setAttribute("role", "button");
-      el.setAttribute(
-        "aria-label",
-        `${point.name}${point.source === "osm" ? " (OSM)" : ""}`,
-      );
-      const isOsm = point.source === "osm";
-      el.style.cssText = `
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        border: 2px solid white;
-        cursor: pointer;
-        background-color: ${isOsm ? "#ffffff" : layer.color};
-        outline: ${isOsm ? `2px solid ${layer.color}` : "none"};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: ${isOsm ? layer.color : "white"};
-        font-size: 12px;
-        font-weight: bold;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-      `;
-      el.textContent = layer.letter;
-      el.addEventListener("click", () => setSelectedPoint(point));
+    // Each cluster bubble is 36 px, matching the bucket size so two adjacent
+    // singletons cannot visually touch a cluster.
+    const BUCKET_SIZE = 36;
+    const layerPoints = visiblePoints.filter((p) => isLayerId(p.type));
+    const clusters = clusterByPixelBucket(
+      layerPoints,
+      (p) => map.project([p.lng, p.lat]),
+      BUCKET_SIZE,
+    );
 
-      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
-        .setLngLat([point.lng, point.lat])
-        .addTo(map);
-      markersRef.current.push(marker);
-    });
+    for (const cluster of clusters) {
+      if (cluster.points.length === 1) {
+        const point = cluster.points[0];
+        if (point == null) continue;
+        const layer = getLayer(point.type as Parameters<typeof getLayer>[0]);
+        const isOsm = point.source === "osm";
+        const el = document.createElement("div");
+        el.className = "map-marker";
+        el.setAttribute("role", "button");
+        el.setAttribute(
+          "aria-label",
+          `${point.name}${isOsm ? " (OSM)" : ""}`,
+        );
+        el.style.cssText = `
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          border: 2px solid white;
+          cursor: pointer;
+          background-color: ${isOsm ? "#ffffff" : layer.color};
+          outline: ${isOsm ? `2px solid ${layer.color}` : "none"};
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: ${isOsm ? layer.color : "white"};
+          font-size: 12px;
+          font-weight: bold;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        `;
+        el.textContent = layer.letter;
+        el.addEventListener("click", () => setSelectedPoint(point));
+
+        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([point.lng, point.lat])
+          .addTo(map);
+        markersRef.current.push(marker);
+      } else {
+        const count = cluster.points.length;
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = "map-cluster";
+        el.setAttribute("aria-label", `${count} 件の地点 (クリックで拡大)`);
+        el.style.cssText = `
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 2px solid white;
+          cursor: pointer;
+          background-color: rgba(71,85,105,0.9);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          padding: 0;
+        `;
+        el.textContent = count >= 100 ? "99+" : String(count);
+        el.addEventListener("click", () => {
+          const nextZoom = Math.min(
+            map.getZoom() + 2,
+            map.getMaxZoom(),
+          );
+          map.flyTo({
+            center: [cluster.center.lng, cluster.center.lat],
+            zoom: nextZoom,
+          });
+        });
+
+        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([cluster.center.lng, cluster.center.lat])
+          .addTo(map);
+        markersRef.current.push(marker);
+      }
+    }
   }, [visiblePoints, mapReady]);
 
   useEffect(() => {
-    renderMarkers();
-  }, [renderMarkers]);
+    void renderMarkers();
+    // renderTick triggers re-clustering on zoom/move without invalidating
+    // visiblePoints; it is intentionally read only as a dependency.
+  }, [renderMarkers, renderTick]);
+
+  // Schedule a re-cluster after pan/zoom settles so bucket positions reflect
+  // the new projection. Debounced to coalesce rapid wheel zooms.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const bump = (): void => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setRenderTick((n) => n + 1), 80);
+    };
+    map.on("zoomend", bump);
+    map.on("moveend", bump);
+    return () => {
+      if (timer) clearTimeout(timer);
+      map.off("zoomend", bump);
+      map.off("moveend", bump);
+    };
+  }, [mapReady]);
 
   // Render user location marker
   useEffect(() => {
