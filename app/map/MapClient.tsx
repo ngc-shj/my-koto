@@ -8,7 +8,14 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { KanjiText } from "@/components/Furigana";
-import { MAP_INITIAL, MAP_TILE } from "@/config/map";
+import {
+  DEFAULT_TILE_STYLE,
+  MAP_INITIAL,
+  MAP_TILE,
+  TILE_STYLES,
+  type TileStyle,
+  type TileStyleId,
+} from "@/config/map";
 import MapSearch from "@/components/MapSearch";
 import { displayRouteName } from "@/lib/bus/aliases";
 import type {
@@ -155,6 +162,12 @@ export default function MapClient({
   // Opt-in toggle to surface every route at once (network overview).
   // Off by default so the bus_stop layer does not flood the viewport.
   const [showAllRoutes, setShowAllRoutes] = useState(false);
+  // Active basemap style. 淡色地図 by default; the right-rail switcher
+  // lets the user swap in 標準 or 白地図 without reloading. We keep the
+  // selection in component state only — persistence can be added once
+  // the prefs API is shared with other pages.
+  const [tileStyleId, setTileStyleId] =
+    useState<TileStyleId>(DEFAULT_TILE_STYLE);
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -279,6 +292,23 @@ export default function MapClient({
       map.setFilter("bus-routes-line", null);
     }
   }, [mapReady, selectedRoute]);
+
+  // Swap the GSI raster source's URL when the user picks a different
+  // basemap. setTiles() handles cache invalidation so we do not need
+  // to remove/re-add the layer.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const source = map.getSource("gsi");
+    if (source == null) return;
+    // Cast — MapLibre types expose setTiles only on RasterTileSource.
+    const sourceWithTiles = source as unknown as {
+      setTiles?: (urls: string[]) => void;
+    };
+    if (typeof sourceWithTiles.setTiles === "function") {
+      sourceWithTiles.setTiles([TILE_STYLES[tileStyleId].url]);
+    }
+  }, [mapReady, tileStyleId]);
 
   // Merge bundled official points with whatever has been fetched from
   // /api/pois. Dedupe by id so refreshes do not double-pin.
@@ -414,7 +444,13 @@ export default function MapClient({
     // selected, only the stops it actually serves stay; if the user has
     // opted in to 全系統 we keep all bus stops; otherwise we drop them
     // so the empty state matches the bus-routes-line layer's hidden
-    // visibility. Other layer types are unaffected.
+    // visibility. Other layer types are unaffected. We always include
+    // an initial-focus bus stop so a deep link from /bus lands on a
+    // visible pin instead of an empty map.
+    const focusedBusStopId =
+      initialFocusId != null && initialFocusId.startsWith("bus-stop-")
+        ? initialFocusId
+        : null;
     const allowedBusStopIds = (() => {
       if (selectedRoute != null && busStopRouteIndex != null) {
         const ids = new Set<string>();
@@ -429,9 +465,11 @@ export default function MapClient({
             ids.add(`bus-stop-${stopId}`);
           }
         }
+        if (focusedBusStopId != null) ids.add(focusedBusStopId);
         return ids;
       }
       if (showAllRoutes) return null; // all bus stops kept
+      if (focusedBusStopId != null) return new Set<string>([focusedBusStopId]);
       return new Set<string>(); // empty — none kept
     })();
     const layerPoints = visiblePoints.filter((p) => {
@@ -679,16 +717,49 @@ export default function MapClient({
 
       <div ref={mapContainerRef} className="w-full h-full" aria-label="地図" />
 
-      {externalStatus !== "idle" && (
-        <div
-          aria-live="polite"
-          className="absolute top-3 right-3 z-10 bg-white rounded-full shadow px-3 py-1 text-xs text-slate-700 border border-slate-200"
-        >
-          {externalStatus === "loading"
-            ? "区外データを取得中…"
-            : "区外データの取得に失敗しました"}
-        </div>
-      )}
+      {/* Right rail — base tile switcher, dynamic-fetch status, and the
+          bus route picker stack here so they share one column and never
+          fight the centred layer panel for space. */}
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 w-72 max-w-[calc(100vw-1.5rem)]">
+        <TileStyleSwitcher
+          value={tileStyleId}
+          onChange={setTileStyleId}
+          styles={TILE_STYLES}
+        />
+        {externalStatus !== "idle" && (
+          <div
+            aria-live="polite"
+            className="bg-white rounded-full shadow px-3 py-1 text-xs text-slate-700 border border-slate-200 self-end"
+          >
+            {externalStatus === "loading"
+              ? "区外データを取得中…"
+              : "区外データの取得に失敗しました"}
+          </div>
+        )}
+        {filters.layers.bus_stop && busRouteLegend != null && busRouteLegend.length > 0 && (
+          <div className="bg-white rounded-xl shadow border border-slate-200 p-3">
+            <BusRoutePicker
+              entries={busRouteLegend}
+              selectedRoute={selectedRoute}
+              showAllRoutes={showAllRoutes}
+              onSelectRoute={(routeId, directionId) =>
+                setSelectedRoute((prev) =>
+                  prev != null &&
+                  prev.routeId === routeId &&
+                  prev.directionId === directionId
+                    ? null
+                    : { routeId, directionId }
+                )
+              }
+              onClearSelection={() => setSelectedRoute(null)}
+              onToggleShowAll={() => {
+                setShowAllRoutes((prev) => !prev);
+                if (!showAllRoutes) setSelectedRoute(null);
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Layer panel */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-1.5 items-center max-w-[min(95vw,32rem)]">
@@ -741,27 +812,8 @@ export default function MapClient({
                   onClick={() => toggleAccessibility("twentyFourOnly")}
                 />
               </div>
-              {filters.layers.bus_stop && busRouteLegend != null && busRouteLegend.length > 0 && (
-                <BusRoutePicker
-                  entries={busRouteLegend}
-                  selectedRoute={selectedRoute}
-                  showAllRoutes={showAllRoutes}
-                  onSelectRoute={(routeId, directionId) =>
-                    setSelectedRoute((prev) =>
-                      prev != null &&
-                      prev.routeId === routeId &&
-                      prev.directionId === directionId
-                        ? null
-                        : { routeId, directionId }
-                    )
-                  }
-                  onClearSelection={() => setSelectedRoute(null)}
-                  onToggleShowAll={() => {
-                    setShowAllRoutes((prev) => !prev);
-                    if (!showAllRoutes) setSelectedRoute(null);
-                  }}
-                />
-              )}
+              {/* BusRoutePicker moved out of the layer panel; see the
+                  dedicated card below. */}
             </div>
           )}
         </div>
@@ -1062,6 +1114,45 @@ function FilterChip({
     >
       {label}
     </button>
+  );
+}
+
+function TileStyleSwitcher({
+  value,
+  onChange,
+  styles,
+}: {
+  value: TileStyleId;
+  onChange: (id: TileStyleId) => void;
+  styles: Readonly<Record<TileStyleId, TileStyle>>;
+}) {
+  const order: TileStyleId[] = ["pale", "std", "blank"];
+  return (
+    <div
+      role="group"
+      aria-label="背景地図"
+      className="bg-white rounded-full shadow border border-slate-200 flex p-0.5 self-end"
+    >
+      {order.map((id) => {
+        const isActive = id === value;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id)}
+            // eslint-disable-next-line jsx-a11y/aria-proptypes
+            aria-pressed={isActive ? "true" : "false"}
+            className={`text-xs px-3 py-1 rounded-full transition-colors ${
+              isActive
+                ? "bg-slate-700 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {styles[id].label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

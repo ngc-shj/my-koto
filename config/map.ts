@@ -1,25 +1,63 @@
-// Map tile configuration — GSI raster (淡色地図) served by 国土地理院.
+// Map tile configuration — GSI raster served by 国土地理院.
 // Terms: https://maps.gsi.go.jp/development/ichiran.html
 // Notes:
-// - The 標準地図 ("std") layer is too colorful to overlay 14 marker
-//   layers + 68 colored bus polylines without losing contrast; 淡色地図
-//   ("pale") keeps the road/water structure and labels but desaturates
-//   so the overlay reads as figure on a quiet ground.
-// - We start with raster tiles for reliability; the vector pmtiles flavor of
-//   `optimal_bvmap-v1` requires the pmtiles protocol library. Switch back to
-//   vector once that integration is in place.
+// - 14 marker layers + 68 colored bus polylines on top of the colorful
+//   "std" map made it hard to read; we default to 淡色地図 ("pale") so
+//   the overlay reads as figure on a quiet ground. The user can swap
+//   styles at runtime — see TILE_STYLES below.
 // - OSM raster intentionally excluded per
 //   https://operations.osmfoundation.org/policies/tiles/.
+
+export type TileStyleId = "pale" | "std" | "blank";
+
+export type TileStyle = {
+  readonly id: TileStyleId;
+  readonly label: string;
+  readonly url: string;
+  readonly attribution: string;
+  readonly tileSize: number;
+  readonly maxNativeZoom: number;
+  readonly minNativeZoom: number;
+};
+
+export const TILE_STYLES: Readonly<Record<TileStyleId, TileStyle>> = {
+  pale: {
+    id: "pale",
+    label: "淡色地図",
+    url: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",
+    attribution: "地理院タイル (国土地理院 淡色地図)",
+    tileSize: 256,
+    maxNativeZoom: 18,
+    minNativeZoom: 5,
+  },
+  std: {
+    id: "std",
+    label: "標準地図",
+    url: "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
+    attribution: "地理院タイル (国土地理院 標準地図)",
+    tileSize: 256,
+    maxNativeZoom: 18,
+    minNativeZoom: 2,
+  },
+  blank: {
+    id: "blank",
+    label: "白地図",
+    url: "https://cyberjapandata.gsi.go.jp/xyz/blank/{z}/{x}/{y}.png",
+    attribution: "地理院タイル (国土地理院 白地図)",
+    tileSize: 256,
+    maxNativeZoom: 14,
+    minNativeZoom: 5,
+  },
+};
+
+export const DEFAULT_TILE_STYLE: TileStyleId = "pale";
+
+// Backwards-compatible export: the default (pale) tile config. Existing
+// imports of MAP_TILE keep working without touching every call site.
 export const MAP_TILE = {
-  url: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",
-  attribution: "地理院タイル (国土地理院 淡色地図)",
+  ...TILE_STYLES[DEFAULT_TILE_STYLE],
   attributionUrl: "https://maps.gsi.go.jp/development/ichiran.html",
   type: "raster",
-  // GSI pale raster tile size.
-  tileSize: 256,
-  // GSI pale raster tiles are available z 5..18.
-  maxNativeZoom: 18,
-  minNativeZoom: 5,
 } as const;
 
 // Initial map view centered on Koto City (江東区).

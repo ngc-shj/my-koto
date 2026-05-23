@@ -72,20 +72,26 @@ export const metadata: Metadata = {
 
 // `?layers=aed,toilet` (legacy `?type=aed,toilet` also accepted) narrows the
 // visible layers to a specific subset. When the parameter is omitted we
-// enable every registered layer so first-time visitors see what the map
-// covers without having to expand the toggle panel; explicit URLs keep
-// their narrower behaviour for bookmarks coming in from /gomi → AED quick
-// links etc.
+// enable a curated essentials subset so first-time visitors see useful
+// pins without 16 layers fighting for attention. The other layers ride
+// behind the layer panel toggle; explicit URLs override this default.
 type SearchParams = { layers?: string; type?: string; focus?: string };
 
+const DEFAULT_LAYER_IDS: readonly LayerId[] = [
+  "aed",
+  "toilet",
+  "shelter",
+  "park",
+];
+
 function parseLayersParam(raw: string | undefined): LayerId[] {
-  if (!raw) return [...LAYER_IDS];
+  if (!raw) return [...DEFAULT_LAYER_IDS];
   const out: LayerId[] = [];
   for (const part of raw.split(",")) {
     const t = part.trim();
     if (isLayerId(t) && !out.includes(t)) out.push(t);
   }
-  return out.length === 0 ? [...LAYER_IDS] : out;
+  return out.length === 0 ? [...DEFAULT_LAYER_IDS] : out;
 }
 
 export default async function MapPage({
@@ -111,9 +117,14 @@ export default async function MapPage({
     ...bus.stops,
   ];
 
+  // Auto-enable bus_stop when a deep link focuses on one, otherwise the
+  // pin filter would hide the very stop the link points at.
+  const focusIsBusStop =
+    initialFocusId != null && initialFocusId.startsWith("bus-stop-");
+
   const layers: Partial<Record<LayerId, boolean>> = {};
   for (const id of LAYER_IDS) {
-    layers[id] = activeTypes.includes(id);
+    layers[id] = activeTypes.includes(id) || (id === "bus_stop" && focusIsBusStop);
   }
   const initialFilters: MapFilters = {
     layers,
