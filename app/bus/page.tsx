@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Attribution from "@/components/Attribution";
 import BackToHome from "@/components/BackToHome";
-import BusStopSearch, {
+import BusFinder, {
+  type BusRouteSearchOption,
   type BusStopSearchOption,
-} from "@/components/BusStopSearch";
+} from "@/components/BusFinder";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import busData from "@/data/bus-toei.json";
@@ -16,7 +17,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 export const metadata: Metadata = {
   title: "バス時刻表 | My こうとう (非公式)",
   description:
-    "バス停名で検索して、そのバス停を通る都営バスの系統と時刻表を確認できます。",
+    "バス停名や系統名で検索して、都営バスの時刻表・路線図を確認できます。",
 };
 
 function buildStopOptions(
@@ -45,9 +46,26 @@ function buildStopOptions(
     .sort((a, b) => a.name.localeCompare(b.name, "ja"));
 }
 
+function buildRouteOptions(
+  data: ReturnType<typeof BusToeiDataSchema.parse>,
+): readonly BusRouteSearchOption[] {
+  return data.routes
+    .map((r) => ({
+      routeId: r.routeId,
+      shortName: r.shortName,
+      longName: r.longName,
+      directions: r.directions.map((d) => ({
+        directionId: d.directionId,
+        headsign: d.headsign,
+      })),
+    }))
+    .sort((a, b) => a.shortName.localeCompare(b.shortName, "ja"));
+}
+
 export default function BusIndexPage() {
   const data = BusToeiDataSchema.parse(busData);
   const stops = buildStopOptions(data);
+  const routes = buildRouteOptions(data);
 
   const districts = DistrictSchema.array().parse(districtsRaw);
   const districtLabelById: Record<string, string> = {};
@@ -65,10 +83,14 @@ export default function BusIndexPage() {
         <ShareButton title="バス時刻表" url={`${SITE_URL}/bus`} />
       </div>
       <p className="text-sm text-gray-600 mb-6">
-        <KanjiText text="バス停名で検索して、そのバス停を通る系統と時刻表を確認できます。江東区コミュニティバス「しおかぜ」(江東01) も含まれます。" />
+        <KanjiText text="バス停名または系統名で検索して、時刻表・路線図を確認できます。江東区コミュニティバス「しおかぜ」(江東01) も含まれます。" />
       </p>
 
-      <BusStopSearch stops={stops} districtLabelById={districtLabelById} />
+      <BusFinder
+        stops={stops}
+        routes={routes}
+        districtLabelById={districtLabelById}
+      />
 
       <div className="mt-8 space-y-1">
         <Attribution dataset="toei-bus" />
