@@ -4,6 +4,7 @@ import {
   formatBusTime,
   categorizeServiceDay,
   nextDepartures,
+  stripChomeSuffix,
 } from "./normalize";
 
 describe("parseBusTimeMinutes", () => {
@@ -90,5 +91,22 @@ describe("nextDepartures", () => {
   it("respects the limit argument", () => {
     const now = new Date("2026-05-23T00:00:00+09:00");
     expect(nextDepartures(departures, now, 2)).toEqual(["06:30", "07:00"]);
+  });
+});
+
+describe("stripChomeSuffix", () => {
+  it("strips a single-digit chome suffix", () => {
+    expect(stripChomeSuffix("塩浜1丁目")).toBe("塩浜");
+    expect(stripChomeSuffix("深川2丁目")).toBe("深川");
+  });
+
+  it("strips a range chome suffix written with a wave dash", () => {
+    expect(stripChomeSuffix("亀戸1～3丁目")).toBe("亀戸");
+    expect(stripChomeSuffix("森下1～4丁目")).toBe("森下");
+  });
+
+  it("leaves labels without a chome suffix untouched", () => {
+    expect(stripChomeSuffix("青海")).toBe("青海");
+    expect(stripChomeSuffix("海の森")).toBe("海の森");
   });
 });

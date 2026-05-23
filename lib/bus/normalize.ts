@@ -37,6 +37,15 @@ export function categorizeServiceDay(date: Date): ServiceCategory {
   return "weekday";
 }
 
+// Strip a trailing chome suffix from a district label so it can seed the
+// bus-stop search. Handles single digits ("塩浜1丁目" → "塩浜") and ranges
+// written with wave dash ("亀戸1～3丁目" → "亀戸"). Anything that does not
+// match is returned untouched.
+const CHOME_SUFFIX_RE = /[0-9][0-9～〜~\-]*丁目$/;
+export function stripChomeSuffix(label: string): string {
+  return label.replace(CHOME_SUFFIX_RE, "").trim();
+}
+
 // Find the next N departures from `now` for a given stop's timetable.
 // `now` is expected to be in the same wall-clock timezone as the timetable
 // (callers should pass a Date adjusted to Asia/Tokyo).
