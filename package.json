@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/install-dev-sw-killer.mjs",
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
+    "dev:webpack": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
