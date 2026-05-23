@@ -233,7 +233,12 @@ function readEntry(zip: AdmZip, name: string): string {
   return entry.getData().toString("utf-8");
 }
 
-function pickKotoStops(rows: readonly CsvRow[]): Map<string, BusStop> {
+// Returns every parseable stop. We keep the full set so that routes
+// touching Koto can carry their out-of-ward stops too — otherwise the
+// map shows a polyline extending past the last in-ward stop with no
+// pins to anchor it, and /bus timetable search misses lookups by an
+// out-of-ward stop name on a Koto-serving line.
+function pickAllStops(rows: readonly CsvRow[]): Map<string, BusStop> {
   const out = new Map<string, BusStop>();
   for (const raw of rows) {
     const parsed = StopRowSchema.safeParse(raw);
@@ -241,7 +246,6 @@ function pickKotoStops(rows: readonly CsvRow[]): Map<string, BusStop> {
     const lat = parseFloat(parsed.data.stop_lat);
     const lng = parseFloat(parsed.data.stop_lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-    if (!isInsideBbox({ lat, lng }, KOTO_BBOX)) continue;
     out.set(parsed.data.stop_id, {
       stopId: parsed.data.stop_id,
       name: parsed.data.stop_name,
@@ -250,6 +254,18 @@ function pickKotoStops(rows: readonly CsvRow[]): Map<string, BusStop> {
     });
   }
   return out;
+}
+
+// Subset of stop ids that lie inside the Koto bbox — used as the
+// "does this route touch the ward" qualifier.
+function kotoStopIdsFrom(stops: Map<string, BusStop>): Set<string> {
+  const ids = new Set<string>();
+  for (const [id, stop] of stops) {
+    if (isInsideBbox({ lat: stop.lat, lng: stop.lng }, KOTO_BBOX)) {
+      ids.add(id);
+    }
+  }
+  return ids;
 }
 
 type StopTime = {
@@ -408,8 +424,11 @@ function buildRoutes(args: {
     }
     const headsign = pickMostFrequent(headsignCount, "");
 
-    // Pick the shape used by the most trips in this direction; ties
-    // resolve by point count (longer shapes are more useful).
+    // Collect EVERY distinct shape referenced by surviving trips. A
+    // route+direction often has multiple shape_ids (different terminals,
+    // branch detours): rendering only the most-used one leaves visible
+    // gaps along the variants. We sort by usage (most-used first) so
+    // the visible polyline z-order matches "main path on top".
     const shapeUsage = new Map<string, number>();
     for (const tid of tripIds) {
       const trip = args.trips.get(tid);
@@ -418,23 +437,16 @@ function buildRoutes(args: {
       if (sid.length === 0) continue;
       shapeUsage.set(sid, (shapeUsage.get(sid) ?? 0) + 1);
     }
-    let canonicalShape: [number, number][] | undefined;
-    let canonicalShapeId = "";
-    let canonicalUsage = -1;
-    for (const [sid, usage] of shapeUsage) {
+    const sortedShapeIds = Array.from(shapeUsage.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([sid]) => sid);
+    const allShapes: [number, number][][] = [];
+    for (const sid of sortedShapeIds) {
       const pts = args.shapes.get(sid);
-      if (pts == null || pts.length < 2) continue;
-      const isMoreUsed = usage > canonicalUsage;
-      const isLongerTie =
-        usage === canonicalUsage &&
-        pts.length > (canonicalShape?.length ?? 0);
-      if (isMoreUsed || isLongerTie) {
-        canonicalShape = pts;
-        canonicalShapeId = sid;
-        canonicalUsage = usage;
-      }
+      if (pts != null && pts.length >= 2) allShapes.push(pts);
     }
-    void canonicalShapeId; // referenced for future logging only
+    // `shape` kept for back-compat — first entry is the most-used.
+    const primaryShape = allShapes[0];
 
     const schedule = {
       weekday: aggregateSchedule(tripIds, "weekday", args),
@@ -459,7 +471,8 @@ function buildRoutes(args: {
       directionId: dir,
       headsign,
       stopSequence,
-      shape: canonicalShape,
+      shape: primaryShape,
+      shapes: allShapes.length > 0 ? allShapes : undefined,
       schedule,
     });
   }
@@ -553,8 +566,11 @@ async function main(): Promise<void> {
     ? parseCsv(readEntry(zip, "shapes.txt"))
     : [];
 
-  const stops = pickKotoStops(stopsRows);
-  console.log(`Stops inside Koto bbox: ${stops.size}`);
+  const stops = pickAllStops(stopsRows);
+  const kotoStopIds = kotoStopIdsFrom(stops);
+  console.log(
+    `Stops total: ${stops.size} (inside Koto bbox: ${kotoStopIds.size})`,
+  );
 
   const stopTimesByTrip = groupStopTimesByTrip(stopTimesRows);
 
@@ -578,7 +594,6 @@ async function main(): Promise<void> {
     }
   }
 
-  const kotoStopIds = new Set(stops.keys());
   const shapes = groupShapes(shapesRows);
   console.log(`Shapes parsed: ${shapes.size}`);
   const built = buildRoutes({
@@ -648,7 +663,8 @@ if (process.argv[1] && process.argv[1].endsWith("fetch-bus-toei.ts")) {
 export {
   parseCsv,
   parseCsvRow,
-  pickKotoStops,
+  pickAllStops,
+  kotoStopIdsFrom,
   groupStopTimesByTrip,
   categorizeService,
   shortenArrivalTime,

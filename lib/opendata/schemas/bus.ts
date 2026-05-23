@@ -37,8 +37,15 @@ const DirectionPatternSchema = z.object({
   // Optional road-following geometry sourced from GTFS shapes.txt — when
   // present the map draws this polyline; when absent (older bundles or
   // routes whose trips referenced no shape) the renderer falls back to
-  // connecting stops in order.
+  // connecting stops in order. Kept for back-compat with bundles that
+  // pre-date the multi-shape `shapes` field below.
   shape: z.array(ShapePointSchema).readonly().optional(),
+  // Multi-variant geometry: a route+direction may have several
+  // shape_ids in GTFS (different terminals, branch detours, etc).
+  // Picking only the most-used one (the prior `shape` field) leaves
+  // visible gaps where the other variants run. We carry every shape
+  // referenced by surviving trips so the renderer can draw them all.
+  shapes: z.array(z.array(ShapePointSchema).readonly()).readonly().optional(),
   schedule: z.object({
     weekday: z.array(StopDeparturesSchema).readonly(),
     saturday: z.array(StopDeparturesSchema).readonly(),
