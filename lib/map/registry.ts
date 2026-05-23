@@ -263,6 +263,13 @@ const BY_ID = new Map<LayerId, LayerConfig>(LAYERS.map((l) => [l.id, l]));
 
 export const LAYER_IDS: readonly LayerId[] = LAYERS.map((l) => l.id);
 
+// Layers without a curated Koto-ku dataset (OSM-only). MapClient fetches
+// these from /api/pois even when the visitor has the layer off so chip
+// counts populate uniformly with the bundled layers.
+export const OSM_ONLY_LAYER_IDS: readonly LayerId[] = LAYERS
+  .filter((l) => !l.bundled)
+  .map((l) => l.id);
+
 export function getLayer(id: LayerId): LayerConfig {
   const cfg = BY_ID.get(id);
   if (!cfg) {

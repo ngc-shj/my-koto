@@ -1,8 +1,14 @@
 /**
  * Fetches the Toei Bus GTFS-JP feed, filters to routes touching Koto-ku,
- * and writes the result to data/bus-toei.json.
+ * and writes the result to data/bus-toei.json and/or Vercel KV.
  *
- * Run via: npx tsx scripts/fetch-bus-toei.ts
+ * Run via:
+ *   npx tsx scripts/fetch-bus-toei.ts                  # file only (default)
+ *   npx tsx scripts/fetch-bus-toei.ts --target=kv      # KV only
+ *   npx tsx scripts/fetch-bus-toei.ts --target=both    # file + KV
+ *
+ * KV target requires KV_REST_API_URL and KV_REST_API_TOKEN in the
+ * environment (same vars @vercel/kv reads at runtime).
  *
  * Memory profile: the upstream zip is ~80 MB compressed (stop_times.txt is
  * ~72 MB once inflated). Everything is held in memory during transformation
@@ -16,6 +22,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { TOEI_BUS_GTFS_URL } from "@/config/opendata";
 import { KOTO_BBOX, isInsideBbox } from "@/config/geo";
+import { busKvKey, busKvSchemaVersion } from "@/lib/map/bus-kv";
 import {
   BusToeiDataSchema,
   type BusRoute,
@@ -27,6 +34,53 @@ import {
 } from "@/lib/opendata/schemas/bus";
 
 const OUT_PATH = join(process.cwd(), "data", "bus-toei.json");
+
+type Target = "file" | "kv" | "both";
+
+function parseTarget(argv: readonly string[]): Target {
+  for (const arg of argv) {
+    if (arg.startsWith("--target=")) {
+      const value = arg.slice("--target=".length);
+      if (value === "file" || value === "kv" || value === "both") return value;
+      throw new Error(
+        `Invalid --target value: ${value}. Expected file|kv|both.`,
+      );
+    }
+  }
+  return "file";
+}
+
+// KV REST PUT — avoids importing @vercel/kv (which targets Edge/Node
+// runtime, not a one-shot script) by hitting the REST API directly.
+// Uses the same env vars @vercel/kv reads, so it works against the same
+// project KV without extra config.
+async function putKv(
+  key: string,
+  value: unknown,
+): Promise<void> {
+  const url = process.env["KV_REST_API_URL"];
+  const token = process.env["KV_REST_API_TOKEN"];
+  if (!url || !token) {
+    throw new Error(
+      "KV_REST_API_URL and KV_REST_API_TOKEN must be set for --target=kv",
+    );
+  }
+  const body = JSON.stringify(value);
+  // Upstash REST: POST { value } to /set/{key}. Body is the raw value
+  // wrapped — Upstash stores it as a string under the key.
+  const endpoint = `${url.replace(/\/$/, "")}/set/${encodeURIComponent(key)}`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`KV PUT failed: HTTP ${res.status}`);
+  }
+}
 const USER_AGENT =
   process.env["UA_OVERRIDE"] ?? "koto-city-bot/1.0 (+https://example.com/about)";
 const TOEI_LICENSE = {
@@ -565,10 +619,21 @@ async function main(): Promise<void> {
     throw new Error(`Output failed schema validation: ${summary}`);
   }
 
-  mkdirSync(join(process.cwd(), "data"), { recursive: true });
-  writeFileSync(OUT_PATH, JSON.stringify(validated.data, null, 2) + "\n", "utf-8");
-  const sizeKb = (JSON.stringify(validated.data).length / 1024).toFixed(1);
-  console.log(`Saved: ${OUT_PATH} (${sizeKb} KB)`);
+  const target = parseTarget(process.argv.slice(2));
+  const serialized = JSON.stringify(validated.data);
+  const sizeKb = (serialized.length / 1024).toFixed(1);
+
+  if (target === "file" || target === "both") {
+    mkdirSync(join(process.cwd(), "data"), { recursive: true });
+    writeFileSync(OUT_PATH, JSON.stringify(validated.data, null, 2) + "\n", "utf-8");
+    console.log(`Saved: ${OUT_PATH} (${sizeKb} KB)`);
+  }
+
+  if (target === "kv" || target === "both") {
+    const key = busKvKey(busKvSchemaVersion());
+    await putKv(key, validated.data);
+    console.log(`Saved to KV: ${key} (${sizeKb} KB)`);
+  }
 }
 
 if (process.argv[1] && process.argv[1].endsWith("fetch-bus-toei.ts")) {

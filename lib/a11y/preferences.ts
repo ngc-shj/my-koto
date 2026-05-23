@@ -4,15 +4,13 @@
 // room for future preferences (text size, high-contrast theme, etc.) without
 // scattering more keys across config/storage.ts.
 
+import { isBrowser } from "@/lib/ssr";
+
 const FURIGANA_KEY = "a11y_furigana_v1";
 // Same-tab update channel. Components that render district / category names
 // listen for this so toggling the setting updates the screen without a
 // reload. Cross-tab updates ride the standard `storage` event.
 export const FURIGANA_CHANGE_EVENT = "koto-city:a11y-furigana-change";
-
-function isBrowser(): boolean {
-  return typeof window !== "undefined";
-}
 
 export function getFuriganaEnabled(): boolean {
   if (!isBrowser()) return false;

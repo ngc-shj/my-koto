@@ -36,7 +36,19 @@ import type {
 } from "@/lib/map/bus-routes";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
+import { loadMapFilters, saveMapFilters } from "@/lib/map/filters-storage";
+import { loadBusCache, saveBusCache } from "@/lib/map/bus-cache";
+import { loadCachedPois, saveCachedPois } from "@/lib/map/poi-cache";
 import { isLayerBundled } from "@/lib/map/registry";
+import {
+  BusToeiDataSchema,
+  type BusToeiData,
+} from "@/lib/opendata/schemas/bus";
+import {
+  buildBusRouteLegend,
+  buildBusRouteLines,
+  buildStopRouteIndex,
+} from "@/lib/map/bus-routes";
 import {
   HAZARD_LABELS,
   type HazardKind,
@@ -46,9 +58,11 @@ import {
 } from "@/lib/map/types";
 import {
   LAYERS,
+  OSM_ONLY_LAYER_IDS,
   getLayer,
   isLayerId,
   type LayerCategory,
+  type LayerConfig,
   type LayerId,
 } from "@/lib/map/registry";
 import {
@@ -60,6 +74,20 @@ import {
   snapBbox,
   type Bbox,
 } from "@/config/geo";
+
+// Layers grouped by category for the layer panel. Module-scope so the
+// grouping runs once per process instead of once per MapClient mount —
+// `LAYERS` is a frozen registry, the output never changes at runtime.
+const GROUPED_LAYERS: readonly [LayerCategory, readonly LayerConfig[]][] =
+  (() => {
+    const m = new Map<LayerCategory, LayerConfig[]>();
+    for (const l of LAYERS) {
+      const list = m.get(l.category) ?? [];
+      list.push(l);
+      m.set(l.category, list);
+    }
+    return Array.from(m.entries());
+  })();
 
 const RADIUS_OPTIONS: { label: string; value: RadiusOption }[] = [
   { label: "500m", value: 500 },
@@ -108,25 +136,23 @@ type UserLocation = { lat: number; lng: number } | null;
 type Props = {
   points: MapPoint[];
   initialFilters: MapFilters;
+  // True when `?layers=` / `?type=` was in the URL. When true the URL is
+  // authoritative and we skip the localStorage rehydration so deep links
+  // don't get overwritten by the visitor's prior session.
+  urlHasLayersParam?: boolean;
+  // True when the deep-link focus targets a bus_stop pin. The bus_stop
+  // layer is force-enabled in that case so the focused pin renders even
+  // if the user's saved filter had it off.
+  focusIsBusStop?: boolean;
   // When set, the map flies to and selects the point with this id on
   // first ready. Used by deep links like /map?focus=bus-stop-... so a
   // 区民 jumping from /bus lands on the pin instead of having to find
   // it by hand.
   initialFocusId?: string | null;
-  // Pre-built GeoJSON of every Koto-passing route, one LineString per
-  // route+direction with a deterministic color baked in. Rendered as a
-  // line layer visible only while the bus_stop layer is on.
-  busRouteLines?: BusRouteLines;
-  // One entry per route for the in-panel legend. Pre-sorted by ja
-  // shortName so the rendered list is stable.
-  busRouteLegend?: readonly BusRouteLegendEntry[];
-  // Reverse index `stopId → routes serving it`. Drives the
-  // "この停留所を通る系統" section of the detail panel so clicking a
-  // bus_stop pin reveals which lines pass through it and lets the
-  // user pick one to highlight.
-  busStopRouteIndex?: StopRouteIndex;
   // Deep-link from /bus: pre-select this (route, direction) so the
   // line and its stops render without the user having to pick again.
+  // The bus bundle itself is fetched client-side from /api/map/bus and
+  // cached in IndexedDB, so it is no longer shipped via props.
   initialSelectedRoute?: { routeId: string; directionId: "0" | "1" } | null;
 };
 
@@ -139,10 +165,9 @@ const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
 export default function MapClient({
   points,
   initialFilters,
+  urlHasLayersParam = false,
+  focusIsBusStop = false,
   initialFocusId = null,
-  busRouteLines,
-  busRouteLegend,
-  busStopRouteIndex,
   initialSelectedRoute = null,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -155,13 +180,66 @@ export default function MapClient({
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
   const [showConsentModal, setShowConsentModal] = useState(true);
   const [mapReady, setMapReady] = useState(false);
-  const [layerPanelOpen, setLayerPanelOpen] = useState(false);
-  // Dynamic POIs fetched from /api/pois for areas outside Koto-ku.
-  // Keyed by viewport-snapped bbox so cache hits stay deterministic across
-  // small pan movements.
-  const [externalPoints, setExternalPoints] = useState<MapPoint[]>([]);
+  // Open the panel by default when nothing is visible so first-time
+  // visitors (and visitors whose saved state had every layer off) have
+  // a discoverable affordance to pick something. Collapse once at least
+  // one layer is on — the picker just clutters the map then.
+  const [layerPanelOpen, setLayerPanelOpen] = useState<boolean>(
+    () => !Object.values(initialFilters.layers).some((v) => v === true),
+  );
+  // Guards storage writes until after the initial hydration pass; otherwise
+  // the first render's `initialFilters` would clobber the saved value
+  // before we ever read it.
+  const filtersHydratedRef = useRef(false);
+
+  // Hydrate filters from localStorage on mount unless the URL already
+  // specified `?layers=` (deep links win). When the deep link focuses a
+  // bus_stop pin we OR `bus_stop=true` on top of the stored selection so
+  // the focused stop is visible regardless of what the visitor saved.
+  useEffect(() => {
+    if (urlHasLayersParam) {
+      filtersHydratedRef.current = true;
+      return;
+    }
+    const stored = loadMapFilters();
+    if (stored != null) {
+      const next: MapFilters = {
+        ...stored,
+        layers: { ...stored.layers },
+      };
+      if (focusIsBusStop) next.layers.bus_stop = true;
+      setFilters(next);
+      const anyLayerOn = Object.values(next.layers).some((v) => v === true);
+      setLayerPanelOpen(!anyLayerOn);
+    }
+    filtersHydratedRef.current = true;
+  }, [urlHasLayersParam, focusIsBusStop]);
+
+  // Persist filters whenever the user changes them. Cheap enough to run
+  // on every update — the payload is a few hundred bytes.
+  useEffect(() => {
+    if (!filtersHydratedRef.current) return;
+    saveMapFilters(filters);
+  }, [filters]);
+  // Dynamic POIs fetched from /api/pois. Includes OSM-only layers (駅・
+  // 病院 etc.) fetched eagerly so chip counts populate immediately, plus
+  // bundled-layer rows for areas outside Koto-ku. Seeded from the last
+  // saved set on mount so revisits show counts before the network
+  // round-trip completes.
+  const [externalPoints, setExternalPoints] = useState<MapPoint[]>(() => {
+    const cached = loadCachedPois();
+    return cached ?? [];
+  });
   const [externalStatus, setExternalStatus] = useState<"idle" | "loading" | "error">("idle");
   const fetchedBboxesRef = useRef<Set<string>>(new Set());
+
+  // Persist the merged OSM-derived points so the next visit has counts
+  // ready before the first /api/pois round-trip. Cheap: the cache module
+  // caps the row count and serialises only what is needed.
+  useEffect(() => {
+    if (externalPoints.length === 0) return;
+    saveCachedPois(externalPoints);
+  }, [externalPoints]);
   // Bumped on map zoom/move so renderMarkers re-runs and re-clusters using
   // the current pixel projection. visiblePoints alone does not change with
   // zoom, which is why it cannot serve as the re-render trigger.
@@ -190,6 +268,61 @@ export default function MapClient({
   // bus stop pin (or the deep link auto-selects one). Cleared when the
   // detail panel closes so the next stop starts fresh.
   const [stopTimes, setStopTimes] = useState<StopTimesResponse | null>(null);
+
+  // Toei bus bundle, fetched client-side from /api/map/bus and cached
+  // in IndexedDB. Starts null on first paint; populates from the
+  // IndexedDB cache (instant on revisit) and then refreshes from the
+  // network in the background. Derived structures (route lines, legend,
+  // stop→route index, bus stop pins) all flow from this single state.
+  const [busData, setBusData] = useState<BusToeiData | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const cached = await loadBusCache();
+      if (!cancelled && cached != null) setBusData(cached);
+      try {
+        const res = await fetch("/api/map/bus");
+        if (!res.ok) return;
+        const raw: unknown = await res.json();
+        const parsed = BusToeiDataSchema.safeParse(raw);
+        if (!parsed.success) return;
+        if (cancelled) return;
+        setBusData(parsed.data);
+        void saveBusCache(parsed.data);
+      } catch {
+        // Network failure — the cache (if any) keeps the map usable.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const busRouteLines = useMemo(
+    () => (busData != null ? buildBusRouteLines(busData) : undefined),
+    [busData],
+  );
+  const busRouteLegend = useMemo(
+    () => (busData != null ? buildBusRouteLegend(busData) : undefined),
+    [busData],
+  );
+  const busStopRouteIndex = useMemo(
+    () => (busData != null ? buildStopRouteIndex(busData) : undefined),
+    [busData],
+  );
+  const busStopPoints = useMemo<MapPoint[]>(() => {
+    if (busData == null) return [];
+    return Object.values(busData.stops).map((s) => ({
+      id: `bus-stop-${s.stopId}`,
+      type: "bus_stop",
+      source: "tokyo-met",
+      name: s.name,
+      address: "",
+      lat: s.lat,
+      lng: s.lng,
+    }));
+  }, [busData]);
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -344,11 +477,18 @@ export default function MapClient({
   }, [mapReady, tileStyleId]);
 
   // Merge bundled official points with whatever has been fetched from
-  // /api/pois. Dedupe by id so refreshes do not double-pin.
+  // /api/pois plus the bus_stop pins derived from the client-fetched
+  // bus bundle. Dedupe by id so refreshes do not double-pin.
   const mergedPoints = useMemo(() => {
     const seen = new Set<string>();
     const out: MapPoint[] = [];
     for (const p of points) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        out.push(p);
+      }
+    }
+    for (const p of busStopPoints) {
       if (!seen.has(p.id)) {
         seen.add(p.id);
         out.push(p);
@@ -361,7 +501,7 @@ export default function MapClient({
       }
     }
     return out;
-  }, [points, externalPoints]);
+  }, [points, busStopPoints, externalPoints]);
 
   // Apply radius + type filters once per dependency change. Memoise so the
   // marker rendering effect and the nearby-list panel share the same view.
@@ -378,10 +518,12 @@ export default function MapClient({
   // Pulls POIs from /api/pois for the current viewport. The Koto-ku area is
   // covered by the bundled official datasets, so we drop OSM rows whose
   // coordinates fall inside KOTO_BBOX to avoid double-pinning the same site.
+  // OSM-only layers (駅・病院 etc.) are *always* in the request set so
+  // their chip counts populate even when the visitor has the layer off —
+  // markers stay hidden via the filter pipeline.
   const maybeFetchExternalPois = useCallback(async () => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    if (activeLayerIds.length === 0) return;
 
     const b = map.getBounds();
     const live: Bbox = {
@@ -400,7 +542,9 @@ export default function MapClient({
     }
 
     const snapped: Bbox = snapBbox(live, 0.01);
-    const sortedTypes = activeLayerIds.slice().sort();
+    const sortedTypes = Array.from(
+      new Set<LayerId>([...activeLayerIds, ...OSM_ONLY_LAYER_IDS]),
+    ).sort();
     const cacheKey = `${sortedTypes.join("+")}|${snapped.south.toFixed(2)},${snapped.west.toFixed(2)},${snapped.north.toFixed(2)},${snapped.east.toFixed(2)}`;
     if (fetchedBboxesRef.current.has(cacheKey)) {
       setExternalStatus("idle");
@@ -591,7 +735,13 @@ export default function MapClient({
         markersRef.current.push(marker);
       }
     }
-  }, [visiblePoints, mapReady, selectedRoute, showAllRoutes, busStopRouteIndex]);
+  }, [
+    visiblePoints,
+    mapReady,
+    selectedRoute,
+    busStopRouteIndex,
+    initialFocusId,
+  ]);
 
   useEffect(() => {
     void renderMarkers();
@@ -685,6 +835,22 @@ export default function MapClient({
     mapRef.current?.flyTo({ center: [point.lng, point.lat], zoom: 17 });
   }
 
+  // Picking the currently-selected (route, direction) clears it; picking
+  // a different pair replaces it. Shared between the route picker and
+  // the bus stop detail so both surfaces stay in sync.
+  const toggleSelectedRoute = useCallback(
+    (routeId: string, directionId: "0" | "1") => {
+      setSelectedRoute((prev) =>
+        prev != null &&
+        prev.routeId === routeId &&
+        prev.directionId === directionId
+          ? null
+          : { routeId, directionId },
+      );
+    },
+    [],
+  );
+
   // Handle ?focus=<id> deep links exactly once. We watch mapReady so the
   // flyTo call fires after MapLibre has finished its first paint, and use
   // a ref-guard so the effect is a no-op after the user starts interacting
@@ -739,18 +905,6 @@ export default function MapClient({
   const googleMapsUrl = selectedPoint
     ? `https://www.google.com/maps?q=${selectedPoint.lat},${selectedPoint.lng}`
     : null;
-
-  // Group layers by category for the expanded panel. Each list is a fresh
-  // mutable array so .push() is safe (LAYERS itself is readonly).
-  const groupedLayers = useMemo(() => {
-    const map = new Map<LayerCategory, (typeof LAYERS)[number][]>();
-    for (const l of LAYERS) {
-      const list = map.get(l.category) ?? [];
-      list.push(l);
-      map.set(l.category, list);
-    }
-    return Array.from(map.entries());
-  }, []);
 
   const activeLayerCount = activeLayerIds.length;
 
@@ -808,15 +962,7 @@ export default function MapClient({
               entries={busRouteLegend}
               selectedRoute={selectedRoute}
               showAllRoutes={showAllRoutes}
-              onSelectRoute={(routeId, directionId) =>
-                setSelectedRoute((prev) =>
-                  prev != null &&
-                  prev.routeId === routeId &&
-                  prev.directionId === directionId
-                    ? null
-                    : { routeId, directionId }
-                )
-              }
+              onSelectRoute={toggleSelectedRoute}
               onClearSelection={() => setSelectedRoute(null)}
               onToggleShowAll={() => {
                 setShowAllRoutes((prev) => !prev);
@@ -848,7 +994,7 @@ export default function MapClient({
           {layerPanelOpen && (
             <div className="px-3 pb-3 pt-3 space-y-3 border-t border-slate-100 max-h-[70vh] overflow-y-auto">
               <MapSearch points={points} onPick={focusPoint} />
-              {groupedLayers.map(([category, layers]) => (
+              {GROUPED_LAYERS.map(([category, layers]) => (
                 <fieldset key={category} className="space-y-1.5">
                   <legend className="text-xs font-semibold text-slate-500">
                     {CATEGORY_LABELS[category]}
@@ -1065,15 +1211,7 @@ export default function MapClient({
               index={busStopRouteIndex}
               selectedRoute={selectedRoute}
               stopTimes={stopTimes}
-              onSelect={(routeId, directionId) =>
-                setSelectedRoute((prev) =>
-                  prev != null &&
-                  prev.routeId === routeId &&
-                  prev.directionId === directionId
-                    ? null
-                    : { routeId, directionId }
-                )
-              }
+              onSelect={toggleSelectedRoute}
             />
           )}
 
@@ -1105,9 +1243,10 @@ function LayerChip({
 }: {
   layer: (typeof LAYERS)[number];
   active: boolean;
-  // Number of merged points currently classified under this layer. Zero
-  // is rendered as a hint (OSM layers stay 0 until the user toggles them
-  // on and the viewport fetch returns), so we suppress the badge then.
+  // Number of merged points currently classified under this layer. For
+  // bundled layers this reflects the local dataset; for OSM-only layers
+  // it reflects the cached + freshly-fetched POIs for the current
+  // viewport. Always rendered so every chip carries the same shape.
   count: number;
   onClick: () => void;
 }) {
@@ -1115,9 +1254,7 @@ function LayerChip({
     <button
       type="button"
       onClick={onClick}
-      aria-label={
-        count > 0 ? `${layer.label} (${count} 件)` : layer.label
-      }
+      aria-label={`${layer.label} (${count} 件)`}
       // eslint-disable-next-line jsx-a11y/aria-proptypes
       aria-pressed={active ? "true" : "false"}
       className="text-xs px-3 py-1 rounded-full border transition-colors flex items-center gap-1.5"
@@ -1146,14 +1283,12 @@ function LayerChip({
         {layer.letter}
       </span>
       <KanjiText text={layer.shortLabel} />
-      {count > 0 && (
-        <span
-          aria-hidden="true"
-          className="ml-0.5 text-[10px] tabular-nums opacity-80"
-        >
-          {count >= 1000 ? `${Math.floor(count / 100) / 10}k` : count}
-        </span>
-      )}
+      <span
+        aria-hidden="true"
+        className="ml-0.5 text-[10px] tabular-nums opacity-80"
+      >
+        {count >= 1000 ? `${Math.floor(count / 100) / 10}k` : count}
+      </span>
     </button>
   );
 }

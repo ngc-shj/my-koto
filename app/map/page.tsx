@@ -12,7 +12,7 @@ import {
   isLayerId,
   type LayerId,
 } from "@/lib/map/registry";
-import type { MapFilters, MapPoint } from "@/lib/map/types";
+import type { MapFilters } from "@/lib/map/types";
 import { MAP_TILE } from "@/config/map";
 import MapClient from "./MapClient";
 import BackToHome from "@/components/BackToHome";
@@ -27,40 +27,6 @@ import parkRaw from "@/data/park.json";
 import libraryRaw from "@/data/library.json";
 import childCenterRaw from "@/data/child_center.json";
 import nurseryRaw from "@/data/nursery.json";
-import busRaw from "@/data/bus-toei.json";
-import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
-import {
-  buildBusRouteLegend,
-  buildBusRouteLines,
-  buildStopRouteIndex,
-  type BusRouteLegendEntry,
-  type BusRouteLines,
-  type StopRouteIndex,
-} from "@/lib/map/bus-routes";
-
-function loadBusBundle(): {
-  stops: MapPoint[];
-  routes: BusRouteLines;
-  legend: readonly BusRouteLegendEntry[];
-  stopRouteIndex: StopRouteIndex;
-} {
-  const data = BusToeiDataSchema.parse(busRaw);
-  const stops: MapPoint[] = Object.values(data.stops).map((s) => ({
-    id: `bus-stop-${s.stopId}`,
-    type: "bus_stop",
-    source: "tokyo-met",
-    name: s.name,
-    address: "",
-    lat: s.lat,
-    lng: s.lng,
-  }));
-  return {
-    stops,
-    routes: buildBusRouteLines(data),
-    legend: buildBusRouteLegend(data),
-    stopRouteIndex: buildStopRouteIndex(data),
-  };
-}
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -71,10 +37,10 @@ export const metadata: Metadata = {
 };
 
 // `?layers=aed,toilet` (legacy `?type=aed,toilet` also accepted) narrows the
-// visible layers to a specific subset. When the parameter is omitted we
-// enable a curated essentials subset so first-time visitors see useful
-// pins without 16 layers fighting for attention. The other layers ride
-// behind the layer panel toggle; explicit URLs override this default.
+// visible layers to a specific subset. When the parameter is omitted all
+// layers start OFF so first-time visitors aren't flooded with pins; the
+// client rehydrates the user's previous selection from localStorage if
+// any. Explicit URLs always win over the saved selection.
 type SearchParams = {
   layers?: string;
   type?: string;
@@ -83,21 +49,14 @@ type SearchParams = {
   dir?: string;
 };
 
-const DEFAULT_LAYER_IDS: readonly LayerId[] = [
-  "aed",
-  "toilet",
-  "shelter",
-  "park",
-];
-
 function parseLayersParam(raw: string | undefined): LayerId[] {
-  if (!raw) return [...DEFAULT_LAYER_IDS];
+  if (!raw) return [];
   const out: LayerId[] = [];
   for (const part of raw.split(",")) {
     const t = part.trim();
     if (isLayerId(t) && !out.includes(t)) out.push(t);
   }
-  return out.length === 0 ? [...DEFAULT_LAYER_IDS] : out;
+  return out;
 }
 
 export default async function MapPage({
@@ -106,7 +65,10 @@ export default async function MapPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const activeTypes = parseLayersParam(params.layers ?? params.type);
+  const layersParam = params.layers ?? params.type;
+  const urlHasLayersParam =
+    typeof layersParam === "string" && layersParam.trim().length > 0;
+  const activeTypes = parseLayersParam(layersParam);
   const initialFocusId = typeof params.focus === "string" ? params.focus : null;
   const initialSelectedRoute: { routeId: string; directionId: "0" | "1" } | null =
     typeof params.route === "string" &&
@@ -115,7 +77,10 @@ export default async function MapPage({
       ? { routeId: params.route, directionId: params.dir }
       : null;
 
-  const bus = loadBusBundle();
+  // bus_stop layer points (and route lines/legend/index) are no longer
+  // bundled into the RSC payload — MapClient fetches /api/map/bus on
+  // mount and hydrates from IndexedDB on revisits, keeping the ~12 MB
+  // bus bundle off the initial page transfer.
   const allPoints = [
     ...parseAedData(aedRaw),
     ...parseToiletData(toiletRaw),
@@ -126,7 +91,6 @@ export default async function MapPage({
     ...parseKotoFacilityData("library", libraryRaw),
     ...parseKotoFacilityData("child_center", childCenterRaw),
     ...parseKotoFacilityData("nursery", nurseryRaw),
-    ...bus.stops,
   ];
 
   // Auto-enable bus_stop when a deep link focuses on one, otherwise the
@@ -182,10 +146,9 @@ export default async function MapPage({
       <div className="flex-1 overflow-hidden">
         <MapClient
           points={allPoints}
-          busRouteLines={bus.routes}
-          busRouteLegend={bus.legend}
-          busStopRouteIndex={bus.stopRouteIndex}
           initialFilters={initialFilters}
+          urlHasLayersParam={urlHasLayersParam}
+          focusIsBusStop={focusIsBusStop}
           initialFocusId={initialFocusId}
           initialSelectedRoute={initialSelectedRoute}
         />

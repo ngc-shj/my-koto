@@ -10,6 +10,7 @@
 // each site.
 
 import { z } from "zod";
+import { isBrowser } from "@/lib/ssr";
 
 const STORAGE_KEY = "district_profiles_v1";
 // Legacy single-district key. Read once during migration, then deleted so
@@ -45,10 +46,6 @@ const EMPTY_ENVELOPE: ProfilesEnvelope = {
   profiles: [],
   activeId: null,
 };
-
-function isBrowser(): boolean {
-  return typeof window !== "undefined";
-}
 
 function readEnvelope(): ProfilesEnvelope {
   if (!isBrowser()) return EMPTY_ENVELOPE;
