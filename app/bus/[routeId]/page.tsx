@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import Attribution from "@/components/Attribution";
 import BackToHome from "@/components/BackToHome";
 import { KanjiText } from "@/components/Furigana";
 import busData from "@/data/bus-toei.json";
 import { displayRouteName } from "@/lib/bus/aliases";
+import { routeColor } from "@/lib/map/bus-routes";
 import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
+import RoutePageContent from "./RoutePageContent";
+import type { ActiveDirection } from "./RouteMapClient";
 
 type Params = { routeId: string };
+type Search = { dir?: string };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -16,6 +19,11 @@ function loadRoute(routeId: string) {
   const data = BusToeiDataSchema.parse(busData);
   const route = data.routes.find((r) => r.routeId === routeId);
   return route != null ? { data, route } : null;
+}
+
+function parseInitialDirection(raw: string | undefined): ActiveDirection {
+  if (raw === "0" || raw === "1") return raw;
+  return "all";
 }
 
 export async function generateMetadata({
@@ -40,13 +48,36 @@ export async function generateStaticParams(): Promise<Params[]> {
 
 export default async function RoutePage({
   params,
+  searchParams,
 }: {
   params: Promise<Params>;
+  searchParams: Promise<Search>;
 }) {
   const { routeId } = await params;
+  const { dir } = await searchParams;
   const found = loadRoute(decodeURIComponent(routeId));
   if (found == null) notFound();
   const { data, route } = found;
+
+  // Build the map's per-direction view. The polyline (`shape`) is
+  // optional upstream (shapes.txt is missing from some GTFS-JP exports);
+  // when absent the map falls back to just the stop pins.
+  const color = routeColor(route.routeId);
+  const mapDirections = route.directions.map((d) => ({
+    directionId: d.directionId,
+    headsign: d.headsign,
+    color,
+    shape: (d.shape ?? []) as ReadonlyArray<readonly [number, number]>,
+    stops: d.stopSequence
+      .map((stopId) => data.stops[stopId])
+      .filter((s): s is NonNullable<typeof s> => s != null)
+      .map((s) => ({
+        stopId: s.stopId,
+        name: s.name,
+        lat: s.lat,
+        lng: s.lng,
+      })),
+  }));
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
@@ -55,48 +86,17 @@ export default async function RoutePage({
         <KanjiText text={`${displayRouteName(route.shortName)} 系統`} />
       </h1>
       {route.longName.length > 0 && (
-        <p className="text-sm text-gray-600 mb-6">
+        <p className="text-sm text-gray-600 mb-4">
           <KanjiText text={route.longName} />
         </p>
       )}
 
-      <div className="space-y-8">
-        {route.directions.map((dir) => (
-          <section key={dir.directionId} aria-labelledby={`dir-${dir.directionId}`}>
-            <h2
-              id={`dir-${dir.directionId}`}
-              className="text-lg font-semibold text-gray-800 mb-3"
-            >
-              <KanjiText text={`${dir.headsign} 方面`} />
-            </h2>
-            <ol className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-              {dir.stopSequence.map((stopId, idx) => {
-                const stop = data.stops[stopId];
-                if (stop == null) return null;
-                return (
-                  <li key={`${stopId}-${idx}`}>
-                    <Link
-                      href={`/bus/${encodeURIComponent(route.routeId)}/${encodeURIComponent(stopId)}?dir=${dir.directionId}`}
-                      className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                      aria-label={`${stop.name} の時刻表を開く`}
-                    >
-                      <span className="text-sm">
-                        <span className="text-gray-400 mr-2 tabular-nums">
-                          {(idx + 1).toString().padStart(2, "0")}
-                        </span>
-                        <KanjiText text={stop.name} />
-                      </span>
-                      <span className="text-gray-400" aria-hidden="true">
-                        →
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        ))}
-      </div>
+      <RoutePageContent
+        routeId={route.routeId}
+        routeName={displayRouteName(route.shortName)}
+        directions={mapDirections}
+        initialDirection={parseInitialDirection(dir)}
+      />
 
       <div className="mt-8 space-y-1">
         <Attribution dataset="toei-bus" />

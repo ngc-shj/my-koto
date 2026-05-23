@@ -8,10 +8,12 @@ import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import busData from "@/data/bus-toei.json";
 import { displayRouteName } from "@/lib/bus/aliases";
+import { routeColor } from "@/lib/map/bus-routes";
 import {
   BusToeiDataSchema,
   type DirectionPattern,
 } from "@/lib/opendata/schemas/bus";
+import RouteMapClient from "../RouteMapClient";
 
 type Params = { routeId: string; stopId: string };
 type Search = { dir?: string };
@@ -93,6 +95,28 @@ export default async function StopPage({
   if (found == null) notFound();
   const { route, stop, direction, timetable } = found;
 
+  // Build the map view — only the visited direction, with the current
+  // stop highlighted so the visitor sees where they are on the line.
+  const color = routeColor(route.routeId);
+  const data = BusToeiDataSchema.parse(busData);
+  const mapDirections = [
+    {
+      directionId: direction.directionId,
+      headsign: direction.headsign,
+      color,
+      shape: (direction.shape ?? []) as ReadonlyArray<readonly [number, number]>,
+      stops: direction.stopSequence
+        .map((sid) => data.stops[sid])
+        .filter((s): s is NonNullable<typeof s> => s != null)
+        .map((s) => ({
+          stopId: s.stopId,
+          name: s.name,
+          lat: s.lat,
+          lng: s.lng,
+        })),
+    },
+  ];
+
   const shareUrl =
     SITE_URL.length > 0
       ? `${SITE_URL}/bus/${encodeURIComponent(route.routeId)}/${encodeURIComponent(stop.stopId)}?dir=${direction.directionId}`
@@ -101,7 +125,7 @@ export default async function StopPage({
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       <BackToHome
-        href={`/bus/${encodeURIComponent(route.routeId)}`}
+        href={`/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}`}
         label={`${displayRouteName(route.shortName)} 系統へ戻る`}
       />
       <div className="flex items-start justify-between gap-4 mb-2">
@@ -122,21 +146,19 @@ export default async function StopPage({
       </div>
 
       <div className="mt-6">
+        <RouteMapClient
+          routeName={displayRouteName(route.shortName)}
+          directions={mapDirections}
+          highlightStopId={stop.stopId}
+        />
+      </div>
+
+      <div className="mt-6">
         <BusDeparturesPanel
           weekday={timetable.weekday}
           saturday={timetable.saturday}
           sunday={timetable.sunday}
         />
-      </div>
-
-      <div className="mt-4">
-        <Link
-          href={`/map?layers=bus_stop&focus=${encodeURIComponent(`bus-stop-${stop.stopId}`)}&route=${encodeURIComponent(route.routeId)}&dir=${direction.directionId}`}
-          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-        >
-          <KanjiText text="地図でこのバス停と路線を見る" />
-          <span aria-hidden="true">→</span>
-        </Link>
       </div>
 
       {route.directions.length > 1 && (
@@ -147,7 +169,7 @@ export default async function StopPage({
               .map((d) => (
                 <li key={d.directionId}>
                   <Link
-                    href={`/bus/${encodeURIComponent(route.routeId)}?focus=${d.directionId}`}
+                    href={`/bus/${encodeURIComponent(route.routeId)}?dir=${d.directionId}`}
                     className="underline text-blue-600 hover:text-blue-800"
                   >
                     <KanjiText text={`${d.headsign} 方面の停留所一覧`} />
