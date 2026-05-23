@@ -160,7 +160,10 @@ export async function GET(request: NextRequest): Promise<Response> {
   // Build query with clamped bbox.
   const overpassQL = buildOverpassQuery(snapped, types);
   const upstreamHeaders = new Headers();
-  upstreamHeaders.set("User-Agent", "koto-city/1.0 (+/about)");
+  // Overpass's Apache rejects User-Agents whose parenthetical comment
+  // does not look like a full URL — "(+/about)" earned us a 406 in
+  // every request. A clean product/version token works.
+  upstreamHeaders.set("User-Agent", "koto-city/1.0");
   upstreamHeaders.set("Accept", "application/json");
   upstreamHeaders.set("Content-Type", "application/x-www-form-urlencoded");
 
