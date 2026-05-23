@@ -20,7 +20,6 @@ export type LayerId =
   | "nursery"
   | "station"
   | "station_exit"
-  | "bus_stop"
   | "hospital"
   | "clinic"
   | "pharmacy";
@@ -200,23 +199,6 @@ export const LAYERS: readonly LayerConfig[] = [
     osmTags: [{ key: "railway", value: "subway_entrance" }],
     defaultName: "地下鉄出入口",
     bundled: false,
-  },
-  {
-    id: "bus_stop",
-    label: "バス停",
-    shortLabel: "バス停",
-    category: "transit",
-    color: "#22c55e", // green-500
-    letter: "B",
-    // The Koto-bbox bundle (data/bus-toei.json) is authoritative inside
-    // the ward; outside it we fall back to OSM highway=bus_stop nodes so
-    // the same layer keeps working when users pan into 中央区 etc.
-    osmTags: [
-      { key: "highway", value: "bus_stop" },
-      { key: "public_transport", value: "stop_position" },
-    ],
-    defaultName: "バス停",
-    bundled: true,
   },
   {
     id: "hospital",

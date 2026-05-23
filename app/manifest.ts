@@ -60,7 +60,7 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "区民マップ",
         short_name: "マップ",
-        description: "AED・避難所・公園・駅・病院",
+        description: "AED・公園・駅・病院などを検索",
         url: "/map",
         icons: [
           { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

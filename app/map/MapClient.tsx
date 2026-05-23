@@ -8,53 +8,19 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { KanjiText } from "@/components/Furigana";
-import {
-  DEFAULT_TILE_STYLE,
-  MAP_INITIAL,
-  MAP_TILE,
-  TILE_STYLES,
-  type TileStyle,
-  type TileStyleId,
-} from "@/config/map";
+import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import MapSearch from "@/components/MapSearch";
-import { displayRouteName } from "@/lib/bus/aliases";
-import {
-  categorizeServiceDay,
-  formatBusTime,
-  nextDepartures,
-  parseBusTimeMinutes,
-  type ServiceCategory,
-} from "@/lib/bus/normalize";
-import type {
-  StopTimesResponse,
-  StopTimesRow,
-} from "@/lib/bus/stop-times";
-import type {
-  BusRouteLegendEntry,
-  BusRouteLines,
-  StopRouteIndex,
-} from "@/lib/map/bus-routes";
+import { haversineDistance } from "@/lib/distance";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
-import { filterPoints, nearestPoints } from "@/lib/map/filter";
+import { filterPoints } from "@/lib/map/filter";
 import { loadMapFilters, saveMapFilters } from "@/lib/map/filters-storage";
-import { loadBusCache, saveBusCache } from "@/lib/map/bus-cache";
 import { loadCachedPois, saveCachedPois } from "@/lib/map/poi-cache";
 import { isLayerBundled } from "@/lib/map/registry";
-import {
-  BusToeiDataSchema,
-  type BusToeiData,
-} from "@/lib/opendata/schemas/bus";
-import {
-  buildBusRouteLegend,
-  buildBusRouteLines,
-  buildStopRouteIndex,
-} from "@/lib/map/bus-routes";
 import {
   HAZARD_LABELS,
   type HazardKind,
   type MapPoint,
   type MapFilters,
-  type RadiusOption,
 } from "@/lib/map/types";
 import {
   LAYERS,
@@ -75,26 +41,22 @@ import {
   type Bbox,
 } from "@/config/geo";
 
-// Layers grouped by category for the layer panel. Module-scope so the
-// grouping runs once per process instead of once per MapClient mount —
-// `LAYERS` is a frozen registry, the output never changes at runtime.
+// Layers grouped by category for the "カテゴリで選ぶ" expander. Module-scope
+// so the grouping runs once per process — `LAYERS` is a frozen registry.
+// 防災 (shelter / assembly_point / water_supply) lives on /disaster with
+// its own UX, so it is excluded from /map's chip drawer to avoid sending
+// visitors to two different places for the same task.
 const GROUPED_LAYERS: readonly [LayerCategory, readonly LayerConfig[]][] =
   (() => {
     const m = new Map<LayerCategory, LayerConfig[]>();
     for (const l of LAYERS) {
+      if (l.category === "disaster") continue;
       const list = m.get(l.category) ?? [];
       list.push(l);
       m.set(l.category, list);
     }
     return Array.from(m.entries());
   })();
-
-const RADIUS_OPTIONS: { label: string; value: RadiusOption }[] = [
-  { label: "500m", value: 500 },
-  { label: "1km", value: 1000 },
-  { label: "2km", value: 2000 },
-  { label: "全件", value: null },
-];
 
 const CATEGORY_LABELS: Record<LayerCategory, string> = {
   civic: "公共施設",
@@ -103,11 +65,6 @@ const CATEGORY_LABELS: Record<LayerCategory, string> = {
   transit: "交通",
   medical: "医療",
 };
-
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(1)} km`;
-}
 
 // GSI raster style — single tile source, no per-feature layers needed.
 const GSI_STYLE = {
@@ -140,20 +97,9 @@ type Props = {
   // authoritative and we skip the localStorage rehydration so deep links
   // don't get overwritten by the visitor's prior session.
   urlHasLayersParam?: boolean;
-  // True when the deep-link focus targets a bus_stop pin. The bus_stop
-  // layer is force-enabled in that case so the focused pin renders even
-  // if the user's saved filter had it off.
-  focusIsBusStop?: boolean;
   // When set, the map flies to and selects the point with this id on
-  // first ready. Used by deep links like /map?focus=bus-stop-... so a
-  // 区民 jumping from /bus lands on the pin instead of having to find
-  // it by hand.
+  // first ready.
   initialFocusId?: string | null;
-  // Deep-link from /bus: pre-select this (route, direction) so the
-  // line and its stops render without the user having to pick again.
-  // The bus bundle itself is fetched client-side from /api/map/bus and
-  // cached in IndexedDB, so it is no longer shipped via props.
-  initialSelectedRoute?: { routeId: string; directionId: "0" | "1" } | null;
 };
 
 const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
@@ -166,9 +112,7 @@ export default function MapClient({
   points,
   initialFilters,
   urlHasLayersParam = false,
-  focusIsBusStop = false,
   initialFocusId = null,
-  initialSelectedRoute = null,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -180,22 +124,15 @@ export default function MapClient({
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
   const [showConsentModal, setShowConsentModal] = useState(true);
   const [mapReady, setMapReady] = useState(false);
-  // Open the panel by default when nothing is visible so first-time
-  // visitors (and visitors whose saved state had every layer off) have
-  // a discoverable affordance to pick something. Collapse once at least
-  // one layer is on — the picker just clutters the map then.
-  const [layerPanelOpen, setLayerPanelOpen] = useState<boolean>(
-    () => !Object.values(initialFilters.layers).some((v) => v === true),
-  );
-  // Guards storage writes until after the initial hydration pass; otherwise
-  // the first render's `initialFilters` would clobber the saved value
-  // before we ever read it.
+  // The chip drawer ("カテゴリで選ぶ") is collapsed by default; the search
+  // box is the primary affordance. Visitors who want to browse rather
+  // than search expand the drawer once.
+  const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+  // Guards storage writes until after the initial hydration pass.
   const filtersHydratedRef = useRef(false);
 
   // Hydrate filters from localStorage on mount unless the URL already
-  // specified `?layers=` (deep links win). When the deep link focuses a
-  // bus_stop pin we OR `bus_stop=true` on top of the stored selection so
-  // the focused stop is visible regardless of what the visitor saved.
+  // specified `?layers=` (deep links win).
   useEffect(() => {
     if (urlHasLayersParam) {
       filtersHydratedRef.current = true;
@@ -203,29 +140,19 @@ export default function MapClient({
     }
     const stored = loadMapFilters();
     if (stored != null) {
-      const next: MapFilters = {
-        ...stored,
-        layers: { ...stored.layers },
-      };
-      if (focusIsBusStop) next.layers.bus_stop = true;
-      setFilters(next);
-      const anyLayerOn = Object.values(next.layers).some((v) => v === true);
-      setLayerPanelOpen(!anyLayerOn);
+      setFilters({ ...stored, layers: { ...stored.layers } });
     }
     filtersHydratedRef.current = true;
-  }, [urlHasLayersParam, focusIsBusStop]);
+  }, [urlHasLayersParam]);
 
-  // Persist filters whenever the user changes them. Cheap enough to run
-  // on every update — the payload is a few hundred bytes.
   useEffect(() => {
     if (!filtersHydratedRef.current) return;
     saveMapFilters(filters);
   }, [filters]);
+
   // Dynamic POIs fetched from /api/pois. Includes OSM-only layers (駅・
-  // 病院 etc.) fetched eagerly so chip counts populate immediately, plus
-  // bundled-layer rows for areas outside Koto-ku. Seeded from the last
-  // saved set on mount so revisits show counts before the network
-  // round-trip completes.
+  // 病院 etc.) fetched eagerly so chip counts populate immediately.
+  // Seeded from the last saved set so revisits show data instantly.
   const [externalPoints, setExternalPoints] = useState<MapPoint[]>(() => {
     const cached = loadCachedPois();
     return cached ?? [];
@@ -233,96 +160,14 @@ export default function MapClient({
   const [externalStatus, setExternalStatus] = useState<"idle" | "loading" | "error">("idle");
   const fetchedBboxesRef = useRef<Set<string>>(new Set());
 
-  // Persist the merged OSM-derived points so the next visit has counts
-  // ready before the first /api/pois round-trip. Cheap: the cache module
-  // caps the row count and serialises only what is needed.
   useEffect(() => {
     if (externalPoints.length === 0) return;
     saveCachedPois(externalPoints);
   }, [externalPoints]);
+
   // Bumped on map zoom/move so renderMarkers re-runs and re-clusters using
-  // the current pixel projection. visiblePoints alone does not change with
-  // zoom, which is why it cannot serve as the re-render trigger.
+  // the current pixel projection.
   const [renderTick, setRenderTick] = useState(0);
-  // The chosen (route, direction) pair. Picking from the panel sets it;
-  // tapping the same selection clears it back to null. When the
-  // bus_stop layer is on we render *only* this route + its stops, so
-  // the map stays focused on what the 区民 actually wants to follow.
-  // Hydrated from initialSelectedRoute so a deep link from /bus lands
-  // with the line already drawn.
-  const [selectedRoute, setSelectedRoute] = useState<{
-    routeId: string;
-    directionId: "0" | "1";
-  } | null>(initialSelectedRoute);
-  // Opt-in toggle to surface every route at once (network overview).
-  // Off by default so the bus_stop layer does not flood the viewport.
-  const [showAllRoutes, setShowAllRoutes] = useState(false);
-  // Active basemap style. 淡色地図 by default; the right-rail switcher
-  // lets the user swap in 標準 or 白地図 without reloading. We keep the
-  // selection in component state only — persistence can be added once
-  // the prefs API is shared with other pages.
-  const [tileStyleId, setTileStyleId] =
-    useState<TileStyleId>(DEFAULT_TILE_STYLE);
-  // Schedule data for the currently selected bus stop, fetched on
-  // demand from /api/bus/stop-times. Null until the user clicks a
-  // bus stop pin (or the deep link auto-selects one). Cleared when the
-  // detail panel closes so the next stop starts fresh.
-  const [stopTimes, setStopTimes] = useState<StopTimesResponse | null>(null);
-
-  // Toei bus bundle, fetched client-side from /api/map/bus and cached
-  // in IndexedDB. Starts null on first paint; populates from the
-  // IndexedDB cache (instant on revisit) and then refreshes from the
-  // network in the background. Derived structures (route lines, legend,
-  // stop→route index, bus stop pins) all flow from this single state.
-  const [busData, setBusData] = useState<BusToeiData | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const cached = await loadBusCache();
-      if (!cancelled && cached != null) setBusData(cached);
-      try {
-        const res = await fetch("/api/map/bus");
-        if (!res.ok) return;
-        const raw: unknown = await res.json();
-        const parsed = BusToeiDataSchema.safeParse(raw);
-        if (!parsed.success) return;
-        if (cancelled) return;
-        setBusData(parsed.data);
-        void saveBusCache(parsed.data);
-      } catch {
-        // Network failure — the cache (if any) keeps the map usable.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const busRouteLines = useMemo(
-    () => (busData != null ? buildBusRouteLines(busData) : undefined),
-    [busData],
-  );
-  const busRouteLegend = useMemo(
-    () => (busData != null ? buildBusRouteLegend(busData) : undefined),
-    [busData],
-  );
-  const busStopRouteIndex = useMemo(
-    () => (busData != null ? buildStopRouteIndex(busData) : undefined),
-    [busData],
-  );
-  const busStopPoints = useMemo<MapPoint[]>(() => {
-    if (busData == null) return [];
-    return Object.values(busData.stops).map((s) => ({
-      id: `bus-stop-${s.stopId}`,
-      type: "bus_stop",
-      source: "tokyo-met",
-      name: s.name,
-      address: "",
-      lat: s.lat,
-      lng: s.lng,
-    }));
-  }, [busData]);
 
   // Import maplibre-gl dynamically (browser-only)
   useEffect(() => {
@@ -340,7 +185,6 @@ export default function MapClient({
         zoom: MAP_INITIAL.zoom,
         maxZoom: MAP_INITIAL.maxZoom,
         minZoom: MAP_INITIAL.minZoom,
-        // v4: attributionControl accepts false | AttributionControlOptions (not true)
         attributionControl: {},
       });
 
@@ -359,136 +203,31 @@ export default function MapClient({
     };
   }, []);
 
-  // Active layer ids derived once per filter change. Used by both the
-  // dynamic-fetch effect and the marker renderer.
+  // Collapse the category drawer when the user starts interacting with
+  // the map. The drawer's purpose is choice; once the visitor pans/zooms
+  // they're done choosing.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const collapse = () => setCategoryDrawerOpen(false);
+    map.on("dragstart", collapse);
+    return () => {
+      map.off("dragstart", collapse);
+    };
+  }, [mapReady]);
+
+  // Active layer ids derived once per filter change.
   const activeLayerIds = useMemo<LayerId[]>(
     () => LAYERS.filter((l) => filters.layers[l.id]).map((l) => l.id),
     [filters.layers],
   );
 
-  // Register the colored bus route lines as a MapLibre GeoJSON layer.
-  // Runs once after the map is ready; the visibility toggle below keeps
-  // it in sync with the bus_stop layer chip.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || busRouteLines == null) return;
-    if (map.getSource("bus-routes")) return;
-    map.addSource("bus-routes", {
-      type: "geojson",
-      // MapLibre's GeoJSON typing wants mutable arrays; our value is
-      // readonly by construction but never mutated downstream.
-      data: busRouteLines as unknown as GeoJSON.FeatureCollection,
-    });
-    map.addLayer({
-      id: "bus-routes-line",
-      type: "line",
-      source: "bus-routes",
-      layout: {
-        "line-cap": "round",
-        "line-join": "round",
-        visibility: filters.layers.bus_stop ? "visible" : "none",
-      },
-      paint: {
-        "line-color": ["get", "color"],
-        // Lines thicken with zoom so they stay visible while panned out
-        // but do not bury the markers when zoomed in close to one stop.
-        "line-width": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          11,
-          1.5,
-          14,
-          3,
-          17,
-          6,
-        ],
-        "line-opacity": 0.65,
-      },
-    });
-    // filters.layers.bus_stop is read once at setup; the visibility
-    // effect below picks up subsequent toggles.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapReady, busRouteLines]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-    if (!map.getLayer("bus-routes-line")) return;
-    // Visible only when bus_stop is enabled AND the user has picked
-    // either a specific route or the "全系統" override. The default
-    // empty state shows the picker without any lines.
-    const shouldShow =
-      filters.layers.bus_stop === true &&
-      (selectedRoute != null || showAllRoutes);
-    map.setLayoutProperty(
-      "bus-routes-line",
-      "visibility",
-      shouldShow ? "visible" : "none",
-    );
-  }, [mapReady, filters.layers.bus_stop, selectedRoute, showAllRoutes]);
-
-  // Apply MapLibre's `setFilter` instead of opacity tricks so a single
-  // route+direction is the only feature painted. When the user opts in
-  // to "全系統" we drop the filter; when nothing is chosen we leave the
-  // layer's filter alone — the visibility effect below hides it entirely.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-    if (!map.getLayer("bus-routes-line")) return;
-    if (selectedRoute != null) {
-      map.setFilter("bus-routes-line", [
-        "all",
-        ["==", ["get", "routeId"], selectedRoute.routeId],
-        ["==", ["get", "directionId"], selectedRoute.directionId],
-      ]);
-    } else {
-      // No filter — relevant when showAllRoutes is on.
-      map.setFilter("bus-routes-line", null);
-    }
-  }, [mapReady, selectedRoute]);
-
-  // Swap the GSI raster source when the user picks a different basemap.
-  // setTiles() should work in maplibre 4.x but observably did not refresh
-  // the tile cache in this build, so we remove the source/layer and
-  // recreate them. The new layer is inserted under bus-routes-line (when
-  // it exists) so the route polylines stay above the tiles.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-    const next = TILE_STYLES[tileStyleId];
-    if (map.getLayer("gsi-tiles")) map.removeLayer("gsi-tiles");
-    if (map.getSource("gsi")) map.removeSource("gsi");
-    map.addSource("gsi", {
-      type: "raster",
-      tiles: [next.url],
-      tileSize: next.tileSize,
-      maxzoom: next.maxNativeZoom,
-      minzoom: next.minNativeZoom,
-      attribution: next.attribution,
-    });
-    const beforeId = map.getLayer("bus-routes-line")
-      ? "bus-routes-line"
-      : undefined;
-    map.addLayer(
-      { id: "gsi-tiles", type: "raster", source: "gsi" },
-      beforeId,
-    );
-  }, [mapReady, tileStyleId]);
-
   // Merge bundled official points with whatever has been fetched from
-  // /api/pois plus the bus_stop pins derived from the client-fetched
-  // bus bundle. Dedupe by id so refreshes do not double-pin.
+  // /api/pois. Dedupe by id so refreshes do not double-pin.
   const mergedPoints = useMemo(() => {
     const seen = new Set<string>();
     const out: MapPoint[] = [];
     for (const p of points) {
-      if (!seen.has(p.id)) {
-        seen.add(p.id);
-        out.push(p);
-      }
-    }
-    for (const p of busStopPoints) {
       if (!seen.has(p.id)) {
         seen.add(p.id);
         out.push(p);
@@ -501,26 +240,29 @@ export default function MapClient({
       }
     }
     return out;
-  }, [points, busStopPoints, externalPoints]);
+  }, [points, externalPoints]);
 
-  // Apply radius + type filters once per dependency change. Memoise so the
-  // marker rendering effect and the nearby-list panel share the same view.
   const visiblePoints = useMemo(
     () => filterPoints(mergedPoints, filters, { referencePoint: userLocation }),
     [mergedPoints, filters, userLocation],
   );
 
-  const nearbyList = useMemo(() => {
+  // Nearest 3 currently-visible pins from the user's location. Mirrors
+  // the /disaster panel: only meaningful once location is granted and
+  // the visitor has actually selected something to look for.
+  const nearest = useMemo(() => {
     if (userLocation === null) return [];
-    return nearestPoints(visiblePoints, userLocation, 10);
+    return visiblePoints
+      .map((p) => ({ point: p, distance: haversineDistance(userLocation, p) }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 3);
   }, [visiblePoints, userLocation]);
 
   // Pulls POIs from /api/pois for the current viewport. The Koto-ku area is
   // covered by the bundled official datasets, so we drop OSM rows whose
   // coordinates fall inside KOTO_BBOX to avoid double-pinning the same site.
   // OSM-only layers (駅・病院 etc.) are *always* in the request set so
-  // their chip counts populate even when the visitor has the layer off —
-  // markers stay hidden via the filter pipeline.
+  // their chip counts populate even when the visitor has the layer off.
   const maybeFetchExternalPois = useCallback(async () => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -565,9 +307,6 @@ export default function MapClient({
         const seen = new Set(prev.map((p) => p.id));
         const fresh = body.records.filter((p) => {
           if (seen.has(p.id)) return false;
-          // Only drop Koto-bbox OSM rows for layers we ship a bundled
-          // Koto dataset for; OSM-only layers (e.g. station) must keep
-          // their Koto rows or the map would be empty inside the ward.
           if (isLayerId(p.type) && isLayerBundled(p.type) && isInsideBbox(p, KOTO_BBOX)) {
             return false;
           }
@@ -582,8 +321,6 @@ export default function MapClient({
     }
   }, [mapReady, activeLayerIds]);
 
-  // Wire the fetcher to map idle events with a small debounce so rapid
-  // panning does not flood /api/pois.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -602,9 +339,15 @@ export default function MapClient({
     };
   }, [mapReady, maybeFetchExternalPois]);
 
-  // Render markers when map is ready or visiblePoints change. Points that
-  // collapse into the same pixel bucket are aggregated into one cluster
-  // bubble; clicking the bubble zooms in until the bucket separates.
+  // Toggle the detail panel on marker click — clicking the same pin twice
+  // closes the panel, matching map-product conventions (Google/Apple Maps).
+  const handleMarkerClick = useCallback((point: MapPoint) => {
+    setSelectedPoint((prev) => (prev?.id === point.id ? null : point));
+  }, []);
+
+  // Render markers. Points that collapse into the same pixel bucket are
+  // aggregated into one cluster bubble; clicking the bubble zooms in
+  // until the bucket separates.
   const renderMarkers = useCallback(async () => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -614,44 +357,8 @@ export default function MapClient({
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Each cluster bubble is 36 px, matching the bucket size so two adjacent
-    // singletons cannot visually touch a cluster.
     const BUCKET_SIZE = 36;
-    // Pre-compute the set of bus stops we should render. When a route is
-    // selected, only the stops it actually serves stay; otherwise every
-    // bus stop is shown (clustering handles the density). The bus
-    // *route lines* stay hidden until the user picks a route so the map
-    // does not splash 68 colored polylines on first toggle.
-    const focusedBusStopId =
-      initialFocusId != null && initialFocusId.startsWith("bus-stop-")
-        ? initialFocusId
-        : null;
-    const allowedBusStopIds = (() => {
-      if (selectedRoute != null && busStopRouteIndex != null) {
-        const ids = new Set<string>();
-        for (const [stopId, routes] of Object.entries(busStopRouteIndex)) {
-          if (
-            routes.some(
-              (r) =>
-                r.routeId === selectedRoute.routeId &&
-                r.directionId === selectedRoute.directionId,
-            )
-          ) {
-            ids.add(`bus-stop-${stopId}`);
-          }
-        }
-        if (focusedBusStopId != null) ids.add(focusedBusStopId);
-        return ids;
-      }
-      return null; // no route picked → show every bus stop
-    })();
-    const layerPoints = visiblePoints.filter((p) => {
-      if (!isLayerId(p.type)) return false;
-      if (p.type === "bus_stop" && allowedBusStopIds != null) {
-        return allowedBusStopIds.has(p.id);
-      }
-      return true;
-    });
+    const layerPoints = visiblePoints.filter((p) => isLayerId(p.type));
     const clusters = clusterByPixelBucket(
       layerPoints,
       (p) => map.project([p.lng, p.lat]),
@@ -664,35 +371,66 @@ export default function MapClient({
         if (point == null) continue;
         const layer = getLayer(point.type as Parameters<typeof getLayer>[0]);
         const isOsm = point.source === "osm";
+        const isSelected = selectedPoint?.id === point.id;
         const el = document.createElement("div");
         el.className = "map-marker";
         el.setAttribute("role", "button");
         el.setAttribute(
           "aria-label",
-          `${point.name}${isOsm ? " (OSM)" : ""}`,
+          `${point.name}${isOsm ? " (OSM)" : ""}${isSelected ? " (選択中)" : ""}`,
         );
-        el.style.cssText = `
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          border: 2px solid white;
-          cursor: pointer;
-          background-color: ${isOsm ? "#ffffff" : layer.color};
-          outline: ${isOsm ? `2px solid ${layer.color}` : "none"};
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: ${isOsm ? layer.color : "white"};
-          font-size: 12px;
-          font-weight: bold;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        `;
-        el.textContent = layer.letter;
-        el.addEventListener("click", () => setSelectedPoint(point));
-
-        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
-          .setLngLat([point.lng, point.lat])
-          .addTo(map);
+        el.setAttribute("aria-pressed", isSelected ? "true" : "false");
+        let marker: maplibregl.Marker;
+        if (isSelected) {
+          // Selected pin stands up — teardrop SVG anchored to its bottom
+          // tip so the point of the pin sits exactly on the geographic
+          // coordinate. The unselected round dot stays flat, so the
+          // shape change itself is the "you picked this" signal.
+          const fillColor = isOsm ? "#ffffff" : layer.color;
+          const textColor = isOsm ? layer.color : "#ffffff";
+          el.style.cssText = `
+            cursor: pointer;
+            filter: drop-shadow(0 3px 4px rgba(0,0,0,0.45));
+            line-height: 0;
+          `;
+          el.innerHTML = `
+            <svg width="34" height="46" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path
+                d="M14 1 C 21 1, 26 6, 26 13 C 26 21, 14 37, 14 37 C 14 37, 2 21, 2 13 C 2 6, 7 1, 14 1 Z"
+                fill="${fillColor}"
+                stroke="#0f172a"
+                stroke-width="2.5"
+              />
+              <text x="14" y="14" text-anchor="middle" dominant-baseline="middle" fill="${textColor}" font-size="11" font-weight="700" font-family="system-ui, -apple-system, sans-serif">${layer.letter}</text>
+            </svg>
+          `;
+          el.addEventListener("click", () => handleMarkerClick(point));
+          marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
+            .setLngLat([point.lng, point.lat])
+            .addTo(map);
+        } else {
+          el.style.cssText = `
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid white;
+            cursor: pointer;
+            background-color: ${isOsm ? "#ffffff" : layer.color};
+            outline: ${isOsm ? `2px solid ${layer.color}` : "none"};
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: ${isOsm ? layer.color : "white"};
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          `;
+          el.textContent = layer.letter;
+          el.addEventListener("click", () => handleMarkerClick(point));
+          marker = new maplibregl.Marker({ element: el, anchor: "center" })
+            .setLngLat([point.lng, point.lat])
+            .addTo(map);
+        }
         markersRef.current.push(marker);
       } else {
         const count = cluster.points.length;
@@ -719,10 +457,7 @@ export default function MapClient({
         `;
         el.textContent = count >= 100 ? "99+" : String(count);
         el.addEventListener("click", () => {
-          const nextZoom = Math.min(
-            map.getZoom() + 2,
-            map.getMaxZoom(),
-          );
+          const nextZoom = Math.min(map.getZoom() + 2, map.getMaxZoom());
           map.flyTo({
             center: [cluster.center.lng, cluster.center.lat],
             zoom: nextZoom,
@@ -735,22 +470,14 @@ export default function MapClient({
         markersRef.current.push(marker);
       }
     }
-  }, [
-    visiblePoints,
-    mapReady,
-    selectedRoute,
-    busStopRouteIndex,
-    initialFocusId,
-  ]);
+  }, [visiblePoints, mapReady, handleMarkerClick, selectedPoint]);
 
   useEffect(() => {
     void renderMarkers();
-    // renderTick triggers re-clustering on zoom/move without invalidating
-    // visiblePoints; it is intentionally read only as a dependency.
   }, [renderMarkers, renderTick]);
 
-  // Schedule a re-cluster after pan/zoom settles so bucket positions reflect
-  // the new projection. Debounced to coalesce rapid wheel zooms.
+  // Re-cluster after pan/zoom settles so bucket positions reflect the
+  // new projection. Debounced to coalesce rapid wheel zooms.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
@@ -826,35 +553,28 @@ export default function MapClient({
     setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
-  function setRadius(radius: RadiusOption) {
-    setFilters((prev) => ({ ...prev, radius }));
-  }
-
-  function focusPoint(point: MapPoint) {
+  const focusPoint = useCallback((point: MapPoint) => {
     setSelectedPoint(point);
     mapRef.current?.flyTo({ center: [point.lng, point.lat], zoom: 17 });
-  }
+    // Collapse the category drawer — the visitor just picked a target,
+    // so the chip picker has done its job and would only block the map.
+    setCategoryDrawerOpen(false);
+    // Auto-enable the picked point's layer so its marker actually
+    // renders. Without this, a search hit on a currently-off category
+    // would fly the map to an empty-looking spot — the detail panel
+    // would open but no pin would mark the location.
+    if (isLayerId(point.type)) {
+      setFilters((prev) => {
+        if (prev.layers[point.type] === true) return prev;
+        return {
+          ...prev,
+          layers: { ...prev.layers, [point.type]: true },
+        };
+      });
+    }
+  }, []);
 
-  // Picking the currently-selected (route, direction) clears it; picking
-  // a different pair replaces it. Shared between the route picker and
-  // the bus stop detail so both surfaces stay in sync.
-  const toggleSelectedRoute = useCallback(
-    (routeId: string, directionId: "0" | "1") => {
-      setSelectedRoute((prev) =>
-        prev != null &&
-        prev.routeId === routeId &&
-        prev.directionId === directionId
-          ? null
-          : { routeId, directionId },
-      );
-    },
-    [],
-  );
-
-  // Handle ?focus=<id> deep links exactly once. We watch mapReady so the
-  // flyTo call fires after MapLibre has finished its first paint, and use
-  // a ref-guard so the effect is a no-op after the user starts interacting
-  // (otherwise filters/radius changes would re-trigger the initial focus).
+  // Handle ?focus=<id> deep links exactly once.
   const focusAppliedRef = useRef(false);
   useEffect(() => {
     if (focusAppliedRef.current) return;
@@ -863,54 +583,14 @@ export default function MapClient({
     if (target == null) return;
     focusAppliedRef.current = true;
     focusPoint(target);
-  }, [mapReady, initialFocusId, points]);
-
-  // Fetch the schedule slice for the currently selected bus stop. Re-runs
-  // on selection change; an AbortController guards against the user
-  // switching stops faster than the network can respond.
-  useEffect(() => {
-    if (selectedPoint == null || selectedPoint.type !== "bus_stop") {
-      setStopTimes(null);
-      return;
-    }
-    const stopId = selectedPoint.id.replace(/^bus-stop-/, "");
-    const controller = new AbortController();
-    void fetch(`/api/bus/stop-times?stop=${encodeURIComponent(stopId)}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          setStopTimes(null);
-          return;
-        }
-        const raw = (await res.json()) as unknown;
-        if (
-          raw != null &&
-          typeof raw === "object" &&
-          "stopId" in raw &&
-          Array.isArray((raw as { routes?: unknown }).routes)
-        ) {
-          setStopTimes(raw as StopTimesResponse);
-        } else {
-          setStopTimes(null);
-        }
-      })
-      .catch((err: unknown) => {
-        if (err instanceof Error && err.name === "AbortError") return;
-        setStopTimes(null);
-      });
-    return () => controller.abort();
-  }, [selectedPoint]);
+  }, [mapReady, initialFocusId, points, focusPoint]);
 
   const googleMapsUrl = selectedPoint
     ? `https://www.google.com/maps?q=${selectedPoint.lat},${selectedPoint.lng}`
     : null;
 
-  const activeLayerCount = activeLayerIds.length;
-
-  // Per-layer point counts derived from the merged catalog (bundled +
-  // dynamic OSM). OSM-only layers start at 0 until the viewport fetch
-  // returns, so the chip badge naturally appears once data is available.
+  // Per-layer point counts derived from the merged catalog. OSM-only
+  // layers populate as soon as the viewport fetch returns.
   const pointCountByLayer = useMemo(() => {
     const counts = new Map<LayerId, number>();
     for (const p of mergedPoints) {
@@ -919,6 +599,8 @@ export default function MapClient({
     }
     return counts;
   }, [mergedPoints]);
+
+  const activeLayerCount = activeLayerIds.length;
 
   const selectedLayer = selectedPoint && isLayerId(selectedPoint.type)
     ? getLayer(selectedPoint.type)
@@ -937,63 +619,39 @@ export default function MapClient({
 
       <div ref={mapContainerRef} className="w-full h-full" aria-label="地図" />
 
-      {/* Right rail — base tile switcher, dynamic-fetch status, and the
-          bus route picker stack here so they share one column and never
-          fight the centred layer panel for space. */}
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2 w-72 max-w-[calc(100vw-1.5rem)]">
-        <TileStyleSwitcher
-          value={tileStyleId}
-          onChange={setTileStyleId}
-          styles={TILE_STYLES}
-        />
-        {externalStatus !== "idle" && (
-          <div
-            aria-live="polite"
-            className="bg-white rounded-full shadow px-3 py-1 text-xs text-slate-700 border border-slate-200 self-end"
-          >
-            {externalStatus === "loading"
-              ? "区外データを取得中…"
-              : "区外データの取得に失敗しました"}
-          </div>
-        )}
-        {filters.layers.bus_stop && busRouteLegend != null && busRouteLegend.length > 0 && (
-          <div className="bg-white rounded-xl shadow border border-slate-200 p-3">
-            <BusRoutePicker
-              entries={busRouteLegend}
-              selectedRoute={selectedRoute}
-              showAllRoutes={showAllRoutes}
-              onSelectRoute={toggleSelectedRoute}
-              onClearSelection={() => setSelectedRoute(null)}
-              onToggleShowAll={() => {
-                setShowAllRoutes((prev) => !prev);
-                if (!showAllRoutes) setSelectedRoute(null);
-              }}
-            />
-          </div>
-        )}
-      </div>
+      {/* External-data status pill (top-right, only when non-idle) */}
+      {externalStatus !== "idle" && (
+        <div
+          aria-live="polite"
+          className="absolute top-3 right-3 z-10 bg-white rounded-full shadow px-3 py-1 text-xs text-slate-700 border border-slate-200"
+        >
+          {externalStatus === "loading"
+            ? "区外データを取得中…"
+            : "区外データの取得に失敗しました"}
+        </div>
+      )}
 
-      {/* Layer panel */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-1.5 items-center max-w-[min(95vw,32rem)]">
-        <div className="bg-white rounded-xl shadow border border-slate-200">
+      {/* Primary control: search box + collapsible category drawer */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex flex-col gap-1.5 w-[min(95vw,28rem)]">
+        <div className="bg-white rounded-xl shadow border border-slate-200 p-3 space-y-2">
+          <MapSearch points={mergedPoints} onPick={focusPoint} />
           <button
             type="button"
-            onClick={() => setLayerPanelOpen((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 px-3 py-2 text-sm text-slate-700"
+            onClick={() => setCategoryDrawerOpen((v) => !v)}
             // eslint-disable-next-line jsx-a11y/aria-proptypes
-            aria-expanded={layerPanelOpen ? "true" : "false"}
+            aria-expanded={categoryDrawerOpen ? "true" : "false"}
+            className="w-full flex items-center justify-between gap-2 text-xs text-slate-600 hover:text-slate-900"
           >
-            <span className="font-medium">レイヤ</span>
-            <span className="text-xs text-slate-500">
-              {activeLayerCount > 0 ? `${activeLayerCount} 件 ON` : "全 OFF"}
+            <span>
+              <KanjiText text="カテゴリで選ぶ" />
             </span>
-            <span aria-hidden="true" className="text-slate-400 text-xs">
-              {layerPanelOpen ? "▲" : "▼"}
+            <span className="text-slate-500">
+              {activeLayerCount > 0 ? `${activeLayerCount} 件 ON` : ""}{" "}
+              <span aria-hidden="true">{categoryDrawerOpen ? "▲" : "▼"}</span>
             </span>
           </button>
-          {layerPanelOpen && (
-            <div className="px-3 pb-3 pt-3 space-y-3 border-t border-slate-100 max-h-[70vh] overflow-y-auto">
-              <MapSearch points={points} onPick={focusPoint} />
+          {categoryDrawerOpen && (
+            <div className="space-y-3 border-t border-slate-100 pt-2 max-h-[60vh] overflow-y-auto">
               {GROUPED_LAYERS.map(([category, layers]) => (
                 <fieldset key={category} className="space-y-1.5">
                   <legend className="text-xs font-semibold text-slate-500">
@@ -1024,75 +682,61 @@ export default function MapClient({
                   onClick={() => toggleAccessibility("twentyFourOnly")}
                 />
               </div>
-              {/* BusRoutePicker moved out of the layer panel; see the
-                  dedicated card below. */}
             </div>
           )}
         </div>
-        {userLocation !== null && (
-          <div
-            className="bg-white rounded-full shadow px-3 py-1.5 flex gap-2 flex-wrap justify-center items-center"
-            role="group"
-            aria-label="現在地からの距離で絞り込み"
-          >
-            <span className="text-xs text-gray-600 mr-1">表示範囲</span>
-            {RADIUS_OPTIONS.map((opt) => (
-              <button
-                key={String(opt.value)}
-                type="button"
-                onClick={() => setRadius(opt.value)}
-                // eslint-disable-next-line jsx-a11y/aria-proptypes
-                aria-pressed={filters.radius === opt.value}
-                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                  filters.radius === opt.value
-                    ? "bg-slate-700 text-white border-transparent"
-                    : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Nearby list panel */}
-      {userLocation !== null && nearbyList.length > 0 && !selectedPoint && (
-        <aside
-          aria-label="現在地から近い順のリスト"
-          className="absolute bottom-3 right-3 z-10 w-64 max-h-[40vh] bg-white rounded-xl shadow-lg overflow-hidden flex flex-col"
-        >
-          <header className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-700">
-            周辺リスト ({nearbyList.length} 件)
-          </header>
-          <ul className="flex-1 overflow-y-auto divide-y divide-gray-100">
-            {nearbyList.map((p) => {
-              const layer = isLayerId(p.type) ? getLayer(p.type) : null;
-              return (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => focusPoint(p)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: layer?.color ?? "#64748b" }}
-                    />
-                    <span className="flex-1 min-w-0">
-                      <span className="block truncate">{p.name}</span>
-                      <span className="block text-xs text-gray-500">
-                        {formatDistance(p.distance)}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
-      )}
+        {/* Nearest 3 — surfaces only when location is known and the
+            visitor has actually selected at least one category. Hidden
+            while the detail panel is up so the bottom-sheet doesn't
+            fight this card for vertical space. */}
+        {userLocation !== null &&
+          activeLayerCount > 0 &&
+          nearest.length > 0 &&
+          selectedPoint === null && (
+            <aside
+              aria-label="現在地から最も近い 3 件"
+              className="bg-white rounded-xl shadow border border-slate-200"
+            >
+              <header className="px-3 py-2 border-b border-slate-100 text-xs font-semibold text-slate-700">
+                <KanjiText text="現在地から近い順" />
+              </header>
+              <ul className="divide-y divide-slate-100">
+                {nearest.map(({ point: p, distance }) => {
+                  const layer = isLayerId(p.type) ? getLayer(p.type) : null;
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => focusPoint(p)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-white flex-shrink-0"
+                          style={{ backgroundColor: layer?.color ?? "#64748b" }}
+                        >
+                          {layer?.letter ?? "?"}
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block truncate text-slate-800">
+                            <KanjiText text={p.name} />
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            {layer?.label ?? p.type} ·{" "}
+                            {distance < 1000
+                              ? `${Math.round(distance)} m`
+                              : `${(distance / 1000).toFixed(1)} km`}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </aside>
+          )}
+      </div>
 
       {/* Detail panel */}
       {selectedPoint && selectedLayer && (
@@ -1205,16 +849,6 @@ export default function MapClient({
             </p>
           )}
 
-          {selectedPoint.type === "bus_stop" && busStopRouteIndex != null && (
-            <BusStopRoutesSection
-              stopId={selectedPoint.id.replace(/^bus-stop-/, "")}
-              index={busStopRouteIndex}
-              selectedRoute={selectedRoute}
-              stopTimes={stopTimes}
-              onSelect={toggleSelectedRoute}
-            />
-          )}
-
           {selectedPoint.note && (
             <p className="text-xs text-gray-500 mt-2">{selectedPoint.note}</p>
           )}
@@ -1243,10 +877,6 @@ function LayerChip({
 }: {
   layer: (typeof LAYERS)[number];
   active: boolean;
-  // Number of merged points currently classified under this layer. For
-  // bundled layers this reflects the local dataset; for OSM-only layers
-  // it reflects the cached + freshly-fetched POIs for the current
-  // viewport. Always rendered so every chip carries the same shape.
   count: number;
   onClick: () => void;
 }) {
@@ -1316,418 +946,6 @@ function FilterChip({
     >
       {label}
     </button>
-  );
-}
-
-function TileStyleSwitcher({
-  value,
-  onChange,
-  styles,
-}: {
-  value: TileStyleId;
-  onChange: (id: TileStyleId) => void;
-  styles: Readonly<Record<TileStyleId, TileStyle>>;
-}) {
-  const order: TileStyleId[] = ["pale", "std", "blank"];
-  return (
-    <div
-      role="group"
-      aria-label="背景地図"
-      className="bg-white rounded-full shadow border border-slate-200 flex p-0.5 self-end"
-    >
-      {order.map((id) => {
-        const isActive = id === value;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onChange(id)}
-            // eslint-disable-next-line jsx-a11y/aria-proptypes
-            aria-pressed={isActive ? "true" : "false"}
-            className={`text-xs px-3 py-1 rounded-full transition-colors ${
-              isActive
-                ? "bg-slate-700 text-white"
-                : "text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {styles[id].label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// Compact timetable shown under the selected (route, direction) inside
-// the bus stop detail panel. Today's bucket (weekday/saturday/sunday)
-// is preselected and the next-three departures are pulled out at the
-// top; the rest of the day reads as an hour-grouped list. The user can
-// switch buckets via a small tab strip without leaving the panel.
-function StopTimetablePreview({ rows }: { rows: readonly StopTimesRow[] }) {
-  const row = rows[0];
-  const [now, setNow] = useState<Date | null>(null);
-  const [tab, setTab] = useState<ServiceCategory | null>(null);
-
-  useEffect(() => {
-    const tick = (): void => setNow(new Date());
-    tick();
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  if (row == null) {
-    return (
-      <p className="mt-1 text-xs text-slate-500 px-2">
-        この方面の時刻表データはありません。
-      </p>
-    );
-  }
-
-  const today: ServiceCategory =
-    now != null ? categorizeServiceDay(now) : "weekday";
-  const active: ServiceCategory = tab ?? today;
-  const times: readonly string[] =
-    active === "weekday"
-      ? row.weekday
-      : active === "saturday"
-        ? row.saturday
-        : row.sunday;
-
-  const upcoming =
-    now != null && active === today
-      ? nextDepartures(
-          { stopId: "current", times },
-          now,
-          3,
-        )
-      : [];
-
-  const grouped = new Map<number, string[]>();
-  for (const token of times) {
-    const minutes = parseBusTimeMinutes(token);
-    if (minutes == null) continue;
-    const hour = Math.floor(minutes / 60);
-    const list = grouped.get(hour) ?? [];
-    list.push(token);
-    grouped.set(hour, list);
-  }
-  const nowMinutes =
-    now != null && active === today
-      ? now.getHours() * 60 + now.getMinutes()
-      : -1;
-  const nextToken =
-    nowMinutes >= 0
-      ? times.find((t) => {
-          const m = parseBusTimeMinutes(t);
-          return m != null && m >= nowMinutes;
-        }) ?? null
-      : null;
-
-  const tabs: readonly { id: ServiceCategory; label: string }[] = [
-    { id: "weekday", label: "平日" },
-    { id: "saturday", label: "土曜" },
-    { id: "sunday", label: "休日" },
-  ];
-
-  return (
-    <div className="mt-2 px-2 pb-2 space-y-1.5">
-      {upcoming.length > 0 ? (
-        <div>
-          <p className="text-[10px] font-semibold text-amber-700">
-            次の発車 ({today === "weekday" ? "平日" : today === "saturday" ? "土曜" : "休日"})
-          </p>
-          <div className="flex flex-wrap gap-1 mt-0.5">
-            {upcoming.map((t) => (
-              <span
-                key={t}
-                className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 tabular-nums"
-              >
-                {formatBusTime(t)}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : (
-        now != null &&
-        active === today && (
-          <p className="text-[10px] text-slate-500">
-            本日の残りの便はありません。
-          </p>
-        )
-      )}
-
-      <details>
-        <summary className="cursor-pointer text-[11px] text-blue-600 hover:underline select-none">
-          全時刻表を見る
-        </summary>
-        <div
-          role="tablist"
-          aria-label="曜日切り替え"
-          className="flex gap-1 mt-2 mb-2"
-        >
-          {tabs.map((t) => {
-            const isActive = t.id === active;
-            const isToday = t.id === today;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                // eslint-disable-next-line jsx-a11y/aria-proptypes
-                aria-selected={isActive ? "true" : "false"}
-                onClick={() => setTab(t.id)}
-                className={`text-xs px-2 py-0.5 rounded ${
-                  isActive
-                    ? "bg-slate-700 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                {t.label}
-                {isToday && <span className="ml-1 text-[10px]">本日</span>}
-              </button>
-            );
-          })}
-        </div>
-
-        {times.length === 0 ? (
-          <p className="text-xs text-slate-500">この曜日の運行はありません。</p>
-        ) : (
-          <ol className="border border-slate-100 rounded divide-y divide-slate-100 max-h-48 overflow-y-auto">
-            {Array.from(grouped.entries())
-              .sort((a, b) => a[0] - b[0])
-              .map(([hour, list]) => (
-                <li
-                  key={hour}
-                  className="flex items-baseline gap-2 px-2 py-1 text-xs"
-                >
-                  <span className="w-6 shrink-0 font-semibold text-slate-700 tabular-nums">
-                    {(hour % 24).toString().padStart(2, "0")}
-                    {hour >= 24 && (
-                      <span className="ml-0.5 text-[10px] text-slate-400">
-                        翌
-                      </span>
-                    )}
-                  </span>
-                  <span className="flex flex-wrap gap-x-2 text-slate-700 tabular-nums">
-                    {list.map((t) => (
-                      <span
-                        key={t}
-                        className={
-                          t === nextToken
-                            ? "rounded bg-amber-100 px-1 text-amber-900 font-semibold"
-                            : ""
-                        }
-                      >
-                        {t.slice(3)}
-                      </span>
-                    ))}
-                  </span>
-                </li>
-              ))}
-          </ol>
-        )}
-      </details>
-    </div>
-  );
-}
-
-function BusStopRoutesSection({
-  stopId,
-  index,
-  selectedRoute,
-  stopTimes,
-  onSelect,
-}: {
-  stopId: string;
-  index: StopRouteIndex;
-  selectedRoute: { routeId: string; directionId: "0" | "1" } | null;
-  stopTimes: StopTimesResponse | null;
-  onSelect: (routeId: string, directionId: "0" | "1") => void;
-}) {
-  const serving = index[stopId];
-  if (serving == null || serving.length === 0) return null;
-  return (
-    <div className="mt-3">
-      <p className="text-xs font-semibold text-slate-600 mb-1">
-        この停留所を通る系統 ({serving.length} 件)
-      </p>
-      <p className="text-xs text-slate-500 mb-2">
-        系統を選ぶと地図上にその路線と停留所だけが表示されます。
-      </p>
-      <ul className="grid grid-cols-1 gap-1">
-        {serving.map((s) => {
-          const isActive =
-            selectedRoute != null &&
-            selectedRoute.routeId === s.routeId &&
-            selectedRoute.directionId === s.directionId;
-          return (
-            <li key={`${s.routeId}-${s.directionId}`}>
-              <button
-                type="button"
-                onClick={() => onSelect(s.routeId, s.directionId)}
-                // eslint-disable-next-line jsx-a11y/aria-proptypes
-                aria-pressed={isActive ? "true" : "false"}
-                className={`w-full flex items-center gap-2 text-left px-2 py-1.5 rounded border ${
-                  isActive
-                    ? "bg-amber-100 text-amber-900 border-amber-300"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className="inline-block w-3 h-2 rounded-sm flex-shrink-0"
-                  style={{ backgroundColor: s.color }}
-                />
-                <span className="font-medium tabular-nums">
-                  {displayRouteName(s.shortName)}
-                </span>
-                <span className="text-xs text-slate-500 truncate">
-                  {s.headsign} 方面
-                </span>
-              </button>
-              {isActive && stopTimes != null && (
-                <StopTimetablePreview
-                  rows={stopTimes.routes.filter(
-                    (r) =>
-                      r.routeId === s.routeId &&
-                      r.directionId === s.directionId,
-                  )}
-                />
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-// Two-step picker: type-to-filter the route list, click a route to
-// either auto-select its only direction (5 of 68 routes) or expand an
-// inline direction radio. A separate toggle reveals every route at
-// once for users who want the network overview.
-function BusRoutePicker({
-  entries,
-  selectedRoute,
-  showAllRoutes,
-  onSelectRoute,
-  onClearSelection,
-  onToggleShowAll,
-}: {
-  entries: readonly BusRouteLegendEntry[];
-  selectedRoute: { routeId: string; directionId: "0" | "1" } | null;
-  showAllRoutes: boolean;
-  onSelectRoute: (routeId: string, directionId: "0" | "1") => void;
-  onClearSelection: () => void;
-  onToggleShowAll: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  const trimmed = query.trim();
-  const filtered = useMemo(() => {
-    if (trimmed.length === 0) return entries;
-    return entries.filter(
-      (e) =>
-        e.shortName.includes(trimmed) ||
-        displayRouteName(e.shortName).includes(trimmed) ||
-        e.directions.some((d) => d.headsign.includes(trimmed)),
-    );
-  }, [entries, trimmed]);
-
-  return (
-    <div className="pt-2 border-t border-slate-100 space-y-2">
-      <p className="text-xs font-semibold text-slate-500">
-        路線を選ぶ
-        <span className="ml-2 font-normal text-slate-400">
-          {selectedRoute != null
-            ? "— もう一度押すと解除"
-            : showAllRoutes
-              ? "— 全路線の経路を表示中"
-              : "— 路線を選ぶと地図上に経路が描かれます"}
-        </span>
-      </p>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="系統名・方面名で絞り込み (例: 業10 / 豊洲)"
-        autoComplete="off"
-        enterKeyHint="search"
-        className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <div className="flex flex-wrap gap-2 text-xs">
-        <button
-          type="button"
-          onClick={onToggleShowAll}
-          // eslint-disable-next-line jsx-a11y/aria-proptypes
-          aria-pressed={showAllRoutes ? "true" : "false"}
-          className={`px-2 py-1 rounded-full border ${
-            showAllRoutes
-              ? "bg-slate-700 text-white border-transparent"
-              : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-          }`}
-        >
-          全系統を表示
-        </button>
-        {selectedRoute != null && (
-          <button
-            type="button"
-            onClick={onClearSelection}
-            className="px-2 py-1 rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-          >
-            選択を解除
-          </button>
-        )}
-      </div>
-      <ul className="max-h-80 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded">
-        {filtered.length === 0 && (
-          <li className="px-2 py-3 text-xs text-slate-500">
-            該当する系統がありません。
-          </li>
-        )}
-        {filtered.map((entry) => {
-          const isSelectedRoute = selectedRoute?.routeId === entry.routeId;
-          return (
-            <li key={entry.routeId} className="px-2 py-1.5">
-              <div className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="inline-block w-3 h-1.5 rounded-sm flex-shrink-0"
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span className="text-sm font-medium text-slate-800 truncate">
-                  {displayRouteName(entry.shortName)}
-                </span>
-              </div>
-              <div className="mt-1 ml-5 flex flex-wrap gap-1">
-                {entry.directions.map((dir) => {
-                  const isActive =
-                    isSelectedRoute &&
-                    selectedRoute?.directionId === dir.directionId;
-                  return (
-                    <button
-                      key={dir.directionId}
-                      type="button"
-                      onClick={() =>
-                        onSelectRoute(entry.routeId, dir.directionId)
-                      }
-                      // eslint-disable-next-line jsx-a11y/aria-proptypes
-                      aria-pressed={isActive ? "true" : "false"}
-                      className={`text-xs px-2 py-0.5 rounded-full border ${
-                        isActive
-                          ? "bg-amber-100 text-amber-900 border-amber-300 font-semibold"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {dir.headsign} 方面
-                    </button>
-                  );
-                })}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
   );
 }
 

@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import {
   parseAedData,
-  parseAssemblyPointData,
   parseKotoFacilityData,
-  parseShelterData,
   parseToiletData,
-  parseWaterSupplyData,
 } from "@/lib/map/validate";
 import {
   LAYER_IDS,
@@ -20,9 +17,6 @@ import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
 import aedRaw from "@/data/aed.json";
 import toiletRaw from "@/data/toilet.json";
-import shelterRaw from "@/data/shelter.json";
-import assemblyPointRaw from "@/data/assembly_point.json";
-import waterSupplyRaw from "@/data/water_supply.json";
 import parkRaw from "@/data/park.json";
 import libraryRaw from "@/data/library.json";
 import childCenterRaw from "@/data/child_center.json";
@@ -45,8 +39,6 @@ type SearchParams = {
   layers?: string;
   type?: string;
   focus?: string;
-  route?: string;
-  dir?: string;
 };
 
 function parseLayersParam(raw: string | undefined): LayerId[] {
@@ -70,43 +62,32 @@ export default async function MapPage({
     typeof layersParam === "string" && layersParam.trim().length > 0;
   const activeTypes = parseLayersParam(layersParam);
   const initialFocusId = typeof params.focus === "string" ? params.focus : null;
-  const initialSelectedRoute: { routeId: string; directionId: "0" | "1" } | null =
-    typeof params.route === "string" &&
-    params.route.length > 0 &&
-    (params.dir === "0" || params.dir === "1")
-      ? { routeId: params.route, directionId: params.dir }
-      : null;
 
-  // bus_stop layer points (and route lines/legend/index) are no longer
-  // bundled into the RSC payload — MapClient fetches /api/map/bus on
-  // mount and hydrates from IndexedDB on revisits, keeping the ~12 MB
-  // bus bundle off the initial page transfer.
+  // Bus and 防災 (shelter/avoidance/water) have moved to /bus and
+  // /disaster respectively. The map is a search-first facility finder
+  // for the everyday categories — AED / toilet / park / library /
+  // children's facilities / nursery, plus OSM-only layers fetched
+  // dynamically (station / hospital / clinic / pharmacy).
   const allPoints = [
     ...parseAedData(aedRaw),
     ...parseToiletData(toiletRaw),
-    ...parseShelterData(shelterRaw),
-    ...parseAssemblyPointData(assemblyPointRaw),
-    ...parseWaterSupplyData(waterSupplyRaw),
     ...parseKotoFacilityData("park", parkRaw),
     ...parseKotoFacilityData("library", libraryRaw),
     ...parseKotoFacilityData("child_center", childCenterRaw),
     ...parseKotoFacilityData("nursery", nurseryRaw),
   ];
 
-  // Auto-enable bus_stop when a deep link focuses on one, otherwise the
-  // pin filter would hide the very stop the link points at.
-  const focusIsBusStop =
-    initialFocusId != null && initialFocusId.startsWith("bus-stop-");
-
   const layers: Partial<Record<LayerId, boolean>> = {};
   for (const id of LAYER_IDS) {
-    layers[id] = activeTypes.includes(id) || (id === "bus_stop" && focusIsBusStop);
+    layers[id] = activeTypes.includes(id);
   }
   const initialFilters: MapFilters = {
     layers,
     barrierFreeOnly: false,
     twentyFourOnly: false,
-    radius: 1000,
+    // Radius UI removed — keep the field so MapFilters stays compatible,
+    // null means "no distance filter".
+    radius: null,
   };
 
   return (
@@ -148,9 +129,7 @@ export default async function MapPage({
           points={allPoints}
           initialFilters={initialFilters}
           urlHasLayersParam={urlHasLayersParam}
-          focusIsBusStop={focusIsBusStop}
           initialFocusId={initialFocusId}
-          initialSelectedRoute={initialSelectedRoute}
         />
       </div>
     </div>

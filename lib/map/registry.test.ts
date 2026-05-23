@@ -40,14 +40,14 @@ describe("layer registry", () => {
     expect(isLayerId("")).toBe(false);
   });
 
-  it("includes the transit layers (station / station_exit / bus_stop)", () => {
+  it("includes the transit layers (station / station_exit)", () => {
     expect(LAYER_IDS).toEqual(
-      expect.arrayContaining(["station", "station_exit", "bus_stop"]),
+      expect.arrayContaining(["station", "station_exit"]),
     );
   });
 
-  it("marks bus_stop as bundled (we ship Koto-bbox stops from GTFS)", () => {
-    expect(isLayerBundled("bus_stop")).toBe(true);
+  it("does not include bus_stop — bus features moved to /bus", () => {
+    expect(LAYER_IDS).not.toContain("bus_stop");
   });
 
   it("includes the medical layers (hospital / clinic / pharmacy)", () => {

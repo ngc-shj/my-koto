@@ -73,14 +73,26 @@ export default function HomePage() {
         </a>
         <a
           href="/map"
-          aria-label="区民マップ — AED・避難所・公園・駅・病院など"
+          aria-label="区民マップ — AED・公園・駅・病院などを検索"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
           <div className="text-lg font-medium">
             <KanjiText text="区民マップ" />
           </div>
           <div className="text-sm text-gray-500 mt-1">
-            <KanjiText text="AED・避難所・公園・駅・病院など" />
+            <KanjiText text="AED・公園・駅・病院などを検索" />
+          </div>
+        </a>
+        <a
+          href="/disaster"
+          aria-label="防災マップ — 避難所・避難場所・給水拠点・気象警報"
+          className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
+        >
+          <div className="text-lg font-medium">
+            <KanjiText text="防災マップ" />
+          </div>
+          <div className="text-sm text-gray-500 mt-1">
+            <KanjiText text="避難所・避難場所・給水拠点・気象警報" />
           </div>
         </a>
         <a
