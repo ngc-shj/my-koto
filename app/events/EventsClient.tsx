@@ -1,8 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  formatDayWithWeekday,
+  formatYearMonth,
+} from "@/lib/i18n/datetime";
 import type { Event } from "@/lib/events/types";
 import { eventsSubscriptionUrl } from "@/lib/ics/url";
+
+// Reusable pure filter so it can be unit-tested without rendering the
+// client. Case-folds only ASCII; CJK kanji vary in case-insensitivity
+// implementations, so we keep the comparison literal there.
+export function filterEvents(events: readonly Event[], query: string): Event[] {
+  const q = query.trim();
+  if (q.length === 0) return [...events];
+  const qLower = q.toLowerCase();
+  return events.filter((evt) => {
+    const haystack = [
+      evt.title,
+      evt.location ?? "",
+      evt.description ?? "",
+      evt.organizer ?? "",
+    ];
+    return haystack.some((h) =>
+      h.includes(q) || h.toLowerCase().includes(qLower),
+    );
+  });
+}
+
+function jstDate(yyyyMmDd: string): Date {
+  return new Date(`${yyyyMmDd}T00:00:00+09:00`);
+}
 
 type Props = {
   events: Event[];
@@ -35,17 +63,20 @@ function groupByMonth(events: Event[]): Map<string, Event[]> {
 }
 
 function formatDateRange(evt: Event): string {
+  const start = formatDayWithWeekday(jstDate(evt.startDate));
   if (!evt.endDate || evt.endDate === evt.startDate) {
-    return evt.startDate;
+    return start;
   }
-  return `${evt.startDate} 〜 ${evt.endDate}`;
+  const end = formatDayWithWeekday(jstDate(evt.endDate));
+  return `${start} 〜 ${end}`;
 }
 
 function MonthLabel({ yearMonth }: { yearMonth: string }) {
-  const [year, month] = yearMonth.split("-");
+  // `yearMonth` is "YYYY-MM"; reconstruct a JST date so the unified
+  // formatter renders "YYYY年M月" exactly the same as elsewhere.
   return (
     <h2 className="text-lg font-semibold mt-6 mb-2 border-b pb-1">
-      {year} 年 {parseInt(month, 10)} 月
+      {formatYearMonth(jstDate(`${yearMonth}-01`))}
     </h2>
   );
 }
@@ -226,7 +257,7 @@ function CalendarView({ events }: { events: Event[] }) {
           ‹
         </button>
         <span className="font-semibold">
-          {year} 年 {month + 1} 月
+          {formatYearMonth(new Date(year, month, 1))}
         </span>
         <button
           onClick={nextMonth}
@@ -316,9 +347,16 @@ function CalendarView({ events }: { events: Event[] }) {
 
 export default function EventsClient({ events }: Props) {
   const [view, setView] = useState<ViewMode>("list");
+  const [query, setQuery] = useState("");
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">(
     "idle",
   );
+
+  const filteredEvents = useMemo(
+    () => filterEvents(events, query),
+    [events, query],
+  );
+  const trimmed = query.trim();
 
   async function handleCopySubscribeUrl() {
     const ua =
@@ -338,6 +376,28 @@ export default function EventsClient({ events }: Props) {
 
   return (
     <div>
+      {/* Search */}
+      <div className="mb-4">
+        <label className="block">
+          <span className="sr-only">イベントを検索</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="タイトル・場所・主催で検索"
+            autoComplete="off"
+            enterKeyHint="search"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </label>
+        {trimmed.length > 0 && (
+          <p className="text-xs text-gray-500 mt-1">
+            {filteredEvents.length} 件が一致
+            {filteredEvents.length === 0 && " — 別のキーワードをお試しください。"}
+          </p>
+        )}
+      </div>
+
       {/* View switcher and actions */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex rounded border overflow-hidden">
@@ -387,9 +447,9 @@ export default function EventsClient({ events }: Props) {
 
       {/* View content */}
       {view === "list" ? (
-        <ListView events={events} />
+        <ListView events={filteredEvents} />
       ) : (
-        <CalendarView events={events} />
+        <CalendarView events={filteredEvents} />
       )}
     </div>
   );
