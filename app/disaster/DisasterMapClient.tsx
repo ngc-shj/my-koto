@@ -9,6 +9,7 @@ import { KanjiText } from "@/components/Furigana";
 import GeolocationConsent from "@/components/GeolocationConsent";
 import { MAP_INITIAL, TILE_STYLES } from "@/config/map";
 import { haversineDistance } from "@/lib/distance";
+import { loadGeolocationConsent } from "@/lib/geolocation-consent";
 import { getLayer, isLayerId } from "@/lib/map/registry";
 import {
   HAZARD_LABELS,
@@ -53,8 +54,30 @@ export default function DisasterMapClient({ points }: Props) {
 
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation>(null);
-  const [showConsentModal, setShowConsentModal] = useState(true);
+  // Start hidden — flipped to true only on the first ever visit
+  // (no recorded consent yet); previously-granted sessions skip the
+  // modal and request location silently.
+  const [showConsentModal, setShowConsentModal] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+
+  useEffect(() => {
+    const choice = loadGeolocationConsent();
+    if (choice === "granted") {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        () => {
+          // Browser-level revocation — stay silent.
+        },
+      );
+    } else if (choice == null) {
+      setShowConsentModal(true);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
