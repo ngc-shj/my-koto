@@ -293,21 +293,32 @@ export default function MapClient({
     }
   }, [mapReady, selectedRoute]);
 
-  // Swap the GSI raster source's URL when the user picks a different
-  // basemap. setTiles() handles cache invalidation so we do not need
-  // to remove/re-add the layer.
+  // Swap the GSI raster source when the user picks a different basemap.
+  // setTiles() should work in maplibre 4.x but observably did not refresh
+  // the tile cache in this build, so we remove the source/layer and
+  // recreate them. The new layer is inserted under bus-routes-line (when
+  // it exists) so the route polylines stay above the tiles.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    const source = map.getSource("gsi");
-    if (source == null) return;
-    // Cast — MapLibre types expose setTiles only on RasterTileSource.
-    const sourceWithTiles = source as unknown as {
-      setTiles?: (urls: string[]) => void;
-    };
-    if (typeof sourceWithTiles.setTiles === "function") {
-      sourceWithTiles.setTiles([TILE_STYLES[tileStyleId].url]);
-    }
+    const next = TILE_STYLES[tileStyleId];
+    if (map.getLayer("gsi-tiles")) map.removeLayer("gsi-tiles");
+    if (map.getSource("gsi")) map.removeSource("gsi");
+    map.addSource("gsi", {
+      type: "raster",
+      tiles: [next.url],
+      tileSize: next.tileSize,
+      maxzoom: next.maxNativeZoom,
+      minzoom: next.minNativeZoom,
+      attribution: next.attribution,
+    });
+    const beforeId = map.getLayer("bus-routes-line")
+      ? "bus-routes-line"
+      : undefined;
+    map.addLayer(
+      { id: "gsi-tiles", type: "raster", source: "gsi" },
+      beforeId,
+    );
   }, [mapReady, tileStyleId]);
 
   // Merge bundled official points with whatever has been fetched from
