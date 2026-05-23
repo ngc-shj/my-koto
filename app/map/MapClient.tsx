@@ -262,11 +262,14 @@ export default function MapClient({
       ]);
       return;
     }
+    // Hide non-matching lines entirely (opacity 0) when a route is
+    // picked — fading them down to 0.12 still left a tangled mesh that
+    // 区民 reported as hard to read.
     map.setPaintProperty("bus-routes-line", "line-opacity", [
       "case",
       ["==", ["get", "routeId"], highlightedRouteId],
       0.95,
-      0.12,
+      0,
     ]);
     map.setPaintProperty("bus-routes-line", "line-width", [
       "case",
@@ -282,17 +285,7 @@ export default function MapClient({
         17,
         9,
       ],
-      [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        11,
-        1,
-        14,
-        2,
-        17,
-        4,
-      ],
+      0,
     ]);
   }, [mapReady, highlightedRouteId]);
 
