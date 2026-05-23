@@ -1,21 +1,25 @@
-// Map tile configuration — GSI raster (標準地図) served by 国土地理院.
+// Map tile configuration — GSI raster (淡色地図) served by 国土地理院.
 // Terms: https://maps.gsi.go.jp/development/ichiran.html
 // Notes:
+// - The 標準地図 ("std") layer is too colorful to overlay 14 marker
+//   layers + 68 colored bus polylines without losing contrast; 淡色地図
+//   ("pale") keeps the road/water structure and labels but desaturates
+//   so the overlay reads as figure on a quiet ground.
 // - We start with raster tiles for reliability; the vector pmtiles flavor of
 //   `optimal_bvmap-v1` requires the pmtiles protocol library. Switch back to
 //   vector once that integration is in place.
 // - OSM raster intentionally excluded per
 //   https://operations.osmfoundation.org/policies/tiles/.
 export const MAP_TILE = {
-  url: "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
-  attribution: "地理院タイル (国土地理院)",
+  url: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",
+  attribution: "地理院タイル (国土地理院 淡色地図)",
   attributionUrl: "https://maps.gsi.go.jp/development/ichiran.html",
   type: "raster",
-  // GSI std raster tile size.
+  // GSI pale raster tile size.
   tileSize: 256,
-  // GSI std raster tiles are available roughly z 2..18.
+  // GSI pale raster tiles are available z 5..18.
   maxNativeZoom: 18,
-  minNativeZoom: 2,
+  minNativeZoom: 5,
 } as const;
 
 // Initial map view centered on Koto City (江東区).
