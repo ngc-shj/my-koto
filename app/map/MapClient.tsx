@@ -474,12 +474,10 @@ export default function MapClient({
     // singletons cannot visually touch a cluster.
     const BUCKET_SIZE = 36;
     // Pre-compute the set of bus stops we should render. When a route is
-    // selected, only the stops it actually serves stay; if the user has
-    // opted in to 全系統 we keep all bus stops; otherwise we drop them
-    // so the empty state matches the bus-routes-line layer's hidden
-    // visibility. Other layer types are unaffected. We always include
-    // an initial-focus bus stop so a deep link from /bus lands on a
-    // visible pin instead of an empty map.
+    // selected, only the stops it actually serves stay; otherwise every
+    // bus stop is shown (clustering handles the density). The bus
+    // *route lines* stay hidden until the user picks a route so the map
+    // does not splash 68 colored polylines on first toggle.
     const focusedBusStopId =
       initialFocusId != null && initialFocusId.startsWith("bus-stop-")
         ? initialFocusId
@@ -501,9 +499,7 @@ export default function MapClient({
         if (focusedBusStopId != null) ids.add(focusedBusStopId);
         return ids;
       }
-      if (showAllRoutes) return null; // all bus stops kept
-      if (focusedBusStopId != null) return new Set<string>([focusedBusStopId]);
-      return new Set<string>(); // empty — none kept
+      return null; // no route picked → show every bus stop
     })();
     const layerPoints = visiblePoints.filter((p) => {
       if (!isLayerId(p.type)) return false;
@@ -1510,8 +1506,8 @@ function BusRoutePicker({
           {selectedRoute != null
             ? "— もう一度押すと解除"
             : showAllRoutes
-              ? "— 全系統を表示中"
-              : "— 一つ選ぶと路線と停留所が現れます"}
+              ? "— 全路線の経路を表示中"
+              : "— 路線を選ぶと地図上に経路が描かれます"}
         </span>
       </p>
       <input
