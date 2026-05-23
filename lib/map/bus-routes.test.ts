@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildBusRouteLines, routeColor } from "./bus-routes";
+import { buildBusRouteLegend, buildBusRouteLines, routeColor } from "./bus-routes";
 import type { BusToeiData } from "@/lib/opendata/schemas/bus";
 
 function sampleData(): BusToeiData {
@@ -101,5 +101,20 @@ describe("routeColor", () => {
 
   it("differs across distinct route ids in the common case", () => {
     expect(routeColor("業10")).not.toBe(routeColor("海01"));
+  });
+});
+
+describe("buildBusRouteLegend", () => {
+  it("returns one entry per route with matching color", () => {
+    const legend = buildBusRouteLegend(sampleData());
+    expect(legend).toHaveLength(2);
+    for (const entry of legend) {
+      expect(entry.color).toBe(routeColor(entry.routeId));
+    }
+  });
+
+  it("sorts entries by shortName using ja locale", () => {
+    const legend = buildBusRouteLegend(sampleData());
+    expect(legend.map((e) => e.shortName)).toEqual(["海01", "業10"]);
   });
 });

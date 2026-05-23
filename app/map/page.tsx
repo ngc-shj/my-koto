@@ -29,9 +29,18 @@ import childCenterRaw from "@/data/child_center.json";
 import nurseryRaw from "@/data/nursery.json";
 import busRaw from "@/data/bus-toei.json";
 import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
-import { buildBusRouteLines, type BusRouteLines } from "@/lib/map/bus-routes";
+import {
+  buildBusRouteLegend,
+  buildBusRouteLines,
+  type BusRouteLegendEntry,
+  type BusRouteLines,
+} from "@/lib/map/bus-routes";
 
-function loadBusBundle(): { stops: MapPoint[]; routes: BusRouteLines } {
+function loadBusBundle(): {
+  stops: MapPoint[];
+  routes: BusRouteLines;
+  legend: readonly BusRouteLegendEntry[];
+} {
   const data = BusToeiDataSchema.parse(busRaw);
   const stops: MapPoint[] = Object.values(data.stops).map((s) => ({
     id: `bus-stop-${s.stopId}`,
@@ -42,7 +51,11 @@ function loadBusBundle(): { stops: MapPoint[]; routes: BusRouteLines } {
     lat: s.lat,
     lng: s.lng,
   }));
-  return { stops, routes: buildBusRouteLines(data) };
+  return {
+    stops,
+    routes: buildBusRouteLines(data),
+    legend: buildBusRouteLegend(data),
+  };
 }
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -143,6 +156,7 @@ export default async function MapPage({
         <MapClient
           points={allPoints}
           busRouteLines={bus.routes}
+          busRouteLegend={bus.legend}
           initialFilters={initialFilters}
           initialFocusId={initialFocusId}
         />

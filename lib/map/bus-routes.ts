@@ -42,6 +42,27 @@ export function routeColor(routeId: string): string {
   return `hsl(${hue} 70% 45%)`;
 }
 
+// Compact metadata for the legend UI. One entry per route (regardless of
+// direction count). Sorted alphabetically by shortName so the legend
+// reads predictably.
+export type BusRouteLegendEntry = {
+  readonly routeId: string;
+  readonly shortName: string;
+  readonly color: string;
+};
+
+export function buildBusRouteLegend(
+  data: BusToeiData,
+): readonly BusRouteLegendEntry[] {
+  return [...data.routes]
+    .map((r) => ({
+      routeId: r.routeId,
+      shortName: r.shortName,
+      color: routeColor(r.routeId),
+    }))
+    .sort((a, b) => a.shortName.localeCompare(b.shortName, "ja"));
+}
+
 export function buildBusRouteLines(data: BusToeiData): BusRouteLines {
   const features: BusRouteLineFeature[] = [];
   for (const route of data.routes) {

@@ -10,7 +10,11 @@ import GeolocationConsent from "@/components/GeolocationConsent";
 import { KanjiText } from "@/components/Furigana";
 import { MAP_INITIAL, MAP_TILE } from "@/config/map";
 import MapSearch from "@/components/MapSearch";
-import type { BusRouteLines } from "@/lib/map/bus-routes";
+import { displayRouteName } from "@/lib/bus/aliases";
+import type {
+  BusRouteLegendEntry,
+  BusRouteLines,
+} from "@/lib/map/bus-routes";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
 import { isLayerBundled } from "@/lib/map/registry";
@@ -94,6 +98,9 @@ type Props = {
   // route+direction with a deterministic color baked in. Rendered as a
   // line layer visible only while the bus_stop layer is on.
   busRouteLines?: BusRouteLines;
+  // One entry per route for the in-panel legend. Pre-sorted by ja
+  // shortName so the rendered list is stable.
+  busRouteLegend?: readonly BusRouteLegendEntry[];
 };
 
 const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
@@ -107,6 +114,7 @@ export default function MapClient({
   initialFilters,
   initialFocusId = null,
   busRouteLines,
+  busRouteLegend,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -659,6 +667,9 @@ export default function MapClient({
                   onClick={() => toggleAccessibility("twentyFourOnly")}
                 />
               </div>
+              {filters.layers.bus_stop && busRouteLegend != null && busRouteLegend.length > 0 && (
+                <BusRouteLegend entries={busRouteLegend} />
+              )}
             </div>
           )}
         </div>
@@ -942,6 +953,35 @@ function FilterChip({
     >
       {label}
     </button>
+  );
+}
+
+function BusRouteLegend({
+  entries,
+}: {
+  entries: readonly BusRouteLegendEntry[];
+}) {
+  return (
+    <details className="pt-2 border-t border-slate-100">
+      <summary className="cursor-pointer text-xs font-semibold text-slate-500 select-none">
+        路線凡例 ({entries.length} 系統)
+      </summary>
+      <ul className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 max-h-48 overflow-y-auto">
+        {entries.map((entry) => (
+          <li
+            key={entry.routeId}
+            className="flex items-center gap-1.5 text-xs text-slate-700"
+          >
+            <span
+              aria-hidden="true"
+              className="inline-block w-3 h-1.5 rounded-sm flex-shrink-0"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="truncate">{displayRouteName(entry.shortName)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
