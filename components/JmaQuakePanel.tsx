@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
+import { formatDateTime } from "@/lib/i18n/datetime";
 import type { NormalizedQuake, QuakeFeed } from "@/lib/jma/quake";
 
 type State =
@@ -14,18 +15,6 @@ function isQuakeFeed(v: unknown): v is QuakeFeed {
   if (v == null || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
   return Array.isArray(o.events) && typeof o.feltInKotoCount === "number";
-}
-
-function formatDatetime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 // Tier color by max observed shindo nationally. JMA returns values such as
@@ -124,7 +113,7 @@ export default function JmaQuakePanel() {
               >
                 <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="text-sm text-gray-600 tabular-nums">
-                    {formatDatetime(q.occurredAt)}
+                    {formatDateTime(q.occurredAt)}
                   </span>
                   <span className="font-semibold text-gray-800">
                     <KanjiText text={q.epicenter} />

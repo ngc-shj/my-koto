@@ -12,6 +12,7 @@ import type { Metadata } from "next";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import BackToHome from "@/components/BackToHome";
+import { formatAuditDateTime } from "@/lib/i18n/datetime";
 import {
   defaultCspReportKv,
   listReports,
@@ -245,20 +246,9 @@ function CspReportsSection({ reports }: { reports: StoredReport[] }) {
 }
 
 function FormattedDate({ date }: { date: Date }) {
-  // JST is the project's timezone of record; spelling it out keeps the
-  // server / build / browser interpretations aligned.
-  const formatted = date.toLocaleString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
   return (
     <time dateTime={date.toISOString()} className="font-medium text-gray-900">
-      {formatted} JST
+      {formatAuditDateTime(date)}
     </time>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAuditDateTime } from "@/lib/i18n/datetime";
+
 type DataFreshnessProps = {
   lastModified: Date | string;
   warnAfterDays?: number;
@@ -13,27 +15,20 @@ export default function DataFreshness({
   warnAfterHours,
   label = "データ取得日",
 }: DataFreshnessProps) {
-  const modifiedDate = typeof lastModified === "string" ? new Date(lastModified) : lastModified;
+  const modifiedDate =
+    typeof lastModified === "string" ? new Date(lastModified) : lastModified;
   const now = new Date();
   const diffMs = now.getTime() - modifiedDate.getTime();
   const diffHours = diffMs / (1000 * 60 * 60);
 
-  const thresholdHours = warnAfterHours ?? (warnAfterDays != null ? warnAfterDays * 24 : null);
+  const thresholdHours =
+    warnAfterHours ?? (warnAfterDays != null ? warnAfterDays * 24 : null);
   const isStale = thresholdHours != null && diffHours > thresholdHours;
-
-  const formattedDate = modifiedDate.toLocaleString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
   return (
     <div>
       <p className="text-xs text-gray-500">
-        {label}: {formattedDate} JST
+        {label}: {formatAuditDateTime(modifiedDate)}
       </p>
       {isStale && (
         <p

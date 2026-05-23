@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { addDays, format, isAfter, isSameDay } from "date-fns";
-import { ja } from "date-fns/locale";
+import { addDays, isAfter, isSameDay } from "date-fns";
+import { formatDayWithWeekday } from "@/lib/i18n/datetime";
 import {
   GOMI_CATEGORY_LABELS,
   type District,
@@ -336,7 +336,7 @@ function EventsSection({ events, today }: { events: Event[]; today: Date }) {
                     isToday ? "font-semibold text-emerald-700" : "text-gray-500"
                   }`}
                 >
-                  {format(start, "M月d日(E)", { locale: ja })}
+                  {formatDayWithWeekday(start)}
                 </span>
                 <span
                   className={`flex-1 min-w-0 truncate ${

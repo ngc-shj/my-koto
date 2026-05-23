@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
+import { formatDateTime } from "@/lib/i18n/datetime";
 import type { AreaWarnings, NormalizedWarning } from "@/lib/jma/normalize";
 import type { WarningTier } from "@/lib/jma/warning-codes";
 
@@ -45,18 +46,6 @@ function isAreaWarnings(v: unknown): v is AreaWarnings {
     typeof o.areaCode === "string" &&
     Array.isArray(o.warnings)
   );
-}
-
-function formatReportDatetime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export default function JmaWarningPanel() {
@@ -118,7 +107,7 @@ export default function JmaWarningPanel() {
           <KanjiText text="気象警報・注意報 (江東区)" />
         </h2>
         <p className="text-xs text-gray-500 mt-0.5">
-          <KanjiText text="発表時刻:" /> {formatReportDatetime(data.reportDatetime)}
+          <KanjiText text="発表時刻:" /> {formatDateTime(data.reportDatetime)}
           {data.publishingOffice && `（${data.publishingOffice}）`}
         </p>
       </div>

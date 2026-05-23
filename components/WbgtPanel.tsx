@@ -2,22 +2,13 @@
 
 import { useEffect, useState } from "react";
 import DataFreshness from "@/components/DataFreshness";
+import { formatDateTime } from "@/lib/i18n/datetime";
 import { classifyWbgt } from "@/lib/wbgt/bands";
 import {
   WbgtDataSchema,
   type WbgtData,
   type WbgtReading,
 } from "@/lib/opendata/schemas/wbgt";
-
-function formatHourLabel(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  // 8月3日 15時 — JST is the source of truth for these times.
-  const month = d.toLocaleString("ja-JP", { month: "long", timeZone: "Asia/Tokyo" });
-  const day = d.toLocaleString("ja-JP", { day: "numeric", timeZone: "Asia/Tokyo" });
-  const hour = d.toLocaleString("ja-JP", { hour: "numeric", timeZone: "Asia/Tokyo", hour12: false });
-  return `${month}${day} ${hour}`;
-}
 
 type State =
   | { status: "loading" }
@@ -104,7 +95,7 @@ export default function WbgtPanel() {
             <span className="text-lg font-medium text-gray-500 ml-1">℃</span>
           </span>
           <span className="text-xs text-gray-500">
-            ({formatHourLabel(next.datetime)} 時点)
+            ({formatDateTime(next.datetime)} 時点)
           </span>
         </div>
         <p className="text-sm text-gray-600">{band.note}</p>
@@ -127,7 +118,7 @@ export default function WbgtPanel() {
             return (
               <tr key={r.datetime} className="border-b border-gray-100">
                 <td className="py-1.5 pr-2 text-gray-700">
-                  {formatHourLabel(r.datetime)}
+                  {formatDateTime(r.datetime)}
                 </td>
                 <td className="py-1.5 px-2 text-right font-medium text-gray-800">
                   {r.wbgt.toFixed(1)} ℃

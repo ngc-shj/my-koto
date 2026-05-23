@@ -1,20 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
+import { formatDayWithWeekday } from "@/lib/i18n/datetime";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
 import { cachedFetchJson } from "@/lib/client-cache";
 import { WEATHER_CACHE } from "@/config/cache";
 
-// "2026-05-04" → "5月4日(月)" — short, never wraps in the home column.
+// Open-Meteo daily timestamps are bare "YYYY-MM-DD" — assemble a JST Date
+// so the unified formatter renders the right local weekday.
 function formatDailyDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00+09:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return format(d, "M月d日(E)", { locale: ja });
+  return formatDayWithWeekday(new Date(`${iso}T00:00:00+09:00`));
 }
 
 type State =

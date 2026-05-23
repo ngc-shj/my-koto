@@ -15,7 +15,7 @@ import {
   addMonths,
   subMonths,
 } from "date-fns";
-import { ja } from "date-fns/locale";
+import { formatDayWithWeekday, formatYearMonth } from "@/lib/i18n/datetime";
 import DistrictSelector from "@/components/DistrictSelector";
 import { Furigana, KanjiText } from "@/components/Furigana";
 import SubscribeButton from "@/components/SubscribeButton";
@@ -161,13 +161,13 @@ export default function GomiPageClient({ districts, overlays }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                今日 ({format(today, "M/d（E）", { locale: ja })})
+                今日 ({formatDayWithWeekday(today)})
               </p>
               {renderCategories(todayOccurrence)}
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                明日 ({format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1), "M/d（E）", { locale: ja })})
+                明日 ({formatDayWithWeekday(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))})
               </p>
               {renderCategories(tomorrowOccurrence)}
             </div>
@@ -183,7 +183,7 @@ export default function GomiPageClient({ districts, overlays }: Props) {
             {weekOccurrences.map((occ) => (
               <div key={occ.date.toISOString()} className="flex items-center gap-4 px-4 py-3 bg-white">
                 <span className="w-24 shrink-0 text-sm text-gray-600">
-                  {format(occ.date, "M/d（E）", { locale: ja })}
+                  {formatDayWithWeekday(occ.date)}
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {occ.categories.map((cat) => (
@@ -214,7 +214,7 @@ export default function GomiPageClient({ districts, overlays }: Props) {
               ‹ 前月
             </button>
             <h2 className="text-lg font-semibold text-gray-800">
-              {format(viewMonth, "yyyy年M月", { locale: ja })}の収集カレンダー
+              {formatYearMonth(viewMonth)}の収集カレンダー
             </h2>
             <button
               type="button"
