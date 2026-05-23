@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { KanjiText } from "@/components/Furigana";
+import { escalateBannerWarnings } from "@/lib/jma/banner";
 import type { AreaWarnings, NormalizedWarning } from "@/lib/jma/normalize";
 
 type State =
@@ -18,24 +19,6 @@ function isAreaWarnings(v: unknown): v is AreaWarnings {
     typeof o.areaCode === "string" &&
     Array.isArray(o.warnings)
   );
-}
-
-// Home banner only surfaces 警報 and 特別警報 — keeping 注意報 silent so
-// the landing page does not turn into a yellow stripe every time the wind
-// picks up. The detailed list still lives on /weather.
-export function escalateBannerWarnings(
-  data: AreaWarnings,
-): { warnings: readonly NormalizedWarning[]; topTier: "special" | "warning" } | null {
-  const escalated = data.warnings.filter(
-    (w) => w.tier === "special" || w.tier === "warning",
-  );
-  if (escalated.length === 0) return null;
-  const topTier: "special" | "warning" = escalated.some(
-    (w) => w.tier === "special",
-  )
-    ? "special"
-    : "warning";
-  return { warnings: escalated, topTier };
 }
 
 const TIER_STYLE: Record<"special" | "warning", { container: string; badge: string; label: string }> = {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { KanjiText } from "@/components/Furigana";
 import { formatDateTime } from "@/lib/i18n/datetime";
+import { pickBannerQuake } from "@/lib/jma/banner";
 import type { NormalizedQuake, QuakeFeed } from "@/lib/jma/quake";
 
 type State =
@@ -15,30 +16,6 @@ function isQuakeFeed(v: unknown): v is QuakeFeed {
   if (v == null || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
   return Array.isArray(o.events) && typeof o.feltInKotoCount === "number";
-}
-
-// Only surface quakes the ward actually felt — banner is a "did the
-// ground just move?" signal, not a national feed. Anything older than
-// HORIZON_MS or below MIN_SHINDO_DIGIT is silent.
-const HORIZON_MS = 24 * 60 * 60 * 1000;
-const MIN_SHINDO_DIGIT = 2;
-
-export function pickBannerQuake(
-  feed: QuakeFeed,
-  now: Date,
-): NormalizedQuake | null {
-  for (const q of feed.events) {
-    if (q.kotoShindo == null) continue;
-    const head = q.kotoShindo[0];
-    if (head == null) continue;
-    const digit = Number.parseInt(head, 10);
-    if (!Number.isFinite(digit) || digit < MIN_SHINDO_DIGIT) continue;
-    const occurredMs = Date.parse(q.occurredAt);
-    if (!Number.isFinite(occurredMs)) continue;
-    if (now.getTime() - occurredMs > HORIZON_MS) continue;
-    return q;
-  }
-  return null;
 }
 
 function shindoTone(maxi: string): string {
