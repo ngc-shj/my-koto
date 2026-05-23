@@ -66,14 +66,14 @@ export default function HomePage() {
         </a>
         <a
           href="/map"
-          aria-label="区民マップ — AED・避難所・公園・図書館など"
+          aria-label="区民マップ — AED・避難所・公園・駅・病院など"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
           <div className="text-lg font-medium">
             <KanjiText text="区民マップ" />
           </div>
           <div className="text-sm text-gray-500 mt-1">
-            <KanjiText text="AED・避難所・公園・図書館など" />
+            <KanjiText text="AED・避難所・公園・駅・病院など" />
           </div>
         </a>
         <a
@@ -87,26 +87,26 @@ export default function HomePage() {
         </a>
         <a
           href="/weather"
-          aria-label="天気・暑さ指数 — 気温・降水確率・WBGT"
+          aria-label="天気・防災情報 — 気温・WBGT・気象警報・地震情報"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
           <div className="text-lg font-medium">
-            <KanjiText text="天気・暑さ指数" />
+            <KanjiText text="天気・防災情報" />
           </div>
           <div className="text-sm text-gray-500 mt-1">
-            <KanjiText text="気温・降水確率・WBGT" />
+            <KanjiText text="気温・WBGT・気象警報・地震情報" />
           </div>
         </a>
         <Link
           href="/bus"
-          aria-label="バス時刻表 — 都営バス系統・停留所別の発車時刻"
+          aria-label="バス時刻表 — 都営バス・しおかぜ・バス停名で検索"
           className="block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
         >
           <div className="text-lg font-medium">
             <KanjiText text="バス時刻表" />
           </div>
           <div className="text-sm text-gray-500 mt-1">
-            <KanjiText text="都営バス・系統と停留所で検索" />
+            <KanjiText text="都営バス・しおかぜ・バス停名で検索" />
           </div>
         </Link>
         <a
