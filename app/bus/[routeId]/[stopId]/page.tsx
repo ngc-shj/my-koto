@@ -129,6 +129,16 @@ export default async function StopPage({
         />
       </div>
 
+      <div className="mt-4">
+        <Link
+          href={`/map?layers=bus_stop&focus=${encodeURIComponent(`bus-stop-${stop.stopId}`)}`}
+          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+        >
+          <KanjiText text="地図でこのバス停を見る" />
+          <span aria-hidden="true">→</span>
+        </Link>
+      </div>
+
       {route.directions.length > 1 && (
         <nav aria-label="反対方向" className="mt-6">
           <ul className="flex gap-2 flex-wrap text-sm">

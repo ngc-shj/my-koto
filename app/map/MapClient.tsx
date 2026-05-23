@@ -84,6 +84,11 @@ type UserLocation = { lat: number; lng: number } | null;
 type Props = {
   points: MapPoint[];
   initialFilters: MapFilters;
+  // When set, the map flies to and selects the point with this id on
+  // first ready. Used by deep links like /map?focus=bus-stop-... so a
+  // 区民 jumping from /bus lands on the pin instead of having to find
+  // it by hand.
+  initialFocusId?: string | null;
 };
 
 const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
@@ -92,7 +97,11 @@ const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
   osm: "OSM",
 };
 
-export default function MapClient({ points, initialFilters }: Props) {
+export default function MapClient({
+  points,
+  initialFilters,
+  initialFocusId = null,
+}: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -464,6 +473,20 @@ export default function MapClient({ points, initialFilters }: Props) {
     setSelectedPoint(point);
     mapRef.current?.flyTo({ center: [point.lng, point.lat], zoom: 17 });
   }
+
+  // Handle ?focus=<id> deep links exactly once. We watch mapReady so the
+  // flyTo call fires after MapLibre has finished its first paint, and use
+  // a ref-guard so the effect is a no-op after the user starts interacting
+  // (otherwise filters/radius changes would re-trigger the initial focus).
+  const focusAppliedRef = useRef(false);
+  useEffect(() => {
+    if (focusAppliedRef.current) return;
+    if (!mapReady || initialFocusId == null) return;
+    const target = points.find((p) => p.id === initialFocusId);
+    if (target == null) return;
+    focusAppliedRef.current = true;
+    focusPoint(target);
+  }, [mapReady, initialFocusId, points]);
 
   const googleMapsUrl = selectedPoint
     ? `https://www.google.com/maps?q=${selectedPoint.lat},${selectedPoint.lng}`

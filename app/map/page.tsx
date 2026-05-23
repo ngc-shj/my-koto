@@ -57,7 +57,7 @@ export const metadata: Metadata = {
 // covers without having to expand the toggle panel; explicit URLs keep
 // their narrower behaviour for bookmarks coming in from /gomi → AED quick
 // links etc.
-type SearchParams = { layers?: string; type?: string };
+type SearchParams = { layers?: string; type?: string; focus?: string };
 
 function parseLayersParam(raw: string | undefined): LayerId[] {
   if (!raw) return [...LAYER_IDS];
@@ -76,6 +76,7 @@ export default async function MapPage({
 }) {
   const params = await searchParams;
   const activeTypes = parseLayersParam(params.layers ?? params.type);
+  const initialFocusId = typeof params.focus === "string" ? params.focus : null;
 
   const allPoints = [
     ...parseAedData(aedRaw),
@@ -136,7 +137,11 @@ export default async function MapPage({
         </p>
       </header>
       <div className="flex-1 overflow-hidden">
-        <MapClient points={allPoints} initialFilters={initialFilters} />
+        <MapClient
+          points={allPoints}
+          initialFilters={initialFilters}
+          initialFocusId={initialFocusId}
+        />
       </div>
     </div>
   );
