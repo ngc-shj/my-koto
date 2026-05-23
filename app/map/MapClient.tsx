@@ -483,6 +483,18 @@ export default function MapClient({ points, initialFilters }: Props) {
 
   const activeLayerCount = activeLayerIds.length;
 
+  // Per-layer point counts derived from the merged catalog (bundled +
+  // dynamic OSM). OSM-only layers start at 0 until the viewport fetch
+  // returns, so the chip badge naturally appears once data is available.
+  const pointCountByLayer = useMemo(() => {
+    const counts = new Map<LayerId, number>();
+    for (const p of mergedPoints) {
+      if (!isLayerId(p.type)) continue;
+      counts.set(p.type, (counts.get(p.type) ?? 0) + 1);
+    }
+    return counts;
+  }, [mergedPoints]);
+
   const selectedLayer = selectedPoint && isLayerId(selectedPoint.type)
     ? getLayer(selectedPoint.type)
     : null;
@@ -543,6 +555,7 @@ export default function MapClient({ points, initialFilters }: Props) {
                         key={l.id}
                         layer={l}
                         active={filters.layers[l.id] === true}
+                        count={pointCountByLayer.get(l.id) ?? 0}
                         onClick={() => toggleLayer(l.id)}
                       />
                     ))}
@@ -763,17 +776,24 @@ export default function MapClient({ points, initialFilters }: Props) {
 function LayerChip({
   layer,
   active,
+  count,
   onClick,
 }: {
   layer: (typeof LAYERS)[number];
   active: boolean;
+  // Number of merged points currently classified under this layer. Zero
+  // is rendered as a hint (OSM layers stay 0 until the user toggles them
+  // on and the viewport fetch returns), so we suppress the badge then.
+  count: number;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={layer.label}
+      aria-label={
+        count > 0 ? `${layer.label} (${count} 件)` : layer.label
+      }
       // eslint-disable-next-line jsx-a11y/aria-proptypes
       aria-pressed={active ? "true" : "false"}
       className="text-xs px-3 py-1 rounded-full border transition-colors flex items-center gap-1.5"
@@ -802,6 +822,14 @@ function LayerChip({
         {layer.letter}
       </span>
       <KanjiText text={layer.shortLabel} />
+      {count > 0 && (
+        <span
+          aria-hidden="true"
+          className="ml-0.5 text-[10px] tabular-nums opacity-80"
+        >
+          {count >= 1000 ? `${Math.floor(count / 100) / 10}k` : count}
+        </span>
+      )}
     </button>
   );
 }
