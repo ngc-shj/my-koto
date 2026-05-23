@@ -68,11 +68,20 @@ export function buildBusRouteLines(data: BusToeiData): BusRouteLines {
   for (const route of data.routes) {
     const color = routeColor(route.routeId);
     for (const dir of route.directions) {
-      const coords: [number, number][] = [];
-      for (const stopId of dir.stopSequence) {
-        const stop = data.stops[stopId];
-        if (stop == null) continue;
-        coords.push([stop.lng, stop.lat]);
+      // GTFS shapes.txt gives a road-following polyline; prefer it when
+      // present and only fall back to the stopSequence-connected line
+      // when the operator didn't publish a shape for this direction.
+      let coords: readonly (readonly [number, number])[] = [];
+      if (dir.shape != null && dir.shape.length >= 2) {
+        coords = dir.shape;
+      } else {
+        const stopCoords: [number, number][] = [];
+        for (const stopId of dir.stopSequence) {
+          const stop = data.stops[stopId];
+          if (stop == null) continue;
+          stopCoords.push([stop.lng, stop.lat]);
+        }
+        coords = stopCoords;
       }
       // A LineString needs at least two points to render.
       if (coords.length < 2) continue;

@@ -119,6 +119,14 @@ const TripRowSchema = z.object({
   service_id: z.string().min(1),
   direction_id: z.string().default("0"),
   trip_headsign: z.string().default(""),
+  shape_id: z.string().default(""),
+});
+
+const ShapeRowSchema = z.object({
+  shape_id: z.string().min(1),
+  shape_pt_lat: z.string().min(1),
+  shape_pt_lon: z.string().min(1),
+  shape_pt_sequence: z.string().min(1),
 });
 
 const CalendarRowSchema = z.object({
@@ -197,6 +205,40 @@ type StopTime = {
   sequence: number;
 };
 
+function groupShapes(
+  rows: readonly CsvRow[],
+): Map<string, [number, number][]> {
+  type Point = { sequence: number; lng: number; lat: number };
+  const buckets = new Map<string, Point[]>();
+  for (const raw of rows) {
+    const parsed = ShapeRowSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    const lat = parseFloat(parsed.data.shape_pt_lat);
+    const lng = parseFloat(parsed.data.shape_pt_lon);
+    const seq = parseInt(parsed.data.shape_pt_sequence, 10);
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      !Number.isFinite(seq)
+    ) {
+      continue;
+    }
+    const arr = buckets.get(parsed.data.shape_id) ?? [];
+    arr.push({ sequence: seq, lng, lat });
+    buckets.set(parsed.data.shape_id, arr);
+  }
+  const out = new Map<string, [number, number][]>();
+  for (const [shapeId, pts] of buckets) {
+    pts.sort((a, b) => a.sequence - b.sequence);
+    // Tuple order matches MapLibre's [lng, lat] convention.
+    out.set(
+      shapeId,
+      pts.map((p) => [p.lng, p.lat] as [number, number]),
+    );
+  }
+  return out;
+}
+
 function groupStopTimesByTrip(
   rows: readonly CsvRow[],
 ): Map<string, StopTime[]> {
@@ -262,6 +304,10 @@ function buildRoutes(args: {
   trips: Map<string, z.infer<typeof TripRowSchema>>;
   stopTimesByTrip: Map<string, StopTime[]>;
   serviceCategories: Map<string, readonly ServiceCategory[]>;
+  // shape_id → ordered list of [lng, lat] points (already sorted by
+  // shape_pt_sequence). Only shapes referenced by Koto trips are
+  // included so the bundle stays small.
+  shapes: Map<string, [number, number][]>;
 }): BuildResult {
   const tripsByRouteDir = new Map<string, string[]>();
   const referencedStopIds = new Set<string>();
@@ -308,6 +354,34 @@ function buildRoutes(args: {
     }
     const headsign = pickMostFrequent(headsignCount, "");
 
+    // Pick the shape used by the most trips in this direction; ties
+    // resolve by point count (longer shapes are more useful).
+    const shapeUsage = new Map<string, number>();
+    for (const tid of tripIds) {
+      const trip = args.trips.get(tid);
+      if (trip == null) continue;
+      const sid = trip.shape_id;
+      if (sid.length === 0) continue;
+      shapeUsage.set(sid, (shapeUsage.get(sid) ?? 0) + 1);
+    }
+    let canonicalShape: [number, number][] | undefined;
+    let canonicalShapeId = "";
+    let canonicalUsage = -1;
+    for (const [sid, usage] of shapeUsage) {
+      const pts = args.shapes.get(sid);
+      if (pts == null || pts.length < 2) continue;
+      const isMoreUsed = usage > canonicalUsage;
+      const isLongerTie =
+        usage === canonicalUsage &&
+        pts.length > (canonicalShape?.length ?? 0);
+      if (isMoreUsed || isLongerTie) {
+        canonicalShape = pts;
+        canonicalShapeId = sid;
+        canonicalUsage = usage;
+      }
+    }
+    void canonicalShapeId; // referenced for future logging only
+
     const schedule = {
       weekday: aggregateSchedule(tripIds, "weekday", args),
       saturday: aggregateSchedule(tripIds, "saturday", args),
@@ -331,6 +405,7 @@ function buildRoutes(args: {
       directionId: dir,
       headsign,
       stopSequence,
+      shape: canonicalShape,
       schedule,
     });
   }
@@ -418,6 +493,11 @@ async function main(): Promise<void> {
   const calendarRows = parseCsv(readEntry(zip, "calendar.txt"));
   const feedInfoRows = parseCsv(readEntry(zip, "feed_info.txt"));
   const stopTimesRows = parseCsv(readEntry(zip, "stop_times.txt"));
+  // shapes.txt is optional in GTFS-JP; if it's missing we just fall
+  // back to stop-connected polylines downstream.
+  const shapesRows = zip.getEntry("shapes.txt")
+    ? parseCsv(readEntry(zip, "shapes.txt"))
+    : [];
 
   const stops = pickKotoStops(stopsRows);
   console.log(`Stops inside Koto bbox: ${stops.size}`);
@@ -445,6 +525,8 @@ async function main(): Promise<void> {
   }
 
   const kotoStopIds = new Set(stops.keys());
+  const shapes = groupShapes(shapesRows);
+  console.log(`Shapes parsed: ${shapes.size}`);
   const built = buildRoutes({
     stops,
     kotoStopIds,
@@ -452,6 +534,7 @@ async function main(): Promise<void> {
     trips,
     stopTimesByTrip,
     serviceCategories,
+    shapes,
   });
 
   console.log(`Routes serving Koto: ${built.routes.length}`);

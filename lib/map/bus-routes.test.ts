@@ -92,6 +92,34 @@ describe("buildBusRouteLines", () => {
     );
     expect(r1Outbound?.geometry.coordinates).toHaveLength(2);
   });
+
+  it("uses the GTFS shape when available instead of stop-connected geometry", () => {
+    const data = sampleData();
+    // Replace R1 dir 0's geometry with a fake road-following shape that
+    // does NOT match the stops. The renderer should still pick it.
+    const data2: BusToeiData = {
+      ...data,
+      routes: data.routes.map((r) =>
+        r.routeId === "R1"
+          ? {
+              ...r,
+              directions: r.directions.map((d) =>
+                d.directionId === "0"
+                  ? { ...d, shape: [[140.5, 35.5], [140.6, 35.6], [140.7, 35.7]] }
+                  : d,
+              ),
+            }
+          : r,
+      ),
+    };
+    const result = buildBusRouteLines(data2);
+    const r1Outbound = result.features.find(
+      (f) =>
+        f.properties.routeId === "R1" && f.properties.directionId === "0",
+    );
+    expect(r1Outbound?.geometry.coordinates[0]).toEqual([140.5, 35.5]);
+    expect(r1Outbound?.geometry.coordinates).toHaveLength(3);
+  });
 });
 
 describe("routeColor", () => {

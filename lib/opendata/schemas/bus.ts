@@ -23,10 +23,22 @@ const StopDeparturesSchema = z.object({
   times: z.array(BusTimeSchema).readonly(),
 });
 
+// [lng, lat] tuple matching MapLibre's GeoJSON ordering. We do not type
+// this as `readonly` on the tuple level because the fetch script reads
+// GTFS shapes into mutable arrays and the rendered output is a
+// straight passthrough.
+const ShapePointSchema = z
+  .tuple([z.number().gte(-180).lte(180), z.number().gte(-90).lte(90)]);
+
 const DirectionPatternSchema = z.object({
   directionId: z.enum(["0", "1"]),
   headsign: z.string().min(1),
   stopSequence: z.array(z.string().min(1)).readonly(),
+  // Optional road-following geometry sourced from GTFS shapes.txt — when
+  // present the map draws this polyline; when absent (older bundles or
+  // routes whose trips referenced no shape) the renderer falls back to
+  // connecting stops in order.
+  shape: z.array(ShapePointSchema).readonly().optional(),
   schedule: z.object({
     weekday: z.array(StopDeparturesSchema).readonly(),
     saturday: z.array(StopDeparturesSchema).readonly(),
