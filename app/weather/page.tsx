@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { ja } from "date-fns/locale";
 import BackToHome from "@/components/BackToHome";
 import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
@@ -10,20 +8,13 @@ import ShareButton from "@/components/ShareButton";
 import JmaQuakePanel from "@/components/JmaQuakePanel";
 import JmaWarningPanel from "@/components/JmaWarningPanel";
 import WbgtPanel from "@/components/WbgtPanel";
+import { formatDayWithWeekday } from "@/lib/i18n/datetime";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
 import { cachedFetchJson } from "@/lib/client-cache";
 import { WEATHER_CACHE } from "@/config/cache";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-
-// "2026-05-04" → "5月4日(月)" — match WeatherWidget format on the home page
-// so date strings line up wherever the weather schema is rendered.
-function formatDailyDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00+09:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return format(d, "M月d日(E)", { locale: ja });
-}
 
 // Open-Meteo emits sunrise/sunset as "YYYY-MM-DDTHH:mm" without a tz suffix
 // (timezone=Asia/Tokyo means values are already local). Trim the date portion
@@ -135,9 +126,9 @@ export default function WeatherPage() {
           {state.data.daily ? (
             <section>
               <h2 className="text-lg font-semibold text-gray-800 mb-3">
-                <KanjiText text="当日・翌日の予報" />
+                <KanjiText text="今日・明日の予報" />
               </h2>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {state.data.daily.time.slice(0, 2).map((date, i) => {
                   const daily = state.data.daily!;
                   const maxTemp = daily.temperature_2m_max[i];
@@ -151,13 +142,19 @@ export default function WeatherPage() {
                   const sunset = formatTimeOfDay(daily.sunset?.[i]);
                   const windMax = daily.wind_speed_10m_max?.[i];
                   const windGusts = daily.wind_gusts_10m_max?.[i];
+                  const label = i === 0 ? "今日" : "明日";
                   return (
                     <div
                       key={date}
                       className="rounded-lg border border-gray-200 p-4"
                     >
-                      <div className="font-semibold text-gray-700 mb-2">
-                        {formatDailyDate(date)}
+                      <div className="font-semibold text-gray-700 mb-2 flex items-baseline gap-2 flex-wrap">
+                        <span>{label}</span>
+                        <span className="text-sm font-normal text-gray-500">
+                          {formatDayWithWeekday(
+                            new Date(`${date}T00:00:00+09:00`),
+                          )}
+                        </span>
                       </div>
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                         <dt className="text-gray-500">

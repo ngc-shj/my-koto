@@ -11,6 +11,19 @@ type State =
   | { status: "success"; data: QuakeFeed; fetchedAt: Date }
   | { status: "error" };
 
+// Default view hides weak quakes nobody felt locally — 震度1〜2 nationwide
+// fill the list daily and bury the events that matter. 江東区 で有感の地震は
+// 震度に関わらず必ず残す。
+const DEFAULT_MIN_SHINDO_DIGIT = 3;
+
+function meetsDefaultFilter(q: NormalizedQuake): boolean {
+  if (q.kotoShindo != null) return true;
+  const head = q.maxShindo[0];
+  if (head == null) return false;
+  const digit = Number.parseInt(head, 10);
+  return Number.isFinite(digit) && digit >= DEFAULT_MIN_SHINDO_DIGIT;
+}
+
 function isQuakeFeed(v: unknown): v is QuakeFeed {
   if (v == null || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
@@ -32,6 +45,7 @@ function shindoTone(maxi: string): string {
 
 export default function JmaQuakePanel() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -78,7 +92,9 @@ export default function JmaQuakePanel() {
   }
 
   const { data, fetchedAt } = state;
-  const events = data.events.slice(0, 5);
+  const filteredEvents = data.events.filter(meetsDefaultFilter);
+  const events = showAll ? data.events.slice(0, 10) : filteredEvents;
+  const hiddenCount = data.events.length - filteredEvents.length;
 
   return (
     <section className="space-y-3" aria-labelledby="jma-quake-heading">
@@ -98,7 +114,13 @@ export default function JmaQuakePanel() {
 
       {events.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-          <KanjiText text="直近の有感地震はありません。" />
+          <KanjiText
+            text={
+              showAll
+                ? "直近の有感地震はありません。"
+                : "直近で最大震度3以上の地震はありません。"
+            }
+          />
         </div>
       ) : (
         <ul className="space-y-2">
@@ -142,6 +164,25 @@ export default function JmaQuakePanel() {
             );
           })}
         </ul>
+      )}
+
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          aria-label={
+            showAll ? "震度1〜2を隠す" : `震度1〜2を${hiddenCount}件含めて表示`
+          }
+          className="text-xs text-blue-600 underline hover:text-blue-800"
+        >
+          <KanjiText
+            text={
+              showAll
+                ? "震度1〜2を隠す"
+                : `震度1〜2を${hiddenCount}件含めて表示`
+            }
+          />
+        </button>
       )}
 
       <DataFreshness lastModified={fetchedAt} label="取得日時" />

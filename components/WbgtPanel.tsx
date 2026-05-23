@@ -101,40 +101,42 @@ export default function WbgtPanel() {
         <p className="text-sm text-gray-600">{band.note}</p>
       </div>
 
-      <table className="w-full text-sm border-collapse">
-        <caption className="text-xs text-gray-500 text-left mb-1">
-          今後の予測 ({upcoming.length} 時点)
-        </caption>
-        <thead>
-          <tr className="text-xs text-gray-500 border-b border-gray-200">
-            <th className="text-left font-normal py-1.5 pr-2">時刻</th>
-            <th className="text-right font-normal py-1.5 px-2">WBGT</th>
-            <th className="text-left font-normal py-1.5 pl-2">レベル</th>
-          </tr>
-        </thead>
-        <tbody>
-          {upcoming.map((r: WbgtReading) => {
-            const b = classifyWbgt(r.wbgt);
-            return (
-              <tr key={r.datetime} className="border-b border-gray-100">
-                <td className="py-1.5 pr-2 text-gray-700">
-                  {formatDateTime(r.datetime)}
-                </td>
-                <td className="py-1.5 px-2 text-right font-medium text-gray-800">
-                  {r.wbgt.toFixed(1)} ℃
-                </td>
-                <td className="py-1.5 pl-2">
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${b.tone}`}
-                  >
-                    {b.label}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <details className="rounded-lg border border-gray-200 px-3 py-2">
+        <summary className="cursor-pointer text-sm text-gray-700 hover:text-gray-900">
+          今後の予測を見る ({upcoming.length} 時点)
+        </summary>
+        <table className="w-full text-sm border-collapse mt-2">
+          <thead>
+            <tr className="text-xs text-gray-500 border-b border-gray-200">
+              <th className="text-left font-normal py-1.5 pr-2">時刻</th>
+              <th className="text-right font-normal py-1.5 px-2">WBGT</th>
+              <th className="text-left font-normal py-1.5 pl-2">レベル</th>
+            </tr>
+          </thead>
+          <tbody>
+            {upcoming.map((r: WbgtReading) => {
+              const b = classifyWbgt(r.wbgt);
+              return (
+                <tr key={r.datetime} className="border-b border-gray-100">
+                  <td className="py-1.5 pr-2 text-gray-700">
+                    {formatDateTime(r.datetime)}
+                  </td>
+                  <td className="py-1.5 px-2 text-right font-medium text-gray-800">
+                    {r.wbgt.toFixed(1)} ℃
+                  </td>
+                  <td className="py-1.5 pl-2">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${b.tone}`}
+                    >
+                      {b.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </details>
 
       <DataFreshness lastModified={state.fetchedAt} label="取得日時" />
 
