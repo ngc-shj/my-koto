@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { messages } from "@/lib/i18n/messages";
+import JmaQuakeBanner from "@/components/JmaQuakeBanner";
 import JmaWarningBanner from "@/components/JmaWarningBanner";
 import ShareButton from "@/components/ShareButton";
 import TodaySummary from "@/components/TodaySummary";
@@ -44,8 +45,9 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="mb-4">
+      <div className="mb-4 space-y-2">
         <JmaWarningBanner />
+        <JmaQuakeBanner />
       </div>
 
       <div className="mb-8">
