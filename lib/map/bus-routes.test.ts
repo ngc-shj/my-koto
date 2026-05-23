@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildBusRouteLegend, buildBusRouteLines, routeColor } from "./bus-routes";
+import {
+  buildBusRouteLegend,
+  buildBusRouteLines,
+  buildStopRouteIndex,
+  routeColor,
+} from "./bus-routes";
 import type { BusToeiData } from "@/lib/opendata/schemas/bus";
 
 function sampleData(): BusToeiData {
@@ -129,6 +134,52 @@ describe("routeColor", () => {
 
   it("differs across distinct route ids in the common case", () => {
     expect(routeColor("業10")).not.toBe(routeColor("海01"));
+  });
+});
+
+describe("buildStopRouteIndex", () => {
+  it("maps each stop to every route+direction passing through it", () => {
+    const index = buildStopRouteIndex(sampleData());
+    // Stop a is in R1 dir 0 (a, b, c) AND R1 dir 1 (c, a) AND R2 dir 0 (a)
+    const a = index.a ?? [];
+    expect(a.map((e) => `${e.routeId}:${e.directionId}`)).toEqual([
+      "R1:0",
+      "R1:1",
+      "R2:0",
+    ]);
+  });
+
+  it("returns no entry for stops not in any direction", () => {
+    const index = buildStopRouteIndex(sampleData());
+    expect(index["nope"]).toBeUndefined();
+  });
+
+  it("dedupes when the same route+direction lists a stop twice (loop)", () => {
+    // Make R1 dir 0 visit "a" at start and end (a loop).
+    const data = sampleData();
+    const r1 = data.routes[0];
+    if (r1 == null) throw new Error("missing R1");
+    const looped = {
+      ...data,
+      routes: [
+        {
+          ...r1,
+          directions: r1.directions.map((d) =>
+            d.directionId === "0"
+              ? { ...d, stopSequence: ["a", "b", "c", "a"] }
+              : d,
+          ),
+        },
+        ...data.routes.slice(1),
+      ],
+    };
+    const index = buildStopRouteIndex(looped);
+    const a = index.a ?? [];
+    // a should still appear only once for R1:0 (no duplicate).
+    const r1Outbound = a.filter(
+      (e) => e.routeId === "R1" && e.directionId === "0",
+    );
+    expect(r1Outbound).toHaveLength(1);
   });
 });
 

@@ -14,6 +14,7 @@ import { displayRouteName } from "@/lib/bus/aliases";
 import type {
   BusRouteLegendEntry,
   BusRouteLines,
+  StopRouteIndex,
 } from "@/lib/map/bus-routes";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { filterPoints, nearestPoints } from "@/lib/map/filter";
@@ -101,6 +102,11 @@ type Props = {
   // One entry per route for the in-panel legend. Pre-sorted by ja
   // shortName so the rendered list is stable.
   busRouteLegend?: readonly BusRouteLegendEntry[];
+  // Reverse index `stopId → routes serving it`. Drives the
+  // "この停留所を通る系統" section of the detail panel so clicking a
+  // bus_stop pin reveals which lines pass through it and lets the
+  // user pick one to highlight.
+  busStopRouteIndex?: StopRouteIndex;
 };
 
 const SOURCE_LABELS: Record<NonNullable<MapPoint["source"]>, string> = {
@@ -115,6 +121,7 @@ export default function MapClient({
   initialFocusId = null,
   busRouteLines,
   busRouteLegend,
+  busStopRouteIndex,
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
@@ -908,6 +915,17 @@ export default function MapClient({
             </p>
           )}
 
+          {selectedPoint.type === "bus_stop" && busStopRouteIndex != null && (
+            <BusStopRoutesSection
+              stopId={selectedPoint.id.replace(/^bus-stop-/, "")}
+              index={busStopRouteIndex}
+              highlightedRouteId={highlightedRouteId}
+              onPick={(id) =>
+                setHighlightedRouteId((prev) => (prev === id ? null : id))
+              }
+            />
+          )}
+
           {selectedPoint.note && (
             <p className="text-xs text-gray-500 mt-2">{selectedPoint.note}</p>
           )}
@@ -1015,6 +1033,63 @@ function FilterChip({
   );
 }
 
+function BusStopRoutesSection({
+  stopId,
+  index,
+  highlightedRouteId,
+  onPick,
+}: {
+  stopId: string;
+  index: StopRouteIndex;
+  highlightedRouteId: string | null;
+  onPick: (routeId: string) => void;
+}) {
+  const serving = index[stopId];
+  if (serving == null || serving.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <p className="text-xs font-semibold text-slate-600 mb-1">
+        この停留所を通る系統 ({serving.length} 件)
+      </p>
+      <p className="text-xs text-slate-500 mb-2">
+        系統を選ぶと該当の路線だけが地図上に残ります。もう一度押すと全表示に戻ります。
+      </p>
+      <ul className="grid grid-cols-1 gap-1">
+        {serving.map((s) => {
+          const isActive = s.routeId === highlightedRouteId;
+          return (
+            <li key={`${s.routeId}-${s.directionId}`}>
+              <button
+                type="button"
+                onClick={() => onPick(s.routeId)}
+                // eslint-disable-next-line jsx-a11y/aria-proptypes
+                aria-pressed={isActive ? "true" : "false"}
+                className={`w-full flex items-center gap-2 text-left px-2 py-1.5 rounded border ${
+                  isActive
+                    ? "bg-amber-100 text-amber-900 border-amber-300"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-3 h-2 rounded-sm flex-shrink-0"
+                  style={{ backgroundColor: s.color }}
+                />
+                <span className="font-medium tabular-nums">
+                  {displayRouteName(s.shortName)}
+                </span>
+                <span className="text-xs text-slate-500 truncate">
+                  {s.headsign} 方面
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function BusRouteLegend({
   entries,
   highlightedRouteId,
@@ -1028,13 +1103,16 @@ function BusRouteLegend({
     <details className="pt-2 border-t border-slate-100" open={highlightedRouteId != null}>
       <summary className="cursor-pointer text-xs font-semibold text-slate-500 select-none">
         路線凡例 ({entries.length} 系統)
+        <span className="ml-2 font-normal text-slate-400">
+          — 系統名をクリックでその路線だけ表示
+        </span>
         {highlightedRouteId != null && (
           <span className="ml-2 text-amber-700">
-            ハイライト中 — もう一度押すと解除
+            (もう一度押すと解除)
           </span>
         )}
       </summary>
-      <ul className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 max-h-48 overflow-y-auto">
+      <ul className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 max-h-80 overflow-y-auto">
         {entries.map((entry) => {
           const isActive = entry.routeId === highlightedRouteId;
           return (

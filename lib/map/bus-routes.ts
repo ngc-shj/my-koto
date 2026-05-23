@@ -63,6 +63,49 @@ export function buildBusRouteLegend(
     .sort((a, b) => a.shortName.localeCompare(b.shortName, "ja"));
 }
 
+// Reverse index: which routes (with direction + headsign) serve a given
+// stop id. Used by the /map detail panel so clicking a bus stop pin
+// reveals the bus systems passing through it and lets the user pick one
+// to highlight.
+export type StopRouteServing = {
+  readonly routeId: string;
+  readonly shortName: string;
+  readonly directionId: "0" | "1";
+  readonly headsign: string;
+  readonly color: string;
+};
+
+export type StopRouteIndex = Readonly<Record<string, readonly StopRouteServing[]>>;
+
+export function buildStopRouteIndex(data: BusToeiData): StopRouteIndex {
+  const index = new Map<string, StopRouteServing[]>();
+  for (const route of data.routes) {
+    const color = routeColor(route.routeId);
+    for (const dir of route.directions) {
+      for (const stopId of dir.stopSequence) {
+        const arr = index.get(stopId) ?? [];
+        // Skip if the same route+direction was already pushed (a route
+        // sometimes lists the same stop twice on a loop).
+        const dup = arr.some(
+          (e) => e.routeId === route.routeId && e.directionId === dir.directionId,
+        );
+        if (dup) continue;
+        arr.push({
+          routeId: route.routeId,
+          shortName: route.shortName,
+          directionId: dir.directionId,
+          headsign: dir.headsign,
+          color,
+        });
+        index.set(stopId, arr);
+      }
+    }
+  }
+  const out: Record<string, StopRouteServing[]> = {};
+  for (const [k, v] of index) out[k] = v;
+  return out;
+}
+
 export function buildBusRouteLines(data: BusToeiData): BusRouteLines {
   const features: BusRouteLineFeature[] = [];
   for (const route of data.routes) {

@@ -32,14 +32,17 @@ import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
 import {
   buildBusRouteLegend,
   buildBusRouteLines,
+  buildStopRouteIndex,
   type BusRouteLegendEntry,
   type BusRouteLines,
+  type StopRouteIndex,
 } from "@/lib/map/bus-routes";
 
 function loadBusBundle(): {
   stops: MapPoint[];
   routes: BusRouteLines;
   legend: readonly BusRouteLegendEntry[];
+  stopRouteIndex: StopRouteIndex;
 } {
   const data = BusToeiDataSchema.parse(busRaw);
   const stops: MapPoint[] = Object.values(data.stops).map((s) => ({
@@ -55,6 +58,7 @@ function loadBusBundle(): {
     stops,
     routes: buildBusRouteLines(data),
     legend: buildBusRouteLegend(data),
+    stopRouteIndex: buildStopRouteIndex(data),
   };
 }
 
@@ -157,6 +161,7 @@ export default async function MapPage({
           points={allPoints}
           busRouteLines={bus.routes}
           busRouteLegend={bus.legend}
+          busStopRouteIndex={bus.stopRouteIndex}
           initialFilters={initialFilters}
           initialFocusId={initialFocusId}
         />
