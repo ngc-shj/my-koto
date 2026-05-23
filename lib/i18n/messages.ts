@@ -10,7 +10,7 @@ export const messages = {
   footer: {
     disclaimer: "このサイトは江東区の公式サイトではありません。",
     attribution:
-      "江東区・東京都が提供するオープンデータを CC-BY 4.0 のもとで利用しています。",
+      "江東区・東京都・気象庁・国土地理院など、各種オープンデータを出典明示の上で利用しています。詳細は「このサイトについて」をご覧ください。",
     licenseLabel: "CC-BY 4.0",
     licenseUrl: "https://creativecommons.org/licenses/by/4.0/deed.ja",
   },
@@ -30,7 +30,7 @@ export const messages = {
     officialDisclaimer: "このサイトは江東区の公式サイトではありません。",
     operator: "運営: 個人 (非公式)",
     copyright:
-      "掲載データの著作権は各提供元 (東京都・江東区、国土地理院、Open-Meteo 等) に帰属します。",
+      "掲載データの著作権は各提供元 (東京都・江東区、気象庁、環境省、国土地理院、Open-Meteo、東京都交通局、OpenStreetMap contributors 等) に帰属します。",
     license: "データライセンス: CC-BY 4.0",
   },
   privacy: {
