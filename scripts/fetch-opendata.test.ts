@@ -3,7 +3,17 @@ import { writeFileSync, existsSync, readFileSync, mkdirSync, rmSync } from "node
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
-import { validateAndPersist, fetchJson, parseWbgtCsv } from "./fetch-opendata";
+import {
+  validateAndPersist,
+  parseWbgtCsv,
+  ckanResolveCsvUrl,
+  fetchCsvText,
+  toAedRecord,
+  toToiletRecord,
+  toGomiRecord,
+  toEventRecord,
+  parseWeekdays,
+} from "./fetch-opendata";
 
 const TMP_DIR = join(tmpdir(), "koto-test-" + Date.now());
 
@@ -82,22 +92,42 @@ describe("validateAndPersist", () => {
   });
 });
 
-describe("fetchJson", () => {
-  function makeRes(body: unknown, init: ResponseInit & { contentType?: string }): Response {
-    return new Response(typeof body === "string" ? body : JSON.stringify(body), {
-      status: init.status ?? 200,
-      headers: { "Content-Type": init.contentType ?? "application/json" },
+describe("ckanResolveCsvUrl", () => {
+  function jsonRes(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
-  it("calls fetch with redirect: 'manual' and an AbortSignal", async () => {
-    let captured: RequestInit | undefined;
-    const fakeFetch = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
-      captured = init;
-      return makeRes({ ok: true }, { contentType: "application/json" });
-    }) as unknown as typeof fetch;
+  it("returns the first resource URL matching the pattern", async () => {
+    const fakeFetch = vi.fn(
+      async () =>
+        jsonRes({
+          result: {
+            resources: [
+              { url: "https://example.com/skip.json" },
+              { url: "https://example.com/koto/131083_001_aed.csv" },
+            ],
+          },
+        }),
+    ) as unknown as typeof fetch;
+    await expect(
+      ckanResolveCsvUrl("t131083d0000000027", /aed.*\.csv$/i, fakeFetch),
+    ).resolves.toBe("https://example.com/koto/131083_001_aed.csv");
+  });
 
-    await fetchJson("https://example.com/api", fakeFetch);
+  it("threads UA + AbortSignal + redirect:'manual' onto the request", async () => {
+    let captured: RequestInit | undefined;
+    const fakeFetch = vi.fn(
+      async (_u: RequestInfo | URL, init?: RequestInit) => {
+        captured = init;
+        return jsonRes({
+          result: { resources: [{ url: "https://example.com/x.csv" }] },
+        });
+      },
+    ) as unknown as typeof fetch;
+    await ckanResolveCsvUrl("d", /\.csv$/, fakeFetch);
     expect(captured?.redirect).toBe("manual");
     expect(captured?.signal).toBeInstanceOf(AbortSignal);
     const headers = captured?.headers as Record<string, string> | Headers;
@@ -108,31 +138,190 @@ describe("fetchJson", () => {
     expect(ua).toContain("koto-city");
   });
 
-  it("throws on non-2xx status", async () => {
+  it("throws on non-2xx", async () => {
     const fakeFetch = vi.fn(
-      async () => makeRes("err", { status: 502, contentType: "text/plain" }),
+      async () => new Response("err", { status: 500 }),
     ) as unknown as typeof fetch;
-    await expect(fetchJson("https://example.com/api", fakeFetch)).rejects.toThrow(
-      /HTTP 502/,
+    await expect(
+      ckanResolveCsvUrl("d", /\.csv$/, fakeFetch),
+    ).rejects.toThrow(/CKAN HTTP 500/);
+  });
+
+  it("throws when no resource matches", async () => {
+    const fakeFetch = vi.fn(
+      async () =>
+        jsonRes({ result: { resources: [{ url: "https://example.com/x.json" }] } }),
+    ) as unknown as typeof fetch;
+    await expect(
+      ckanResolveCsvUrl("d", /\.csv$/, fakeFetch),
+    ).rejects.toThrow(/no resource matched/);
+  });
+});
+
+describe("fetchCsvText", () => {
+  it("strips a UTF-8 BOM from the head of the decoded body", async () => {
+    const fakeFetch = vi.fn(async () => {
+      const bom = Buffer.from([0xef, 0xbb, 0xbf]);
+      return new Response(Buffer.concat([bom, Buffer.from("a,b\n1,2", "utf-8")]), {
+        status: 200,
+      });
+    }) as unknown as typeof fetch;
+    await expect(fetchCsvText("https://x/y", "utf-8", fakeFetch)).resolves.toBe(
+      "a,b\n1,2",
     );
   });
 
-  it("rejects unexpected Content-Type", async () => {
+  it("decodes Shift_JIS bodies", async () => {
+    // "あ" in Shift_JIS = 0x82 0xa0
     const fakeFetch = vi.fn(
-      async () => makeRes("<html>", { status: 200, contentType: "text/html" }),
+      async () => new Response(Buffer.from([0x82, 0xa0]), { status: 200 }),
     ) as unknown as typeof fetch;
-    await expect(fetchJson("https://example.com/api", fakeFetch)).rejects.toThrow(
-      /Unexpected Content-Type/,
+    await expect(fetchCsvText("https://x/y", "shift-jis", fakeFetch)).resolves.toBe(
+      "あ",
     );
   });
 
-  it("accepts text/json as well as application/json", async () => {
+  it("throws on non-2xx", async () => {
     const fakeFetch = vi.fn(
-      async () => makeRes({ ok: true }, { status: 200, contentType: "text/json" }),
+      async () => new Response("nope", { status: 404 }),
     ) as unknown as typeof fetch;
-    await expect(fetchJson("https://example.com/api", fakeFetch)).resolves.toEqual({
-      ok: true,
+    await expect(fetchCsvText("https://x/y", "utf-8", fakeFetch)).rejects.toThrow(
+      /HTTP 404/,
+    );
+  });
+});
+
+describe("toAedRecord", () => {
+  it("maps CKAN columns to the legacy schema shape", () => {
+    expect(
+      toAedRecord({
+        名称: "有明西学園",
+        所在地_連結表記: "東京都江東区有明1-7-13",
+        緯度: "35.637038",
+        経度: "139.784381",
+        設置位置: "1階昇降口",
+        電話番号: "(03)3527-6401",
+        開始時間: "08:00:00",
+        終了時間: "16:00:00",
+        利用可能日時特記事項: "学校開庁日",
+      }),
+    ).toEqual({
+      名称: "有明西学園",
+      住所: "東京都江東区有明1-7-13",
+      緯度: "35.637038",
+      経度: "139.784381",
+      設置場所詳細: "1階昇降口",
+      利用可能時間: "08:00-16:00",
+      電話番号: "(03)3527-6401",
+      備考: "学校開庁日",
     });
+  });
+
+  it("leaves 利用可能時間 blank when start/end are missing", () => {
+    expect(
+      toAedRecord({ 名称: "X", 緯度: "1", 経度: "2" }).利用可能時間,
+    ).toBe("");
+  });
+});
+
+describe("toToiletRecord", () => {
+  it("flags 24h, multi-purpose, and gender availability from CSV counts", () => {
+    expect(
+      toToiletRecord({
+        名称: "豊洲公園トイレ",
+        所在地_連結表記: "東京都江東区豊洲2-3-6",
+        緯度: "35.65",
+        経度: "139.79",
+        男性トイレ総数: "2",
+        女性トイレ総数: "0",
+        バリアフリートイレ数: "1",
+        車椅子使用者用トイレ有無: "有",
+        利用開始時間: "0:00",
+        利用終了時間: "23:59",
+      }),
+    ).toMatchObject({
+      バリアフリー: "有",
+      二十四時間: "有",
+      男性用: "有",
+      女性用: "",
+      多目的: "有",
+    });
+  });
+});
+
+describe("parseWeekdays", () => {
+  it("parses dot-separated kanji weekdays", () => {
+    expect(parseWeekdays("月・木")).toEqual(["mon", "thu"]);
+  });
+
+  it("drops the （隔週） qualifier and keeps the day", () => {
+    expect(parseWeekdays("（隔週）土")).toEqual(["sat"]);
+  });
+
+  it("returns [] for empty / undefined", () => {
+    expect(parseWeekdays(undefined)).toEqual([]);
+    expect(parseWeekdays("")).toEqual([]);
+  });
+
+  it("dedupes repeated days", () => {
+    expect(parseWeekdays("月・月・水")).toEqual(["mon", "wed"]);
+  });
+});
+
+describe("toGomiRecord", () => {
+  it("maps a row from the Koto 廃棄物 CSV to the gomi schema shape", () => {
+    expect(
+      toGomiRecord({
+        じゅうしょ: "あおみ",
+        住所: "青海",
+        地区番号: "6",
+        燃やすごみ: "月・木",
+        燃やさないごみ: "（隔週）土",
+        プラスチック: "水",
+        資源: "金",
+      }),
+    ).toEqual({
+      地区ID: "6",
+      地区名: "青海",
+      燃やすごみ: ["mon", "thu"],
+      燃やさないごみ: ["sat"],
+      プラスチック: ["wed"],
+      資源ごみ: ["fri"],
+    });
+  });
+});
+
+describe("toEventRecord", () => {
+  it("renames イベント名→名称 and prefers URL over コンテンツURL", () => {
+    expect(
+      toEventRecord({
+        イベント名: "江東区民まつり",
+        開始日: "2026-05-17",
+        終了日: "2026-05-18",
+        場所名称: "木場公園",
+        所在地_連結表記: "東京都江東区木場4",
+        説明: "毎年恒例の区民まつり",
+        URL: "https://www.city.koto.lg.jp/event",
+        コンテンツURL: "http://example.com/insecure",
+        主催者: "江東区",
+      }),
+    ).toMatchObject({
+      名称: "江東区民まつり",
+      場所: "木場公園",
+      住所: "東京都江東区木場4",
+      URL: "https://www.city.koto.lg.jp/event",
+      主催: "江東区",
+    });
+  });
+
+  it("falls back to コンテンツURL only when it is https", () => {
+    expect(
+      toEventRecord({
+        イベント名: "X",
+        開始日: "2026-01-01",
+        コンテンツURL: "http://insecure.example.com",
+      }).URL,
+    ).toBeUndefined();
   });
 });
 

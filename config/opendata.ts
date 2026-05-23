@@ -1,14 +1,19 @@
 // Dataset IDs for Tokyo Open Data Catalog (Koto City organization).
-// Confirmed on 2026-05-04. All datasets are CC-BY 4.0.
+// Resolved via CKAN package_show — the older service.api.metro.tokyo.lg.jp
+// endpoint was retired in 2026 (now returns Azure 404). All datasets remain
+// CC-BY 4.0.
 export const DATASETS = {
-  gomi: "t131083d3100000009-671838441b8036aa352b967b5514a545",
+  gomi: "t131083d3100000009",
   aed: "t131083d0000000027",
   toilet: "t131083d0000000019",
-  events: "t131083d0000000017-252a3033bb76c746c8ee30c24a3a2b5a-0",
-  // gomi-dictionary: dataset ID to be confirmed on implementation day
+  events: "t131083d0000000017",
 } as const;
 
-export const TOKYO_OPEN_DATA_API_BASE = "https://service.api.metro.tokyo.lg.jp";
+// CKAN package_show endpoint — used by both fetch-opendata.ts and
+// generate-pois.ts to resolve the current resource URL for each dataset
+// (Tokyo Met rolls resource filenames per refresh).
+export const TOKYO_OPEN_DATA_CKAN_API =
+  "https://catalog.data.metro.tokyo.lg.jp/api/3/action/package_show";
 
 // WBGT observation point code for Tokyo area (Koto City vicinity).
 // Source: Ministry of the Environment Heat Illness Prevention Information Site

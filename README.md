@@ -131,9 +131,6 @@ node scripts/generate-districts.mjs
 # `tsx` 経由で TypeScript を直接実行 (lib/csv.ts と parser 共有)
 npx tsx scripts/generate-pois.ts
 
-# 開発時に東京都オープンデータ API のレスポンスを fixture として保存
-npx tsx scripts/refresh-fixtures.ts
-
 # 都営バス GTFS-JP → 江東区を通る系統に絞った data/bus-toei.json
 # (`adm-zip` で zip 解凍、CSV をストリームパース)
 npx tsx scripts/fetch-bus-toei.ts
