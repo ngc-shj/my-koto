@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { KanjiText } from "@/components/Furigana";
 import PageFooter from "@/components/PageFooter";
@@ -20,8 +21,6 @@ type Search = {
   stopId?: string;
   variant?: string;
 };
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
 async function loadRoute(routeId: string) {
   const data = await readBus(openDatasetsDb());
@@ -158,12 +157,9 @@ export default async function RoutePage({
 
         <PageFooter dataset="toei-bus">
           <p className="text-xs text-gray-400">
-            <a
-              href={`${SITE_URL}/bus`}
-              className="underline hover:text-gray-600"
-            >
+            <Link href="/bus" className="underline hover:text-gray-600">
               <KanjiText text="バス時刻表へ戻る" />
-            </a>
+            </Link>
           </p>
         </PageFooter>
       </main>
