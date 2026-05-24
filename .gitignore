@@ -60,25 +60,12 @@ yarn-error.log*
 # from the upstream CKAN-resolved URL on demand, then filters down to Koto-ku.
 __fixtures__/opendata/tokyo-*.csv
 
-# Datasets now served live via /api/datasets/{aed,toilet,events,gomi}.
-# If a developer runs the lib helpers locally for debugging and writes the
-# output to disk, don't let it sneak back into git. wbgt.json was on the
-# same pipeline; ignore it too.
-data/aed.json
-data/toilet.json
-data/events.json
-data/gomi.json
-data/wbgt.json
-
-# Generated at `predev`/`prebuild`/`pretest` by scripts/ensure-data.mjs.
-# Curated files (gomi-dictionary.json, gomi-schedule.json) stay tracked
-# because they have no upstream source.
-data/districts.json
-data/shelter.json
-data/assembly_point.json
-data/water_supply.json
-data/park.json
-data/library.json
-data/child_center.json
-data/nursery.json
-data/bus-toei.json
+# Everything under data/ is treated as a generated artefact by default —
+# either served live via /api/datasets/* or produced by ensure-data at
+# predev/prebuild/pretest. Curated files (gomi-dictionary.json,
+# gomi-schedule.json) are the explicit exceptions; any new dataset added
+# in the future is ignored automatically unless added to the allowlist
+# below.
+data/*
+!data/gomi-dictionary.json
+!data/gomi-schedule.json
