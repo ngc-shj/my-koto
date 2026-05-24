@@ -77,30 +77,38 @@
 
 ### 取得元 URI 一覧
 
-`scripts/generate-pois.ts` および `scripts/generate-districts.mjs` が
-fetch する CSV は以下の URI です。Tokyo Met dataset (避難所・避難場所・給水拠点)
-は CKAN package_show API で resource URL を解決するため、ファイル名のローテーション
-にスクリプト側が追従します。
+データの取得経路は 3 系統に分かれます (詳細は「データ配信アーキテクチャ」)：
 
-| レイヤ / 用途 | 取得元 |
-|---------------|--------|
-| 江東区 ゴミ収集 (区域) | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_collection_district.csv` |
-| 江東区 AED | `https://www.city.koto.lg.jp/012107/documents/131083_aed.csv` |
-| 江東区 公衆トイレ | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_toilet.csv` |
-| 江東区 公園 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-17_parks.csv` |
-| 江東区 図書館 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-25_libraries.csv` |
-| 江東区 児童館 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-9_childrensclubhouses.csv` |
-| 江東区 区立保育園 | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-10_municipal_childrens_daycare_centers.csv` |
-| 東京都 避難所 (CKAN) | dataset `t000003d0000000093` → `evacuation_center.csv` |
-| 東京都 避難場所 (CKAN) | dataset `t000003d0000000093` → `evacuation_area.csv` |
-| 東京都 給水拠点 (CKAN) | dataset `t000019d0000000001` → `kyoten_<yyyymmdd>.csv` |
-| 天気予報 | `https://api.open-meteo.com/v1/forecast` |
-| 地図タイル (国土地理院) | `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` |
-| OSM 補完 (Overpass) | `https://overpass-api.de/api/interpreter` |
-| WBGT 予測 (環境省) | `https://www.wbgt.env.go.jp/prev15WG/dl/yohou_44132.csv` (東京観測所) |
-| 都営バス GTFS-JP (ODPT 公開ミラー) | `https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip` |
-| 気象警報・注意報 (気象庁) | `https://www.jma.go.jp/bosai/warning/data/warning/130000.json` (東京都) |
-| 震源・震度情報 (気象庁) | `https://www.jma.go.jp/bosai/quake/data/list.json` |
+- **(A) ensure-data → libsql** — AED/トイレ/イベント/ゴミ/都営バスは CKAN または
+  HTTP の Conditional fetch (`metadata_modified` / `Last-Modified`) を経由し
+  `data/datasets.sqlite` へ同期。Tokyo Met dataset は CKAN package_show で
+  resource URL を毎回解決するためファイル名ローテーションに追従
+- **(B) generate-pois.ts / generate-districts.mjs → data/*.json** — SSR バンドル用の
+  静的データ (避難所・公園・図書館・児童館・保育園・給水拠点・収集ルート)
+- **(C) Edge proxy** — 天気 / JMA / WBGT / Overpass はランタイムに上流を叩いて
+  Vercel KV にキャッシュ
+
+| レイヤ / 用途 | 取得経路 | 取得元 |
+|---|---|---|
+| 江東区 AED | (A) libsql | CKAN `t131083d0000000027` → `opendata.metro.tokyo.lg.jp/koto/131083_008_aed.csv` |
+| 江東区 公衆トイレ | (A) libsql | CKAN `t131083d0000000019` → `opendata.metro.tokyo.lg.jp/koto/131083_013_public_toilet.csv` |
+| 江東区 イベント | (A) libsql | CKAN `t131083d0000000017` → `opendata.metro.tokyo.lg.jp/koto/131083_012_event.csv` |
+| 江東区 ゴミ収集 (収集日) | (A) libsql | CKAN `t131083d3100000009` → `opendata.metro.tokyo.lg.jp/koto/131083_201_kotocity_waste_recycle_collectionday.csv` (Shift_JIS) |
+| 都営バス GTFS-JP | (A) libsql (BLOB) | `https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip` (ODPT 公開ミラー) |
+| 江東区 ゴミ収集 (区域マスタ) | (B) JSON | `https://www.opendata.metro.tokyo.lg.jp/koto/131083_201_kotocity_waste_recycle_collectionday.csv` |
+| 江東区 公園 | (B) JSON | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-17_parks.csv` |
+| 江東区 図書館 | (B) JSON | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-25_libraries.csv` |
+| 江東区 児童館 | (B) JSON | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-9_childrensclubhouses.csv` |
+| 江東区 区立保育園 | (B) JSON | `https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_facility-10_municipal_childrens_daycare_centers.csv` |
+| 東京都 避難所 (CKAN) | (B) JSON | dataset `t000003d0000000093` → `evacuation_center.csv` |
+| 東京都 避難場所 (CKAN) | (B) JSON | dataset `t000003d0000000093` → `evacuation_area.csv` |
+| 東京都 給水拠点 (CKAN) | (B) JSON | dataset `t000019d0000000001` → `kyoten_<yyyymmdd>.csv` |
+| 天気予報 | (C) Edge proxy | `https://api.open-meteo.com/v1/forecast` |
+| 気象警報・注意報 (気象庁) | (C) Edge proxy | `https://www.jma.go.jp/bosai/warning/data/warning/130000.json` (東京都) |
+| 震源・震度情報 (気象庁) | (C) Edge proxy | `https://www.jma.go.jp/bosai/quake/data/list.json` |
+| WBGT 予測 (環境省) | (C) Edge proxy | `https://www.wbgt.env.go.jp/prev15WG/dl/yohou_44132.csv` (東京観測所) |
+| OSM 補完 (Overpass) | (C) Edge proxy | `https://overpass-api.de/api/interpreter` |
+| 地図タイル (国土地理院) | クライアント直接 | `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` |
 
 ## 開発環境セットアップ
 
@@ -130,30 +138,37 @@ npm run build
 ./scripts/dev.sh logs            # tail -f
 ./scripts/dev.sh stop            # 停止 + port 3000 解放
 ./scripts/dev.sh restart         # stop + start
-./scripts/dev.sh data            # data/*.json を欠落分だけ取り直し
-./scripts/dev.sh data --force            # 全グループ強制再取得
-./scripts/dev.sh data --check-upstream   # 上流の更新を検知して差分のみ取得
+./scripts/dev.sh data            # 既定: 上流に HEAD/CKAN を投げて差分のみ取得
+./scripts/dev.sh data --force                  # 全グループ強制再取得
+./scripts/dev.sh data --skip-upstream-check    # 上流に触らず、欠落ファイルだけ再生成 (offline/高速)
 ```
 
 `PORT=3001 ./scripts/dev.sh start` で別ポートに振れます。
 
 ## データ更新スクリプト
 
-公式 CSV から `data/*.json` を再生成します。Shift_JIS / UTF-8 BOM の差を内部で吸収します。
+通常は `./scripts/dev.sh data` (= `npx tsx scripts/ensure-data.ts`) が
+generator を必要分だけオーケストレートします。個別 generator を直接叩く場合：
 
 ```bash
-# 江東区ゴミ収集 (公式 CSV → data/districts.json)
+# 江東区ゴミ収集 区域マスタ (公式 CSV → data/districts.json)
 node scripts/generate-districts.mjs
 
-# 区民マップ全レイヤ (江東区・東京都公式 CSV → data/{aed,toilet,shelter,assembly_point,water_supply}.json)
-# Tokyo Met dataset の resource URL は CKAN API から実行時に解決する (filename ローテーション対応)
+# 静的 POI レイヤ (江東区・東京都公式 CSV → data/{shelter,assembly_point,
+#   water_supply,park,library,child_center,nursery}.json)
+# Tokyo Met dataset の resource URL は CKAN API から実行時に解決する
+# (filename ローテーション対応)
 # `tsx` 経由で TypeScript を直接実行 (lib/csv.ts と parser 共有)
 npx tsx scripts/generate-pois.ts
 
 # 都営バス GTFS-JP → 江東区を通る系統に絞った data/bus-toei.json
-# (`adm-zip` で zip 解凍、CSV をストリームパース)
+# (`adm-zip` で zip 解凍、CSV をストリームパース)。
+# ensure-data がこの JSON を読んで libsql の bus BLOB に書き込む。
 npx tsx scripts/fetch-bus-toei.ts
 ```
+
+AED / 公衆トイレ / イベント / ゴミ収集日 / 都営バスは ensure-data から libsql
+に直書きされるため、専用の generator スクリプトはありません (`lib/opendata/datasets/`)。
 
 ## データ配信アーキテクチャ
 
@@ -161,16 +176,21 @@ npx tsx scripts/fetch-bus-toei.ts
 
 ### 1. ランタイム取得 (libsql スナップショット経由)
 
-AED・公衆トイレ・イベント・ゴミ収集スケジュールは
-`/api/datasets/{aed,toilet,events,gomi}` が **libsql データベースから直接読む**
-形に統一されました（KV は撤去）。リクエスト経路に上流呼び出しは一切ありません。
+以下 5 つは **libsql データベースから直接読む** 形に統一されました
+（KV と JSON import は撤去）。リクエスト経路に上流呼び出しは一切ありません。
+
+| 対象 | route / page |
+|---|---|
+| AED / 公衆トイレ / イベント / ゴミ収集日 | `/api/datasets/{aed,toilet,events,gomi}` (Node runtime) |
+| 都営バス | `/api/map/bus`, `/api/bus/stop-times`, `/bus`, `/bus/[routeId]`, `/bus/[routeId]/[stopId]` |
+| イベント (SSR) | `/`, `/events` |
 
 - 上流取得は `scripts/ensure-data.ts` (Cron) のみが担当
-- 上流 → libsql の書き込みは **Conditional fetch** (CKAN `metadata_modified`)
-  なので、変更がなければ CSV body は転送されない (304 相当)
+- 上流 → libsql の書き込みは **Conditional fetch** で、変更がなければ body は
+  転送されない (304 相当)。AED/トイレ/イベント/ゴミは CKAN `metadata_modified`、
+  バスは HTTP `Last-Modified` で判定
 - Edge runtime ではなく Node runtime（`libsql` の `file://` URL に fs アクセス必要）
 - ブラウザ向けは `_meta.version` から生成した weak ETag で 304 を返す
-- SSR ページ (`/`, `/events`) は `openDatasetsDb()` から直接 SELECT
 
 ストレージ実装 (`lib/opendata/db/client.ts`):
 
@@ -184,17 +204,22 @@ AED・公衆トイレ・イベント・ゴミ収集スケジュールは
 更新頻度が低い静的データは `predev` / `prebuild` / `pretest` フックで
 `scripts/ensure-data.ts` が `data/` を埋めます。9 ファイルすべて gitignore。
 
-| ファイル | 生成スクリプト | 上流 |
-|---|---|---|
-| `districts.json` | `generate-districts.mjs` | 江東区公式 CSV |
-| `{shelter,assembly_point,water_supply}.json` | `generate-pois.ts` | 東京都 CKAN |
-| `{park,library,child_center,nursery}.json` | `generate-pois.ts` | 江東区公式 CSV |
-| `bus-toei.json` | `fetch-bus-toei.ts` | 都営バス GTFS-JP |
+| ファイル | 生成スクリプト | 上流 | 用途 |
+|---|---|---|---|
+| `districts.json` | `generate-districts.mjs` | 江東区公式 CSV | SSR import |
+| `{shelter,assembly_point,water_supply}.json` | `generate-pois.ts` | 東京都 CKAN | SSR import |
+| `{park,library,child_center,nursery}.json` | `generate-pois.ts` | 江東区公式 CSV | SSR import |
+| `bus-toei.json` | `fetch-bus-toei.ts` | 都営バス GTFS-JP | **ensure-data が読んで libsql BLOB に書き込む中間ファイル** |
 
-`ensure-data.ts` は既存ファイルがあれば skip、2 回目以降は ~0.7 秒。
-`--check-upstream` (既定) で各 source の HEAD / CKAN `metadata_modified` を
-比較し、上流が変わった group だけ regen。`--force` で全 group 強制。
-`--dynamic-only` は libsql 同期だけ走らせる Cron 専用モード。
+`ensure-data.ts` の動作モード：
+
+- **既定**: 上流に HEAD / CKAN `metadata_modified` を投げ、変わった source の
+  group のみ再生成。libsql の dynamic dataset (aed/toilet/events/gomi/bus) も
+  同時に Conditional fetch で同期。2 回目以降は数百 ms (HEAD/CKAN 数発のみ)
+- **`--force`**: 全 group + 全 dynamic dataset を強制再取得
+- **`--skip-upstream-check`**: 上流に触らず、欠落 JSON だけ generate / 既存
+  libsql はそのまま (offline 開発 / 上流障害時)
+- **`--dynamic-only`**: JSON 群はスキップして libsql sync のみ走らせる Cron 専用
 
 ### 3. キュレーション (commit)
 
