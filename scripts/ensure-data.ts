@@ -45,6 +45,7 @@ import { fetchToiletDatasetConditional } from "@/lib/opendata/datasets/toilet";
 import { fetchEventsDatasetConditional } from "@/lib/opendata/datasets/events";
 import { fetchGomiDatasetConditional } from "@/lib/opendata/datasets/gomi";
 import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
+import { BUNDLE_FORMAT_VERSION } from "./fetch-bus-toei";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FORCE = process.argv.includes("--force") || process.env.FORCE === "1";
@@ -441,6 +442,15 @@ const DEFAULT_BUS_DEPS: SyncBusDeps = {
   runSpawn: run,
 };
 
+// Composite version string stored alongside the bus bundle. The
+// `@bundle{N}` suffix forces a refresh when the fetcher's output
+// shape changes (BUNDLE_FORMAT_VERSION bumped) even if upstream
+// Last-Modified hasn't moved — that's the path-based deploy fix
+// for the variants rollout.
+function composeBusVersion(remoteVersion: string): string {
+  return `${remoteVersion}@bundle${BUNDLE_FORMAT_VERSION}`;
+}
+
 export async function syncBus(
   db: ReturnType<typeof openDatasetsDb>,
   opts: { force?: boolean; deps?: Partial<SyncBusDeps> } = {},
@@ -448,9 +458,10 @@ export async function syncBus(
   const deps: SyncBusDeps = { ...DEFAULT_BUS_DEPS, ...(opts.deps ?? {}) };
   const force = opts.force ?? FORCE;
   const remoteVersion = await deps.probe(BUS_GTFS_URL);
+  const composite = composeBusVersion(remoteVersion);
   const prev = force ? undefined : await readMetaVersion(db, "bus");
-  if (prev && remoteVersion && prev === remoteVersion) {
-    console.log(`  - bus: unchanged (Last-Modified ${remoteVersion})`);
+  if (prev && remoteVersion && prev === composite) {
+    console.log(`  - bus: unchanged (${composite})`);
     return;
   }
   const jsonPath = join(ROOT, "data", "bus-toei.json");
@@ -462,9 +473,11 @@ export async function syncBus(
   const parsed = BusToeiDataSchema.parse(raw);
   await writeBus(db, "toei", parsed, {
     sourceId: "bus",
-    version: remoteVersion || parsed.feedVersion,
+    version: remoteVersion
+      ? composite
+      : `${parsed.feedVersion}@bundle${BUNDLE_FORMAT_VERSION}`,
   });
-  console.log(`  - bus: refreshed (Last-Modified ${remoteVersion})`);
+  console.log(`  - bus: refreshed (${composite})`);
 }
 
 // Only fire main() when invoked directly (`tsx scripts/ensure-data.ts`),

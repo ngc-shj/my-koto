@@ -16,6 +16,7 @@ import {
   type SyncBusDeps,
 } from "./ensure-data";
 import type { BusToeiData } from "@/lib/opendata/schemas/bus";
+import { BUNDLE_FORMAT_VERSION } from "./fetch-bus-toei";
 
 const GROUPS: readonly GroupSpec[] = [
   { name: "districts", files: ["data/districts.json"], cmd: ["node", []] },
@@ -139,23 +140,28 @@ describe("syncBus", () => {
     await ensureSchema(db);
   });
 
-  it("skips fetch + spawn + write when prev version equals remote (cache hit)", async () => {
-    const VERSION = "Wed, 01 Apr 2026 00:00:00 GMT";
-    // Seed _meta + bus row so the prev/remote comparison short-circuits.
-    await writeBus(db, "toei", sampleBus, { sourceId: "bus", version: VERSION });
-    const deps = depsWith({ probe: vi.fn(async () => VERSION) });
+  it("skips fetch + spawn + write when prev composite version equals remote (cache hit)", async () => {
+    const REMOTE = "Wed, 01 Apr 2026 00:00:00 GMT";
+    const COMPOSITE = `${REMOTE}@bundle${BUNDLE_FORMAT_VERSION}`;
+    // Seed _meta + bus row with the composite version so the
+    // prev/remote comparison short-circuits.
+    await writeBus(db, "toei", sampleBus, {
+      sourceId: "bus",
+      version: COMPOSITE,
+    });
+    const deps = depsWith({ probe: vi.fn(async () => REMOTE) });
     await syncBus(db, { deps });
     expect(deps.exists).not.toHaveBeenCalled();
     expect(deps.readJsonRaw).not.toHaveBeenCalled();
     expect(deps.runSpawn).not.toHaveBeenCalled();
-    // The seeded bus row still resolves on read.
     const fromDb = await readBus(db, "toei");
     expect(fromDb.feedVersion).toBe("20260524");
   });
 
   it("when JSON is on disk and version changed, reads it and writes BLOB (no spawn)", async () => {
+    const REMOTE = "Thu, 02 Apr 2026 00:00:00 GMT";
     const deps = depsWith({
-      probe: vi.fn(async () => "Thu, 02 Apr 2026 00:00:00 GMT"),
+      probe: vi.fn(async () => REMOTE),
       exists: vi.fn(() => true),
     });
     await syncBus(db, { deps });
@@ -164,7 +170,27 @@ describe("syncBus", () => {
     const written = await readBus(db, "toei");
     expect(written.feedVersion).toBe("20260524");
     expect(await readMetaVersion(db, "bus")).toBe(
-      "Thu, 02 Apr 2026 00:00:00 GMT",
+      `${REMOTE}@bundle${BUNDLE_FORMAT_VERSION}`,
+    );
+  });
+
+  it("refreshes when bundle format version differs even if upstream is unchanged", async () => {
+    // Stored row uses a stale format version → comparison must miss
+    // and trigger a re-read so deployed environments pick up the new
+    // bundle shape after a code-only update.
+    const REMOTE = "Wed, 01 Apr 2026 00:00:00 GMT";
+    await writeBus(db, "toei", sampleBus, {
+      sourceId: "bus",
+      version: `${REMOTE}@bundle-stale`,
+    });
+    const deps = depsWith({
+      probe: vi.fn(async () => REMOTE),
+      exists: vi.fn(() => true),
+    });
+    await syncBus(db, { deps });
+    expect(deps.readJsonRaw).toHaveBeenCalledTimes(1);
+    expect(await readMetaVersion(db, "bus")).toBe(
+      `${REMOTE}@bundle${BUNDLE_FORMAT_VERSION}`,
     );
   });
 
@@ -189,11 +215,14 @@ describe("syncBus", () => {
   });
 
   it("force=true ignores the prev cache and refreshes", async () => {
-    const VERSION = "Wed, 01 Apr 2026 00:00:00 GMT";
-    await writeBus(db, "toei", sampleBus, { sourceId: "bus", version: VERSION });
-    const deps = depsWith({ probe: vi.fn(async () => VERSION) });
+    const REMOTE = "Wed, 01 Apr 2026 00:00:00 GMT";
+    const COMPOSITE = `${REMOTE}@bundle${BUNDLE_FORMAT_VERSION}`;
+    await writeBus(db, "toei", sampleBus, {
+      sourceId: "bus",
+      version: COMPOSITE,
+    });
+    const deps = depsWith({ probe: vi.fn(async () => REMOTE) });
     await syncBus(db, { deps, force: true });
-    // exists/readJson get touched because the short-circuit was bypassed.
     expect(deps.exists).toHaveBeenCalled();
     expect(deps.readJsonRaw).toHaveBeenCalled();
   });

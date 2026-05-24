@@ -18,6 +18,16 @@ import { join } from "node:path";
 import { z } from "zod";
 import { TOEI_BUS_GTFS_URL } from "@/config/opendata";
 import { KOTO_BBOX, isInsideBbox } from "@/config/geo";
+
+// Bump when the bundle structure changes (new fields, restructured
+// stop sequences, etc.). ensure-data composes this into the stored
+// version string so a code update forces a refresh on every deploy
+// — without it the upstream-Last-Modified short-circuit would keep
+// the deployed libsql on the old shape until upstream itself moves.
+// History:
+//   2  added DirectionPattern.variants
+//   1  original bundle
+export const BUNDLE_FORMAT_VERSION = "2";
 import {
   BusToeiDataSchema,
   type BusRoute,
