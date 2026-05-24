@@ -9,9 +9,10 @@ export const DATASETS = {
   events: "t131083d0000000017",
 } as const;
 
-// CKAN package_show endpoint — used by both fetch-opendata.ts and
-// generate-pois.ts to resolve the current resource URL for each dataset
-// (Tokyo Met rolls resource filenames per refresh).
+// CKAN package_show endpoint — used by lib/opendata/datasets/* (the Edge
+// dataset routes) and scripts/generate-pois.ts to resolve the current
+// resource URL for each dataset (Tokyo Met rolls resource filenames per
+// refresh).
 export const TOKYO_OPEN_DATA_CKAN_API =
   "https://catalog.data.metro.tokyo.lg.jp/api/3/action/package_show";
 

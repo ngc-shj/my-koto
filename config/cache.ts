@@ -49,3 +49,16 @@ export const MAP_BUS_CACHE = {
   STALE_IF_ERROR: 2592000,        // 30 days
   CLIENT_TTL_MS: 7 * 24 * 60 * 60_000,
 } as const;
+
+// Tokyo Open Data CKAN-resolved datasets (AED, toilet, events, gomi). The
+// upstream CSVs are updated on a roughly monthly cadence by 江東区, so a
+// day-long browser cache + 7-day stale-while-revalidate keeps the network
+// chatter low. STALE_IF_ERROR is a week so a CKAN outage never blanks the
+// map.
+export const DATASETS_CACHE = {
+  BROWSER_MAX_AGE: 3600,           // 1 h
+  SHARED_MAX_AGE: 86400,           // 1 day
+  STALE_WHILE_REVALIDATE: 604800,  // 7 days
+  STALE_IF_ERROR: 604800,          // 7 days
+  CLIENT_TTL_MS: 60 * 60_000,      // == BROWSER_MAX_AGE * 1000
+} as const;

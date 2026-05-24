@@ -17,6 +17,23 @@ vi.mock("@vercel/kv", () => ({
   },
 }));
 
+// Stub the upstream CSV fetcher so tests don't hit the network.
+vi.mock("@/lib/opendata/datasets/events", () => ({
+  fetchEventsDataset: vi.fn(async () => ({
+    result: {
+      records: [
+        {
+          名称: "テストイベント",
+          // Pin to today + a year so filterUpcoming always keeps it.
+          開始日: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10),
+        },
+      ],
+    },
+  })),
+}));
+
 import { GET } from "./route";
 
 beforeEach(() => {

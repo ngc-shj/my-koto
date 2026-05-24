@@ -15,14 +15,18 @@ import MapClient from "./MapClient";
 import BackToHome from "@/components/BackToHome";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
-import aedRaw from "@/data/aed.json";
-import toiletRaw from "@/data/toilet.json";
+import { fetchAedDataset } from "@/lib/opendata/datasets/aed";
+import { fetchToiletDataset } from "@/lib/opendata/datasets/toilet";
 import parkRaw from "@/data/park.json";
 import libraryRaw from "@/data/library.json";
 import childCenterRaw from "@/data/child_center.json";
 import nurseryRaw from "@/data/nursery.json";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+// AED + toilet feeds are CKAN-resolved CSVs that change at most monthly;
+// regenerate the page every 6 hours so updates land without rebuilding.
+export const revalidate = 21600;
 
 export const metadata: Metadata = {
   title: "区民マップ (AED・トイレ・防災) | My こうとう (非公式)",
@@ -68,6 +72,13 @@ export default async function MapPage({
   // for the everyday categories — AED / toilet / park / library /
   // children's facilities / nursery, plus OSM-only layers fetched
   // dynamically (station / hospital / clinic / pharmacy).
+  //
+  // AED and toilet come from the CKAN-backed datasets; park/library/
+  // child-center/nursery still ship as static JSON via generate-pois.ts.
+  const [aedRaw, toiletRaw] = await Promise.all([
+    fetchAedDataset(),
+    fetchToiletDataset(),
+  ]);
   const allPoints = [
     ...parseAedData(aedRaw),
     ...parseToiletData(toiletRaw),

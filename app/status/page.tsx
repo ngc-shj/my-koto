@@ -37,12 +37,12 @@ export const metadata: Metadata = {
     "データ最終更新時刻・Push 配信ジョブ・CSP 違反レポートの観測ダッシュボード",
 };
 
+// Only static bundles get a file-mtime freshness row here. AED / トイレ /
+// イベント moved to /api/datasets/* (KV-cached); their freshness is
+// surfaced by the API response and KV TTL, not by an on-disk file.
 const DATA_FILES: { id: string; label: string; path: string }[] = [
   { id: "districts", label: "ゴミ収集 地区", path: "data/districts.json" },
   { id: "gomi-dictionary", label: "ゴミ品目辞書", path: "data/gomi-dictionary.json" },
-  { id: "events", label: "イベント", path: "data/events.json" },
-  { id: "aed", label: "AED", path: "data/aed.json" },
-  { id: "toilet", label: "公衆トイレ", path: "data/toilet.json" },
   { id: "shelter", label: "避難所", path: "data/shelter.json" },
   { id: "assembly-point", label: "避難場所", path: "data/assembly_point.json" },
   { id: "water-supply", label: "給水拠点", path: "data/water_supply.json" },

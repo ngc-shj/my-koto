@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import eventsData from "@/data/events.json";
-import { EventRecordSchema } from "@/lib/opendata/schemas/events";
+import { fetchEventsDataset } from "@/lib/opendata/datasets/events";
 import { toEvent, filterUpcoming } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
 import Attribution from "@/components/Attribution";
@@ -11,17 +10,20 @@ import EventsClient from "./EventsClient";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
+// ISR: regenerate the page hourly so the list never goes more than an
+// hour stale without re-fetching the CKAN CSV on every visit.
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "イベントカレンダー | My こうとう (非公式)",
   description: "江東区のイベント情報をカレンダーとリストで確認できます。",
 };
 
-export default function EventsPage() {
-  // Validate and parse the static JSON data at build time.
-  const records = eventsData.result.records.map((r) =>
-    EventRecordSchema.parse(r),
-  );
-  const allEvents: Event[] = records.map((r, i) => toEvent(r, i));
+export default async function EventsPage() {
+  // Pull events from the CKAN-backed dataset (CSV → mapped + Zod-parsed
+  // server-side) and filter to the 90-day window the list view renders.
+  const dataset = await fetchEventsDataset();
+  const allEvents: Event[] = dataset.result.records.map((r, i) => toEvent(r, i));
   const upcomingEvents = filterUpcoming(allEvents);
 
   return (

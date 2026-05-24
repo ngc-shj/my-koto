@@ -136,16 +136,30 @@ npx tsx scripts/generate-pois.ts
 npx tsx scripts/fetch-bus-toei.ts
 ```
 
-## GitHub Actions data-sync ワークフロー
+## データ配信アーキテクチャ
 
-`.github/workflows/data-sync.yml` が JST 03:00 に cron 実行され、
-スキーマ違反を検出した場合は Discord webhook で通知します。
+リポジトリには `data/*.json` の一部だけを同梱しています。AED・公衆トイレ・
+イベント・ゴミ収集スケジュールは Edge ランタイムが上流 CSV を取得して KV に
+キャッシュする方式 (`/api/datasets/{aed,toilet,events,gomi}`) に統一しました。
 
-- `permissions: { contents: write, pull-requests: write }` (最小)
-- auto-commit は禁止。`peter-evans/create-pull-request` で PR を起票し、
-  人手でマージする運用
-- 必要な GitHub Secrets:
-  - `DISCORD_WEBHOOK` — 失敗通知の送信先 (workflow 冒頭で `::add-mask::` 済)
+- 上流: `catalog.data.metro.tokyo.lg.jp` の CKAN `package_show` で
+  リソース URL を解決し、各データセットの最新 CSV を取得
+- サーバー: Edge Runtime → Vercel KV (`DATASETS_CACHE`: ブラウザ 1h、共有 24h、
+  SWR 7d、stale-if-error 7d) → クライアントへ
+- クライアント: 同 origin の `/api/datasets/*` を叩くだけで、ブラウザキャッシュと
+  KV の両方の恩恵を受ける
+
+SSR ページ (`/`, `/events`, `/map`) は同じ lib (`lib/opendata/datasets/`) を
+直接呼び、`export const revalidate` で ISR を効かせています。
+
+リポジトリに残る `data/*.json` は次の通り (生成スクリプトは `scripts/`)。
+公式 URL の参照や生成サイクルは個別ドキュメント参照。
+
+- `data/districts.json` (`scripts/generate-districts.mjs`)
+- `data/gomi-{dictionary,schedule}.json`
+- `data/{shelter,assembly_point,water_supply,park,library,child_center,nursery}.json`
+  (`scripts/generate-pois.ts`)
+- `data/bus-toei.json` (`scripts/fetch-bus-toei.ts`)
 
 ## Vercel 本番デプロイ
 

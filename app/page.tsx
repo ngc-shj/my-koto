@@ -10,24 +10,27 @@ import {
   type District,
   type SpecialOverlay,
 } from "@/lib/gomi/types";
-import { EventResponseSchema } from "@/lib/opendata/schemas/events";
+import { fetchEventsDataset } from "@/lib/opendata/datasets/events";
 import { filterUpcoming, toEvent } from "@/lib/events/normalize";
 import districtsRaw from "@/data/districts.json";
 import overlaysRaw from "@/data/gomi-schedule.json";
-import eventsRaw from "@/data/events.json";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
-export default function HomePage() {
+// Revalidate the home page hourly so the events list never goes more than
+// 60 minutes stale without paying the upstream-fetch cost on every visit.
+export const revalidate = 3600;
+
+export default async function HomePage() {
   // Server-side data prep so the Today summary's first paint already has
   // every district / overlay / event it needs without a client roundtrip.
-  // Each parse is cheap (~58 districts, ~2 overlays, ~10 events).
+  // Districts / overlays are tiny static files; events come from the
+  // CKAN-backed dataset fetched server-side and cached via ISR.
   const districts: District[] = DistrictSchema.array().parse(districtsRaw);
   const overlays: SpecialOverlay[] =
     SpecialOverlaySchema.array().parse(overlaysRaw);
-  const events = EventResponseSchema.parse(eventsRaw).result.records.map(
-    toEvent,
-  );
+  const eventsDataset = await fetchEventsDataset();
+  const events = eventsDataset.result.records.map(toEvent);
   const upcomingEvents = filterUpcoming(events).slice(0, 5);
 
   return (

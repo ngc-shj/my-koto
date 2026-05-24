@@ -7,8 +7,55 @@ import {
   parseToiletData,
   parseWaterSupplyData,
 } from "./validate";
-import aedFixture from "@/data/aed.json";
-import toiletFixture from "@/data/toilet.json";
+// AED and Toilet inline fixtures — the real source now lives behind
+// `/api/datasets/{aed,toilet}` (CKAN-resolved CSV), so bulk validation
+// here switched to synthetic records that still exercise every column
+// the parser reads.
+const aedFixture = {
+  result: {
+    records: [
+      {
+        名称: "有明西学園",
+        住所: "東京都江東区有明1-7-13",
+        緯度: "35.637038",
+        経度: "139.784381",
+        設置場所詳細: "1階昇降口",
+        利用可能時間: "8:00-16:00",
+        電話番号: "(03)3527-6401",
+        備考: "学校開庁日",
+      },
+      {
+        名称: "豊洲シビックセンター",
+        住所: "東京都江東区豊洲2-2-18",
+        緯度: "35.654",
+        経度: "139.795",
+      },
+    ],
+  },
+};
+const toiletFixture = {
+  result: {
+    records: [
+      {
+        名称: "豊洲公園トイレ",
+        住所: "東京都江東区豊洲2-3-6",
+        緯度: "35.654",
+        経度: "139.795",
+        バリアフリー: "有",
+        二十四時間: "",
+        多目的: "有",
+      },
+      {
+        名称: "夢の島公園トイレ",
+        住所: "東京都江東区夢の島",
+        緯度: "35.65",
+        経度: "139.82",
+        男性用: "有",
+        女性用: "有",
+      },
+    ],
+  },
+};
 import shelterFixture from "@/data/shelter.json";
 import assemblyPointFixture from "@/data/assembly_point.json";
 import waterSupplyFixture from "@/data/water_supply.json";
@@ -18,19 +65,15 @@ import childCenterFixture from "@/data/child_center.json";
 import nurseryFixture from "@/data/nursery.json";
 
 describe("parseAedData", () => {
-  it("validates and normalizes the official aed.json fixture", () => {
+  it("validates and normalizes synthetic AED records", () => {
     const points = parseAedData(aedFixture);
-    // The upstream Koto-ku open data CSV currently exposes ~246 AED sites;
-    // assert a non-trivial count rather than a magic number so a refresh
-    // doesn't break the test on every upstream update.
-    expect(points.length).toBeGreaterThan(50);
-    expect(points[0].type).toBe("aed");
-    expect(typeof points[0].lat).toBe("number");
-    expect(typeof points[0].lng).toBe("number");
-    expect(points[0].name).toBeTruthy();
-    expect(points[0].address).toBeTruthy();
-    // Sanity-check coordinates land inside Koto-ku's bounding envelope.
+    expect(points).toHaveLength(2);
     for (const p of points) {
+      expect(p.type).toBe("aed");
+      expect(typeof p.lat).toBe("number");
+      expect(typeof p.lng).toBe("number");
+      expect(p.name).toBeTruthy();
+      expect(p.address).toBeTruthy();
       expect(p.lat).toBeGreaterThan(35.5);
       expect(p.lat).toBeLessThan(35.8);
       expect(p.lng).toBeGreaterThan(139.7);
@@ -46,14 +89,14 @@ describe("parseAedData", () => {
 });
 
 describe("parseToiletData", () => {
-  it("validates and normalizes the official toilet.json fixture", () => {
+  it("validates and normalizes synthetic toilet records", () => {
     const points = parseToiletData(toiletFixture);
-    expect(points.length).toBeGreaterThan(50);
-    expect(points[0].type).toBe("toilet");
-    expect(typeof points[0].lat).toBe("number");
-    expect(typeof points[0].lng).toBe("number");
-    expect(points[0].accessibility).toBeDefined();
+    expect(points).toHaveLength(2);
     for (const p of points) {
+      expect(p.type).toBe("toilet");
+      expect(typeof p.lat).toBe("number");
+      expect(typeof p.lng).toBe("number");
+      expect(p.accessibility).toBeDefined();
       expect(p.lat).toBeGreaterThan(35.5);
       expect(p.lat).toBeLessThan(35.8);
       expect(p.lng).toBeGreaterThan(139.7);
