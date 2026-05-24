@@ -43,3 +43,22 @@ jobs:
         # --dynamic-only skips the JSON-file generators entirely; only
         # the libsql tables get refreshed, which is exactly what the
         # Vercel runtime + Turso path needs.
+
+      # Hourly cron runs unattended, so a hard failure (script crash,
+      # Turso unreachable, libsql write error) needs to page someone.
+      # Per-dataset upstream warns are still swallowed by ensure-data on
+      # purpose — one CKAN 5xx shouldn't alert when the rest succeeded.
+      - name: Notify Discord on failure
+        if: failure()
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL secret not set; skipping notification."
+            exit 0
+          fi
+          payload=$(jq -nc --arg url "$RUN_URL" \
+            '{content: "datasets-sync failed: \($url)"}')
+          curl -fsS -X POST -H "Content-Type: application/json" \
+            --data "$payload" "$DISCORD_WEBHOOK_URL"
