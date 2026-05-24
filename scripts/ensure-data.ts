@@ -53,6 +53,12 @@ const SKIP_UPSTREAM_CHECK =
   process.argv.includes("--skip-upstream-check") ||
   process.env.SKIP_UPSTREAM_CHECK === "1";
 const CHECK_UPSTREAM = !SKIP_UPSTREAM_CHECK;
+// Skip the JSON-file generators entirely (districts/pois/bus). Useful
+// for the Turso Cron path, which only needs the libsql snapshot
+// refreshed and doesn't care about disk JSON files in the CI runner.
+const DYNAMIC_ONLY =
+  process.argv.includes("--dynamic-only") ||
+  process.env.DYNAMIC_ONLY === "1";
 
 const SIDECAR_PATH = join(ROOT, "data", ".versions.json");
 const UPSTREAM_TIMEOUT_MS = 10_000;
@@ -224,6 +230,15 @@ async function getRemoteVersion(src: SourceSpec): Promise<string> {
 }
 
 async function main(): Promise<void> {
+  if (DYNAMIC_ONLY) {
+    // Cron-against-Turso path: only the libsql dynamic datasets matter;
+    // the JSON-file groups would just churn CI disk for nothing.
+    console.log("[ensure-data] --dynamic-only: skipping JSON groups.");
+    await syncDynamicDatasets();
+    console.log("\n[ensure-data] done.");
+    return;
+  }
+
   const sidecar = readSidecar();
   const toRun = new Set<string>();
   let staleSummary: string[] = [];

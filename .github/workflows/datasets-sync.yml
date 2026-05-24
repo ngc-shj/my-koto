@@ -1,0 +1,45 @@
+name: Datasets Sync (libsql / Turso)
+
+# Runs ensure-data against the production libsql database. When
+# DATASETS_DB_URL is unset the script writes to a local file — fine for
+# CI dry-runs but useless for prod. To actually sync to Turso, set the
+# TURSO_* secrets below; the workflow forwards them as DATASETS_DB_URL /
+# DATASETS_DB_AUTH_TOKEN.
+#
+# Cron is hourly so Conditional-fetch HEAD/CKAN probes happen often
+# enough to pick up real updates within an hour, while costing nearly
+# nothing on the upstream side (304 most of the time, no body bytes).
+
+on:
+  schedule:
+    # 0 * * * * — every hour at :00 UTC
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: datasets-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --ignore-scripts
+      - name: Sync datasets to libsql
+        env:
+          DATASETS_DB_URL: ${{ secrets.TURSO_DB_URL }}
+          DATASETS_DB_AUTH_TOKEN: ${{ secrets.TURSO_DB_AUTH_TOKEN }}
+          UA_OVERRIDE: "koto-city-bot/1.0 (+https://example.com/about)"
+        run: npx tsx scripts/ensure-data.ts --dynamic-only
+        # --dynamic-only skips the JSON-file generators entirely; only
+        # the libsql tables get refreshed, which is exactly what the
+        # Vercel runtime + Turso path needs.

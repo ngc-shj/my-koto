@@ -157,25 +157,32 @@ npx tsx scripts/fetch-bus-toei.ts
 
 ## データ配信アーキテクチャ
 
-`data/*.json` は **基本的にコミットしない** 方針で、生成は 2 系統に分かれます。
+`data/*.json` は **基本的にコミットしない** 方針で、生成は 3 系統に分かれます。
 
-### 1. ランタイム取得 (Edge API + KV キャッシュ)
+### 1. ランタイム取得 (libsql スナップショット経由)
 
 AED・公衆トイレ・イベント・ゴミ収集スケジュールは
-`/api/datasets/{aed,toilet,events,gomi}` が CKAN から CSV を取得して KV に
-キャッシュします。データ更新に再デプロイ不要。
+`/api/datasets/{aed,toilet,events,gomi}` が **libsql データベースから直接読む**
+形に統一されました（KV は撤去）。リクエスト経路に上流呼び出しは一切ありません。
 
-- 上流: `catalog.data.metro.tokyo.lg.jp` の CKAN `package_show` で
-  リソース URL を解決
-- サーバー: Edge Runtime → Vercel KV (`DATASETS_CACHE`: ブラウザ 1h、共有 24h、
-  SWR 7d、stale-if-error 7d) → クライアントへ
-- SSR ページ (`/`, `/events`, `/map`) は同じ lib (`lib/opendata/datasets/`) を
-  直接呼び、`export const revalidate` で ISR
+- 上流取得は `scripts/ensure-data.ts` (Cron) のみが担当
+- 上流 → libsql の書き込みは **Conditional fetch** (CKAN `metadata_modified`)
+  なので、変更がなければ CSV body は転送されない (304 相当)
+- Edge runtime ではなく Node runtime（`libsql` の `file://` URL に fs アクセス必要）
+- ブラウザ向けは `_meta.version` から生成した weak ETag で 304 を返す
+- SSR ページ (`/`, `/events`) は `openDatasetsDb()` から直接 SELECT
 
-### 2. ビルド時生成 (`scripts/ensure-data.mjs`)
+ストレージ実装 (`lib/opendata/db/client.ts`):
+
+| 環境 | DATASETS_DB_URL | 配置 |
+|---|---|---|
+| ローカル dev / CI / Vercel build | 未設定 | `file:./data/datasets.sqlite` |
+| 本番 (Vercel runtime) | `libsql://...turso.io` | Turso (libsql server) |
+
+### 2. ビルド時生成 (`scripts/ensure-data.ts`)
 
 更新頻度が低い静的データは `predev` / `prebuild` / `pretest` フックで
-`scripts/ensure-data.mjs` が `data/` を埋めます。9 ファイルすべて gitignore。
+`scripts/ensure-data.ts` が `data/` を埋めます。9 ファイルすべて gitignore。
 
 | ファイル | 生成スクリプト | 上流 |
 |---|---|---|
@@ -184,10 +191,10 @@ AED・公衆トイレ・イベント・ゴミ収集スケジュールは
 | `{park,library,child_center,nursery}.json` | `generate-pois.ts` | 江東区公式 CSV |
 | `bus-toei.json` | `fetch-bus-toei.ts` | 都営バス GTFS-JP |
 
-`ensure-data.mjs` は既存ファイルがあれば即 exit するので、2 回目以降の
-`npm run dev` / `npm test` はゼロコスト。初回 clone / Vercel ビルドだけ
-30〜60 秒の生成時間が発生します。`__fixtures__/opendata/` に CSV キャッシュが
-コミットされているのでローカルは概ね数秒で済みます。
+`ensure-data.ts` は既存ファイルがあれば skip、2 回目以降は ~0.7 秒。
+`--check-upstream` (既定) で各 source の HEAD / CKAN `metadata_modified` を
+比較し、上流が変わった group だけ regen。`--force` で全 group 強制。
+`--dynamic-only` は libsql 同期だけ走らせる Cron 専用モード。
 
 ### 3. キュレーション (commit)
 
@@ -208,12 +215,35 @@ npx vercel deploy --prod
 | 変数 | 用途 |
 |------|------|
 | `KV_URL` / `KV_REST_API_URL` / `KV_REST_API_TOKEN` / `KV_REST_API_READ_ONLY_TOKEN` | Vercel KV (天気プロキシ・OSM POI のキャッシュ + レート制限・Push 購読の永続化) |
+| `DATASETS_DB_URL` | libsql URL (本番は Turso: `libsql://<db>-<org>.turso.io`)。未設定なら `file:./data/datasets.sqlite` にフォールバック |
+| `DATASETS_DB_AUTH_TOKEN` | Turso auth token (libsql:// URL 利用時のみ必要) |
 | `NEXT_PUBLIC_SITE_URL` | OG 画像生成・CORS の origin (本番ドメイン) |
 | `DISCORD_WEBHOOK` | データ取得失敗の通知 (任意) |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push 公開鍵 (`pushManager.subscribe` の `applicationServerKey`) |
 | `VAPID_PRIVATE_KEY` | Web Push 秘密鍵 (`/api/push/dispatch` のみで使用) |
 | `VAPID_SUBJECT` | VAPID 連絡先 (`mailto:` URL、Push サービスからの通知を受け取るアドレス) |
 | `PUSH_DISPATCH_SECRET` | `/api/push/dispatch` の Bearer トークン。GitHub Actions と一致させる |
+
+### Turso セットアップ (libsql 本番)
+
+`/api/datasets/*` と SSR の events 読み出しは libsql に依存しています。
+本番では Turso (libsql の OSS マネージドサービス) を推奨。
+
+1. Turso CLI で db 作成 (無料枠 9 GB / 1B reads):
+
+   ```bash
+   turso db create koto-city-datasets
+   turso db show --url koto-city-datasets       # → DATASETS_DB_URL
+   turso db tokens create koto-city-datasets    # → DATASETS_DB_AUTH_TOKEN
+   ```
+
+2. Vercel 環境変数に上記 2 つを設定
+3. GitHub Secrets に `TURSO_DB_URL` / `TURSO_DB_AUTH_TOKEN` を設定すると
+   `.github/workflows/datasets-sync.yml` が **毎時** Conditional fetch で
+   上流→Turso の同期を実行（変更がなければ書き込みなし）
+
+Vercel ランタイムは Turso を SELECT するだけなので、上流負荷ゼロ。
+Cron だけが Conditional fetch (大半は 304) で上流に触ります。
 
 GitHub Actions 側 (`.github/workflows/push-dispatch.yml`) の Secrets:
 
