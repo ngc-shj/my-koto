@@ -5,6 +5,10 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GeoJSONSource, Map as MaplibreMap } from "maplibre-gl";
 import { MAP_TILE } from "@/config/map";
+import {
+  loadGeolocationConsent,
+  saveGeolocationConsent,
+} from "@/lib/geolocation-consent";
 
 type Stop = {
   readonly stopId: string;
@@ -85,7 +89,11 @@ export default function RouteMapClient({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MaplibreMap | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [userLocation, setUserLocation] = useState<
+    { lat: number; lng: number } | null
+  >(null);
 
   const geojson = useMemo(() => {
     return {
@@ -203,17 +211,19 @@ export default function RouteMapClient({
     }
   }, [activeDirection, mapReady]);
 
-  // Pan + zoom to the highlighted stop. Without this the visitor only
-  // sees a red dot somewhere on the polyline — long routes leave that
-  // dot off-screen, defeating the purpose of the "地図" button on the
-  // stop list. Triggered every time the highlight target changes.
+  // Pan to the highlighted stop. Without this the visitor only sees a
+  // red dot somewhere on the polyline — long routes leave that dot
+  // off-screen, defeating the purpose of the "地図" button on the stop
+  // list. Zoom is left untouched: the visitor's existing zoom level
+  // (whether they pinched in to compare stops or stayed at the bbox
+  // overview) is preserved across taps.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || highlightStopId == null) return;
     for (const d of directions) {
       const stop = d.stops.find((s) => s.stopId === highlightStopId);
       if (stop != null) {
-        map.flyTo({ center: [stop.lng, stop.lat], zoom: 15 });
+        map.flyTo({ center: [stop.lng, stop.lat] });
         return;
       }
     }
@@ -268,9 +278,93 @@ export default function RouteMapClient({
     };
   }, [directions, activeDirection, mapReady, highlightStopId]);
 
+  // Silently re-acquire the visitor's location when consent was already
+  // granted on a previous visit (typically via /map). First-time visitors
+  // see no prompt until they tap the floating button below.
+  useEffect(() => {
+    if (loadGeolocationConsent() !== "granted") return;
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {
+        // Browser-level revocation since the last visit — stay silent.
+      },
+    );
+  }, []);
+
+  // Render / refresh the user-location dot. Matches the /map pin style
+  // so the same marker means the same thing across the app.
+  useEffect(() => {
+    if (!mapReady || userLocation == null) return;
+    let cancelled = false;
+    void (async () => {
+      const maplibregl = (await import("maplibre-gl")).default;
+      const map = mapRef.current;
+      if (cancelled || !map) return;
+      userMarkerRef.current?.remove();
+      const el = document.createElement("div");
+      el.style.cssText = `
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: #7c3aed;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #7c3aed;
+      `;
+      el.setAttribute("aria-label", "現在地");
+      userMarkerRef.current = new maplibregl.Marker({
+        element: el,
+        anchor: "center",
+      })
+        .setLngLat([userLocation.lng, userLocation.lat])
+        .addTo(map);
+    })();
+    return () => {
+      cancelled = true;
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+    };
+  }, [userLocation, mapReady]);
+
+  // Floating "現在地へ" button handler. Pans only — zoom is preserved so
+  // the visitor's current overview of the route doesn't get hijacked. A
+  // first-time tap acts as an explicit consent gesture (browser native
+  // prompt → on grant we record the choice for future visits).
+  function handleLocateMe() {
+    if (userLocation != null) {
+      mapRef.current?.flyTo({
+        center: [userLocation.lng, userLocation.lat],
+      });
+      return;
+    }
+    if (!("geolocation" in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        saveGeolocationConsent("granted");
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        mapRef.current?.flyTo({
+          center: [position.coords.longitude, position.coords.latitude],
+        });
+      },
+      () => {
+        window.alert(
+          "現在地を取得できませんでした。ブラウザの位置情報設定を確認してください。",
+        );
+      },
+    );
+  }
+
   return (
     <figure
-      className="rounded-lg border border-slate-200 overflow-hidden bg-white"
+      className="relative rounded-lg border border-slate-200 overflow-hidden bg-white"
       aria-label={`${routeName} の路線図`}
     >
       <div
@@ -278,6 +372,31 @@ export default function RouteMapClient({
         className="w-full h-[280px] sm:h-[360px]"
         role="application"
       />
+      <button
+        type="button"
+        onClick={handleLocateMe}
+        aria-label="現在地へ移動"
+        className="absolute bottom-3 right-3 z-10 w-11 h-11 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="w-5 h-5"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none" />
+          <line x1="12" y1="2" x2="12" y2="5" />
+          <line x1="12" y1="19" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="5" y2="12" />
+          <line x1="19" y1="12" x2="22" y2="12" />
+        </svg>
+      </button>
     </figure>
   );
 }
