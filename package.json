@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/install-dev-sw-killer.mjs",
+    "predev": "node scripts/install-dev-sw-killer.mjs && node scripts/ensure-data.mjs",
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",
+    "prebuild": "node scripts/ensure-data.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
+    "pretest": "node scripts/ensure-data.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

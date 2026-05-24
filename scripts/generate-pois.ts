@@ -1,8 +1,11 @@
 // Build data/<layer>.json from upstream CSVs.
 //
-// Sources:
-// - 江東区 AED:    https://www.city.koto.lg.jp/012107/documents/131083_aed.csv (UTF-8 BOM)
-// - 江東区 トイレ:  https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_toilet.csv (Shift_JIS)
+// AED and 公衆トイレ are no longer handled here — they moved to live
+// Edge routes (`/api/datasets/{aed,toilet}`) backed by Tokyo Met CKAN
+// resources, and the mappers in `lib/opendata/datasets/{aed,toilet}.ts`
+// supersede the ones that lived here.
+//
+// Sources still owned by this script:
 // - 東京都 避難所:  CKAN dataset t000003d0000000093 → evacuation_center.csv (Shift_JIS)
 // - 東京都 避難場所: CKAN dataset t000003d0000000093 → evacuation_area.csv (UTF-8 BOM)
 // - 東京都 給水拠点: CKAN dataset t000019d0000000001 (Shift_JIS, filename rolls per release)
@@ -27,8 +30,6 @@ const FIXTURE_DIR = join(ROOT, "__fixtures__", "opendata");
 const CKAN_API = "https://catalog.data.metro.tokyo.lg.jp/api/3/action/package_show";
 
 type LayerKey =
-  | "aed"
-  | "toilet"
   | "shelter"
   | "assembly_point"
   | "water_supply"
@@ -51,26 +52,6 @@ type SourceSpec = {
 };
 
 const SOURCES: Record<LayerKey, SourceSpec> = {
-  aed: {
-    resolve: {
-      kind: "static",
-      url: "https://www.city.koto.lg.jp/012107/documents/131083_aed.csv",
-    },
-    cache: join(FIXTURE_DIR, "koto-aed.csv"),
-    out: join(ROOT, "data", "aed.json"),
-    encoding: "utf-8",
-    parser: "aed",
-  },
-  toilet: {
-    resolve: {
-      kind: "static",
-      url: "https://www.city.koto.lg.jp/012107/documents/131083_kotocity_public_toilet.csv",
-    },
-    cache: join(FIXTURE_DIR, "koto-toilet.csv"),
-    out: join(ROOT, "data", "toilet.json"),
-    encoding: "shift-jis",
-    parser: "toilet",
-  },
   shelter: {
     resolve: {
       kind: "ckan",
@@ -204,42 +185,6 @@ function isKotoRow(row: Record<string, string>, addressKey: string): boolean {
   return /(?:^|^東京都)江東区/.test(addr);
 }
 
-function makeAedRecord(row: Record<string, string>) {
-  return {
-    名称: row["名称"] ?? "",
-    住所: row["所在地_連結表記"] || row["所在地"] || "",
-    緯度: row["緯度"] ?? "",
-    経度: row["経度"] ?? "",
-    設置場所詳細: row["設置位置"] ?? "",
-    利用可能時間: [row["開始時間"], row["終了時間"]]
-      .filter(Boolean)
-      .join("-")
-      .replace(/:00$/g, "")
-      .replace(/:00-/g, "-"),
-    電話番号: row["電話番号"] ?? "",
-    備考: row["利用可能日時特記事項"] || row["備考"] || "",
-  };
-}
-
-function truthy(v: string | undefined): "有" | "" {
-  return v === "有" || v === "○" ? "有" : "";
-}
-
-function makeToiletRecord(row: Record<string, string>) {
-  return {
-    名称: row["名称"] ?? "",
-    住所: row["住所"] ?? "",
-    緯度: row["緯度"] ?? "",
-    経度: row["経度"] ?? "",
-    バリアフリー: truthy(row["車椅子使用者用トイレ有無"]),
-    二十四時間:
-      row["利用開始時間"] === "0:00" && row["利用終了時間"] === "23:59"
-        ? "有"
-        : "",
-    備考: row["備考"] ?? "",
-  };
-}
-
 function pickFirst(row: Record<string, string>, keys: string[]): string {
   for (const k of keys) {
     const v = row[k];
@@ -329,8 +274,6 @@ function anyTruthy(row: Record<string, string>, keys: string[]): "有" | "" {
 }
 
 const PARSERS: Record<LayerKey, (row: Record<string, string>) => unknown> = {
-  aed: makeAedRecord,
-  toilet: makeToiletRecord,
   shelter: makeShelterRecord,
   assembly_point: makeAssemblyPointRecord,
   water_supply: makeWaterSupplyRecord,
@@ -341,8 +284,6 @@ const PARSERS: Record<LayerKey, (row: Record<string, string>) => unknown> = {
 };
 
 const KOTO_FILTER: Record<LayerKey, string | null> = {
-  aed: null, // Koto-ku-only feed already.
-  toilet: null,
   shelter: "所在地住所",
   assembly_point: "所在地住所",
   water_supply: "所在地",
@@ -374,8 +315,6 @@ async function main(): Promise<void> {
   // Wrapping the entry points in a `main()` keeps the .ts form runnable
   // via `npx tsx scripts/generate-pois.ts` like the sibling scripts.
   const layers: LayerKey[] = [
-    "aed",
-    "toilet",
     "shelter",
     "assembly_point",
     "water_supply",

@@ -69,3 +69,16 @@ data/toilet.json
 data/events.json
 data/gomi.json
 data/wbgt.json
+
+# Generated at `predev`/`prebuild`/`pretest` by scripts/ensure-data.mjs.
+# Curated files (gomi-dictionary.json, gomi-schedule.json) stay tracked
+# because they have no upstream source.
+data/districts.json
+data/shelter.json
+data/assembly_point.json
+data/water_supply.json
+data/park.json
+data/library.json
+data/child_center.json
+data/nursery.json
+data/bus-toei.json

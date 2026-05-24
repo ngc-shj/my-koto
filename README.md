@@ -138,28 +138,44 @@ npx tsx scripts/fetch-bus-toei.ts
 
 ## データ配信アーキテクチャ
 
-リポジトリには `data/*.json` の一部だけを同梱しています。AED・公衆トイレ・
-イベント・ゴミ収集スケジュールは Edge ランタイムが上流 CSV を取得して KV に
-キャッシュする方式 (`/api/datasets/{aed,toilet,events,gomi}`) に統一しました。
+`data/*.json` は **基本的にコミットしない** 方針で、生成は 2 系統に分かれます。
+
+### 1. ランタイム取得 (Edge API + KV キャッシュ)
+
+AED・公衆トイレ・イベント・ゴミ収集スケジュールは
+`/api/datasets/{aed,toilet,events,gomi}` が CKAN から CSV を取得して KV に
+キャッシュします。データ更新に再デプロイ不要。
 
 - 上流: `catalog.data.metro.tokyo.lg.jp` の CKAN `package_show` で
-  リソース URL を解決し、各データセットの最新 CSV を取得
+  リソース URL を解決
 - サーバー: Edge Runtime → Vercel KV (`DATASETS_CACHE`: ブラウザ 1h、共有 24h、
   SWR 7d、stale-if-error 7d) → クライアントへ
-- クライアント: 同 origin の `/api/datasets/*` を叩くだけで、ブラウザキャッシュと
-  KV の両方の恩恵を受ける
+- SSR ページ (`/`, `/events`, `/map`) は同じ lib (`lib/opendata/datasets/`) を
+  直接呼び、`export const revalidate` で ISR
 
-SSR ページ (`/`, `/events`, `/map`) は同じ lib (`lib/opendata/datasets/`) を
-直接呼び、`export const revalidate` で ISR を効かせています。
+### 2. ビルド時生成 (`scripts/ensure-data.mjs`)
 
-リポジトリに残る `data/*.json` は次の通り (生成スクリプトは `scripts/`)。
-公式 URL の参照や生成サイクルは個別ドキュメント参照。
+更新頻度が低い静的データは `predev` / `prebuild` / `pretest` フックで
+`scripts/ensure-data.mjs` が `data/` を埋めます。9 ファイルすべて gitignore。
 
-- `data/districts.json` (`scripts/generate-districts.mjs`)
-- `data/gomi-{dictionary,schedule}.json`
-- `data/{shelter,assembly_point,water_supply,park,library,child_center,nursery}.json`
-  (`scripts/generate-pois.ts`)
-- `data/bus-toei.json` (`scripts/fetch-bus-toei.ts`)
+| ファイル | 生成スクリプト | 上流 |
+|---|---|---|
+| `districts.json` | `generate-districts.mjs` | 江東区公式 CSV |
+| `{shelter,assembly_point,water_supply}.json` | `generate-pois.ts` | 東京都 CKAN |
+| `{park,library,child_center,nursery}.json` | `generate-pois.ts` | 江東区公式 CSV |
+| `bus-toei.json` | `fetch-bus-toei.ts` | 都営バス GTFS-JP |
+
+`ensure-data.mjs` は既存ファイルがあれば即 exit するので、2 回目以降の
+`npm run dev` / `npm test` はゼロコスト。初回 clone / Vercel ビルドだけ
+30〜60 秒の生成時間が発生します。`__fixtures__/opendata/` に CSV キャッシュが
+コミットされているのでローカルは概ね数秒で済みます。
+
+### 3. キュレーション (commit)
+
+上流のない、人が手で書く資料は引き続き git で管理します。
+
+- `data/gomi-dictionary.json` — ゴミ品目辞書
+- `data/gomi-schedule.json` — 特殊収集日のオーバーレイ
 
 ## Vercel 本番デプロイ
 
