@@ -4,13 +4,16 @@
 # (gitignored).
 #
 # Usage:
-#   ./scripts/dev.sh init       # one-time: npm install + ensure-data
-#   ./scripts/dev.sh start      # boot dev server in background
-#   ./scripts/dev.sh stop       # graceful kill, falls back to KILL,
-#                               # frees port 3000 if anything still holds it
-#   ./scripts/dev.sh restart    # stop + start
-#   ./scripts/dev.sh status     # exit 0 if alive, 1 otherwise
-#   ./scripts/dev.sh logs       # tail -f the log file
+#   ./scripts/dev.sh init             # one-time: npm install + ensure-data
+#   ./scripts/dev.sh start            # boot dev server in background
+#   ./scripts/dev.sh stop             # graceful kill, falls back to KILL,
+#                                     # frees port 3000 if anything still
+#                                     # holds it
+#   ./scripts/dev.sh restart          # stop + start
+#   ./scripts/dev.sh status           # exit 0 if alive, 1 otherwise
+#   ./scripts/dev.sh logs             # tail -f the log file
+#   ./scripts/dev.sh data [--force]   # incremental ensure-data; --force
+#                                     # regenerates every group
 #
 # Configurable env: PORT (default 3000).
 
@@ -144,6 +147,12 @@ cmd_logs() {
   tail -f "$LOG_FILE"
 }
 
+# Runs ensure-data with whatever extra args were given (notably --force).
+cmd_data() {
+  cd "$ROOT"
+  node scripts/ensure-data.mjs "$@"
+}
+
 case "${1:-}" in
   init) cmd_init ;;
   start) cmd_start ;;
@@ -151,16 +160,19 @@ case "${1:-}" in
   restart) cmd_restart ;;
   status) cmd_status ;;
   logs) cmd_logs ;;
+  data) shift; cmd_data "$@" ;;
   *)
     cat >&2 <<EOF
-Usage: $0 {init|start|stop|restart|status|logs}
+Usage: $0 {init|start|stop|restart|status|logs|data [--force]}
 
-  init      Install deps + generate baseline data files.
-  start     Run \`npm run dev\` detached (logs to .run/dev.log).
-  stop      Kill the running dev server + anything still on port $PORT.
-  restart   stop + start.
-  status    Report PID + URL if running.
-  logs      tail -f the dev server log.
+  init           Install deps + generate baseline data files.
+  start          Run \`npm run dev\` detached (logs to .run/dev.log).
+  stop           Kill the running dev server + anything still on port $PORT.
+  restart        stop + start.
+  status         Report PID + URL if running.
+  logs           tail -f the dev server log.
+  data [--force] Incrementally refresh data/*.json (only missing groups);
+                 --force regenerates every group regardless.
 
 Env: PORT=$PORT (override to run on a different port).
 EOF

@@ -124,12 +124,14 @@ npm run build
 (gitignore 済) に出します。
 
 ```bash
-./scripts/dev.sh init     # 初回: npm install + ensure-data
-./scripts/dev.sh start    # bg 起動 (→ .run/dev.log)
-./scripts/dev.sh status   # 生存確認 + URL
-./scripts/dev.sh logs     # tail -f
-./scripts/dev.sh stop     # 停止 + port 3000 解放
-./scripts/dev.sh restart  # stop + start
+./scripts/dev.sh init            # 初回: npm install + ensure-data
+./scripts/dev.sh start           # bg 起動 (→ .run/dev.log)
+./scripts/dev.sh status          # 生存確認 + URL
+./scripts/dev.sh logs            # tail -f
+./scripts/dev.sh stop            # 停止 + port 3000 解放
+./scripts/dev.sh restart         # stop + start
+./scripts/dev.sh data [--force]  # data/*.json を欠落分だけ取り直し
+                                 # (--force で全グループ再取得)
 ```
 
 `PORT=3001 ./scripts/dev.sh start` で別ポートに振れます。
