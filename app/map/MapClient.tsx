@@ -182,27 +182,40 @@ export default function MapClient({
   // stop, OR bus_stop=true on top so the focused pin is visible even if
   // the visitor's saved filter had it off.
   useEffect(() => {
+    // Track the layer set this hydration pass settles on so we can decide
+    // whether to expand the category drawer below. Without this the
+    // drawer stays collapsed even when the page renders with zero pins,
+    // leaving the visitor stranded — the search box alone gives no hint
+    // of how to surface layers.
+    let nextLayers: MapFilters["layers"] = filters.layers;
+
     if (urlHasLayersParam) {
       filtersHydratedRef.current = true;
-      return;
+    } else {
+      const stored = loadMapFilters();
+      if (stored != null) {
+        const next: MapFilters = {
+          ...stored,
+          layers: { ...stored.layers },
+        };
+        if (focusIsBusStop) next.layers.bus_stop = true;
+        setFilters(next);
+        nextLayers = next.layers;
+      } else if (focusIsBusStop) {
+        // No stored filters yet: still ensure the focus target's layer is
+        // on, otherwise the bus pin would render off-map.
+        nextLayers = { ...filters.layers, bus_stop: true };
+        setFilters((prev) => ({
+          ...prev,
+          layers: { ...prev.layers, bus_stop: true },
+        }));
+      }
+      filtersHydratedRef.current = true;
     }
-    const stored = loadMapFilters();
-    if (stored != null) {
-      const next: MapFilters = {
-        ...stored,
-        layers: { ...stored.layers },
-      };
-      if (focusIsBusStop) next.layers.bus_stop = true;
-      setFilters(next);
-    } else if (focusIsBusStop) {
-      // No stored filters yet: still ensure the focus target's layer is
-      // on, otherwise the bus pin would render off-map.
-      setFilters((prev) => ({
-        ...prev,
-        layers: { ...prev.layers, bus_stop: true },
-      }));
+
+    if (LAYERS.every((l) => !nextLayers[l.id])) {
+      setCategoryDrawerOpen(true);
     }
-    filtersHydratedRef.current = true;
   }, [urlHasLayersParam, focusIsBusStop]);
 
   useEffect(() => {
