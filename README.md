@@ -130,8 +130,9 @@ npm run build
 ./scripts/dev.sh logs            # tail -f
 ./scripts/dev.sh stop            # 停止 + port 3000 解放
 ./scripts/dev.sh restart         # stop + start
-./scripts/dev.sh data [--force]  # data/*.json を欠落分だけ取り直し
-                                 # (--force で全グループ再取得)
+./scripts/dev.sh data            # data/*.json を欠落分だけ取り直し
+./scripts/dev.sh data --force            # 全グループ強制再取得
+./scripts/dev.sh data --check-upstream   # 上流の更新を検知して差分のみ取得
 ```
 
 `PORT=3001 ./scripts/dev.sh start` で別ポートに振れます。
