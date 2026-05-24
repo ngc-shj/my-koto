@@ -24,6 +24,7 @@ import {
   type BusStop,
   type BusToeiData,
   type DirectionPattern,
+  type DirectionVariant,
   type ServiceCategory,
   type StopDepartures,
 } from "@/lib/opendata/schemas/bus";
@@ -356,6 +357,88 @@ function mergeStopSequences(
   return result;
 }
 
+// Buckets trips in one direction by their stop-id sequence. Trips that
+// visit the same stops in the same order collapse into one variant —
+// even when they ride slightly different streets (different shape_ids).
+// That matches the rider-facing notion of "same route", which is what
+// the picker needs to surface.
+function buildVariants(
+  tripIds: readonly string[],
+  args: {
+    trips: Map<string, z.infer<typeof TripRowSchema>>;
+    stopTimesByTrip: Map<string, StopTime[]>;
+    serviceCategories: Map<string, readonly ServiceCategory[]>;
+    shapes: Map<string, [number, number][]>;
+  },
+): DirectionVariant[] {
+  type Bucket = {
+    stopSequence: readonly string[];
+    tripIds: string[];
+  };
+  const buckets = new Map<string, Bucket>();
+  for (const tid of tripIds) {
+    const stopTimes = args.stopTimesByTrip.get(tid);
+    if (stopTimes == null || stopTimes.length === 0) continue;
+    const seq = stopTimes.map((st) => st.stopId);
+    const key = seq.join("|");
+    const bucket = buckets.get(key);
+    if (bucket == null) {
+      buckets.set(key, { stopSequence: seq, tripIds: [tid] });
+    } else {
+      bucket.tripIds.push(tid);
+    }
+  }
+
+  const variants: DirectionVariant[] = [];
+  for (const bucket of buckets.values()) {
+    // Headsign: most common across trips in this variant. Identical for
+    // every trip in well-formed GTFS, but we tally defensively in case
+    // upstream paired the same stop pattern with multiple headsigns.
+    const headsignCount = new Map<string, number>();
+    const shapeUsage = new Map<string, number>();
+    for (const tid of bucket.tripIds) {
+      const trip = args.trips.get(tid);
+      if (trip == null) continue;
+      headsignCount.set(
+        trip.trip_headsign,
+        (headsignCount.get(trip.trip_headsign) ?? 0) + 1,
+      );
+      if (trip.shape_id.length > 0) {
+        shapeUsage.set(
+          trip.shape_id,
+          (shapeUsage.get(trip.shape_id) ?? 0) + 1,
+        );
+      }
+    }
+    const headsign = pickMostFrequent(headsignCount, "");
+    const sortedShapeIds = Array.from(shapeUsage.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([sid]) => sid);
+    const variantShapes: [number, number][][] = [];
+    for (const sid of sortedShapeIds) {
+      const pts = args.shapes.get(sid);
+      if (pts != null && pts.length >= 2) variantShapes.push(pts);
+    }
+    variants.push({
+      // variantId is assigned below after sorting so the most-used
+      // variant always lands at `v0`.
+      variantId: "",
+      headsign,
+      stopSequence: bucket.stopSequence,
+      shapes: variantShapes.length > 0 ? variantShapes : undefined,
+      schedule: {
+        weekday: aggregateSchedule(bucket.tripIds, "weekday", args),
+        saturday: aggregateSchedule(bucket.tripIds, "saturday", args),
+        sunday: aggregateSchedule(bucket.tripIds, "sunday", args),
+      },
+      tripCount: bucket.tripIds.length,
+    });
+  }
+
+  variants.sort((a, b) => b.tripCount - a.tripCount);
+  return variants.map((v, i) => ({ ...v, variantId: `v${i}` }));
+}
+
 function buildRoutes(args: {
   stops: Map<string, BusStop>;
   kotoStopIds: Set<string>;
@@ -447,6 +530,10 @@ function buildRoutes(args: {
       sunday: aggregateSchedule(tripIds, "sunday", args),
     };
 
+    // Per-shape-pattern breakdown so the UI can offer a picker. Skipped
+    // for trivial cases (≤1 variant) — the picker would just be noise.
+    const variants = buildVariants(tripIds, args);
+
     let entry = builtRoutes.find((r) => r.routeId === routeId);
     if (entry == null) {
       const routeRow = args.routes.get(routeId);
@@ -467,6 +554,7 @@ function buildRoutes(args: {
       shape: primaryShape,
       shapes: allShapes.length > 0 ? allShapes : undefined,
       schedule,
+      variants: variants.length > 1 ? variants : undefined,
     });
   }
 

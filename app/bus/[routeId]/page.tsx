@@ -6,12 +6,20 @@ import PageHeader from "@/components/PageHeader";
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readBus } from "@/lib/opendata/db/readers";
 import { displayRouteName } from "@/lib/bus/aliases";
+import {
+  disambiguatedHeadsign,
+  variantRestriction,
+} from "@/lib/bus/variants";
 import { routeColor } from "@/lib/map/bus-routes";
-import RoutePageContent from "./RoutePageContent";
-import type { ActiveDirection } from "./RouteMapClient";
+import RoutePageContent, { type ActiveDirection } from "./RoutePageContent";
 
 type Params = { routeId: string };
-type Search = { dir?: string; from?: string; stopId?: string };
+type Search = {
+  dir?: string;
+  from?: string;
+  stopId?: string;
+  variant?: string;
+};
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -54,7 +62,7 @@ export default async function RoutePage({
   searchParams: Promise<Search>;
 }) {
   const { routeId } = await params;
-  const { dir, from, stopId } = await searchParams;
+  const { dir, from, stopId, variant } = await searchParams;
   const found = await loadRoute(decodeURIComponent(routeId));
   if (found == null) notFound();
   const { data, route } = found;
@@ -80,26 +88,50 @@ export default async function RoutePage({
   // Build the map's per-direction view. `shapes` carries every variant
   // (terminals, detours) so the renderer can draw them all without
   // gaps; `shape` is the legacy singular field used by older bundles.
+  // `variants`, when present on the dataset, is forwarded so the
+  // RoutePageContent picker can drill the merged direction view down
+  // to one concrete stop pattern at a time.
   const color = routeColor(route.routeId);
+  const resolveStops = (sequence: readonly string[]) =>
+    sequence
+      .map((stopId) => data.stops[stopId])
+      .filter((s): s is NonNullable<typeof s> => s != null)
+      .map((s) => ({
+        stopId: s.stopId,
+        name: s.name,
+        lat: s.lat,
+        lng: s.lng,
+      }));
   const mapDirections = route.directions.map((d) => {
     const shapes: ReadonlyArray<ReadonlyArray<readonly [number, number]>> =
       (d.shapes ?? (d.shape != null ? [d.shape] : [])) as ReadonlyArray<
         ReadonlyArray<readonly [number, number]>
       >;
+    const allVariants = d.variants ?? [];
+    const variants = d.variants?.map((v) => ({
+      variantId: v.variantId,
+      // Display label that's unique within this direction — same helper
+      // as the stop detail page, so picker tabs and chip labels stay
+      // consistent end-to-end.
+      headsign: disambiguatedHeadsign(v, allVariants),
+      tripCount: v.tripCount,
+      // Flags variants that only run on a single service category so
+      // the picker can paint Saturday-only / Sunday-only buttons in a
+      // distinct color (visitors picking on the wrong day immediately
+      // see the mismatch).
+      restrictedTo: variantRestriction(v),
+      shapes: (v.shapes ?? []) as ReadonlyArray<
+        ReadonlyArray<readonly [number, number]>
+      >,
+      stops: resolveStops(v.stopSequence),
+    }));
     return {
       directionId: d.directionId,
       headsign: d.headsign,
       color,
       shapes,
-      stops: d.stopSequence
-        .map((stopId) => data.stops[stopId])
-        .filter((s): s is NonNullable<typeof s> => s != null)
-        .map((s) => ({
-          stopId: s.stopId,
-          name: s.name,
-          lat: s.lat,
-          lng: s.lng,
-        })),
+      stops: resolveStops(d.stopSequence),
+      variants,
     };
   });
 
@@ -121,6 +153,7 @@ export default async function RoutePage({
           routeName={displayRouteName(route.shortName)}
           directions={mapDirections}
           initialDirection={parseInitialDirection(dir)}
+          initialVariant={variant}
         />
 
         <PageFooter dataset="toei-bus">

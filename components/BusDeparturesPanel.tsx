@@ -1,105 +1,66 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { KanjiText } from "@/components/Furigana";
-import {
-  categorizeServiceDay,
-  formatBusTime,
-  nextDepartures,
-  parseBusTimeMinutes,
-} from "@/lib/bus/normalize";
-import type { ServiceCategory, StopDepartures } from "@/lib/opendata/schemas/bus";
+import { formatBusTime, parseBusTimeMinutes } from "@/lib/bus/normalize";
 
-type Props = {
-  weekday: readonly string[];
-  saturday: readonly string[];
-  sunday: readonly string[];
+// One scheduled departure. `variantId` lets a controlling parent filter
+// the table down to a single terminal (it's the same picker that drives
+// the embedded route map, so map + table stay in sync). `headsign` is
+// the human label used in the per-time chip when the visible mix has
+// more than one terminal.
+export type Departure = {
+  readonly time: string;
+  readonly headsign: string;
+  readonly variantId: string;
 };
 
-const TAB_LABEL: Record<ServiceCategory, string> = {
-  weekday: "平日",
-  saturday: "土曜",
-  sunday: "休日",
+type Props = {
+  departures: readonly Departure[];
+  // `now` is set by the parent's per-minute tick so the panel can mark
+  // the next upcoming departure. `null` while server-rendering.
+  now: Date | null;
+  // True when `departures` covers the same service category the visitor
+  // is currently in — controls whether the "next departure" callout
+  // and the inline highlight should fire.
+  isToday: boolean;
 };
 
 export default function BusDeparturesPanel({
-  weekday,
-  saturday,
-  sunday,
+  departures,
+  now,
+  isToday,
 }: Props) {
-  const [now, setNow] = useState<Date | null>(null);
-  const todayCategory = useMemo<ServiceCategory | null>(
-    () => (now != null ? categorizeServiceDay(now) : null),
-    [now],
-  );
-  const [active, setActive] = useState<ServiceCategory | null>(null);
+  // Per-time headsign chip only matters when the visible mix has more
+  // than one terminal. When the parent has already filtered to a single
+  // variant, every departure shares one headsign so the chip would just
+  // repeat — auto-suppress in that case.
+  const distinctHeadsigns = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of departures) {
+      if (d.headsign.length > 0) set.add(d.headsign);
+    }
+    return set;
+  }, [departures]);
+  const showHeadsignChip = distinctHeadsigns.size > 1;
 
-  useEffect(() => {
-    const tick = (): void => setNow(new Date());
-    tick();
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (active == null && todayCategory != null) setActive(todayCategory);
-  }, [active, todayCategory]);
-
-  const buckets: Record<ServiceCategory, readonly string[]> = {
-    weekday,
-    saturday,
-    sunday,
-  };
-
-  const resolvedActive: ServiceCategory =
-    active ?? todayCategory ?? "weekday";
-  const times = buckets[resolvedActive];
-
-  const upcoming =
-    now != null && resolvedActive === todayCategory
-      ? nextDepartures(
-          { stopId: "current", times } as StopDepartures,
-          now,
-          3,
-        )
-      : [];
+  const upcoming = useMemo(() => {
+    if (!isToday || now == null) return [];
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const out: Departure[] = [];
+    for (const d of departures) {
+      const m = parseBusTimeMinutes(d.time);
+      if (m == null) continue;
+      if (m >= nowMinutes) {
+        out.push(d);
+        if (out.length >= 3) break;
+      }
+    }
+    return out;
+  }, [departures, isToday, now]);
 
   return (
     <div>
-      <div
-        role="tablist"
-        aria-label="曜日切り替え"
-        className="inline-flex rounded-lg border border-gray-200 overflow-hidden mb-4"
-      >
-        {(Object.keys(TAB_LABEL) as ServiceCategory[]).map((cat) => {
-          const isActive = cat === resolvedActive;
-          const isToday = cat === todayCategory;
-          return (
-            <button
-              key={cat}
-              role="tab"
-              type="button"
-              aria-selected={isActive ? "true" : "false"}
-              onClick={() => setActive(cat)}
-              className={[
-                "px-4 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50",
-                "border-r border-gray-200 last:border-r-0",
-              ].join(" ")}
-            >
-              <KanjiText text={TAB_LABEL[cat]} />
-              {isToday && (
-                <span className="ml-1 text-xs" aria-label="本日">
-                  ・本日
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
       {upcoming.length > 0 && (
         <section
           aria-live="polite"
@@ -109,31 +70,47 @@ export default function BusDeparturesPanel({
             <KanjiText text="次の発車" />
           </div>
           <div className="flex flex-wrap gap-2">
-            {upcoming.map((t) => (
+            {upcoming.map((d, idx) => (
               <span
-                key={t}
-                className="rounded bg-white px-2 py-1 text-sm font-medium text-amber-900 border border-amber-200 tabular-nums"
+                key={`${d.time}-${d.variantId}-${idx}`}
+                className="inline-flex items-center gap-1.5 rounded bg-white px-2 py-1 text-sm font-medium text-amber-900 border border-amber-200"
               >
-                {formatBusTime(t)}
+                <span className="tabular-nums">{formatBusTime(d.time)}</span>
+                {showHeadsignChip && (
+                  <span className="text-[10px] text-amber-800 bg-amber-100 px-1 rounded">
+                    <KanjiText text={`${d.headsign} 行`} />
+                  </span>
+                )}
               </span>
             ))}
           </div>
         </section>
       )}
 
-      <Timetable times={times} now={now} highlight={resolvedActive === todayCategory} />
+      <Timetable
+        departures={departures}
+        now={now}
+        highlight={isToday}
+        showHeadsignChip={showHeadsignChip}
+      />
     </div>
   );
 }
 
 type TimetableProps = {
-  times: readonly string[];
+  departures: readonly Departure[];
   now: Date | null;
   highlight: boolean;
+  showHeadsignChip: boolean;
 };
 
-function Timetable({ times, now, highlight }: TimetableProps): React.ReactElement {
-  if (times.length === 0) {
+function Timetable({
+  departures,
+  now,
+  highlight,
+  showHeadsignChip,
+}: TimetableProps): React.ReactElement {
+  if (departures.length === 0) {
     return (
       <p className="text-sm text-gray-500">
         <KanjiText text="この曜日の運行はありません。" />
@@ -141,13 +118,13 @@ function Timetable({ times, now, highlight }: TimetableProps): React.ReactElemen
     );
   }
 
-  const grouped = new Map<number, string[]>();
-  for (const token of times) {
-    const minutes = parseBusTimeMinutes(token);
+  const grouped = new Map<number, Departure[]>();
+  for (const d of departures) {
+    const minutes = parseBusTimeMinutes(d.time);
     if (minutes == null) continue;
     const hour = Math.floor(minutes / 60);
     const list = grouped.get(hour) ?? [];
-    list.push(token);
+    list.push(d);
     grouped.set(hour, list);
   }
 
@@ -156,10 +133,10 @@ function Timetable({ times, now, highlight }: TimetableProps): React.ReactElemen
     highlight && now != null ? now.getHours() * 60 + now.getMinutes() : -1;
   const nextToken =
     nowMinutes >= 0
-      ? times.find((t) => {
-          const m = parseBusTimeMinutes(t);
+      ? departures.find((d) => {
+          const m = parseBusTimeMinutes(d.time);
           return m != null && m >= nowMinutes;
-        }) ?? null
+        })?.time ?? null
       : null;
 
   return (
@@ -177,17 +154,25 @@ function Timetable({ times, now, highlight }: TimetableProps): React.ReactElemen
                 <span className="ml-1 text-xs text-gray-400">翌</span>
               )}
             </span>
-            <span className="flex flex-wrap gap-x-3 gap-y-1 text-gray-700 tabular-nums">
-              {list.map((t) => (
+            <span className="flex flex-wrap gap-x-3 gap-y-1 text-gray-700">
+              {list.map((d, idx) => (
                 <span
-                  key={t}
+                  key={`${d.time}-${d.headsign}-${idx}`}
                   className={
-                    t === nextToken
-                      ? "rounded bg-amber-100 px-1.5 text-amber-900 font-semibold"
-                      : ""
+                    d.time === nextToken
+                      ? "inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 text-amber-900 font-semibold"
+                      : "inline-flex items-center gap-0.5"
                   }
                 >
-                  {t.slice(3)}
+                  <span className="tabular-nums">{d.time.slice(3)}</span>
+                  {showHeadsignChip && (
+                    <span
+                      className="text-[10px] text-slate-600 bg-slate-100 px-1 rounded leading-none"
+                      title={`${d.headsign} 行`}
+                    >
+                      <KanjiText text={d.headsign} />
+                    </span>
+                  )}
                 </span>
               ))}
             </span>

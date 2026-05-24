@@ -29,14 +29,11 @@ type DirectionView = {
   readonly stops: ReadonlyArray<Stop>;
 };
 
-export type ActiveDirection = "all" | "0" | "1";
-
 type Props = {
   routeName: string;
+  // Already filtered by the parent for the current direction + variant
+  // selection — the map just renders what it's given.
   directions: ReadonlyArray<DirectionView>;
-  // Controlled by the parent so a single state value drives both the
-  // map and the stop list filter. Default "all" when omitted.
-  activeDirection?: ActiveDirection;
   // When set, this stopId pin renders larger so the visitor jumping in
   // from /bus/[routeId]/[stopId] sees their stop right away.
   highlightStopId?: string;
@@ -83,7 +80,6 @@ function fitBoundsFor(
 export default function RouteMapClient({
   routeName,
   directions,
-  activeDirection = "all",
   highlightStopId,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -120,7 +116,10 @@ export default function RouteMapClient({
     };
   }, [directions]);
 
-  // Init the map once.
+  // Init the map once on mount. Direction / variant changes mutate
+  // the existing map's data sources instead of recreating it, so the
+  // visitor's pan/zoom state and the user-location marker survive a
+  // picker tap.
   useEffect(() => {
     let cancelled = false;
 
@@ -128,13 +127,12 @@ export default function RouteMapClient({
       const maplibregl = (await import("maplibre-gl")).default;
       if (cancelled || !containerRef.current) return;
 
-      const bounds = fitBoundsFor(directions);
       const map = new maplibregl.Map({
         container: containerRef.current,
         style: PALE_STYLE,
-        // Center on Koto-ku — the bounds fit below will overwrite this
-        // once the data loads, so the seed value just guarantees a
-        // sensible first frame.
+        // Center on Koto-ku — the bounds-fit effect below will
+        // overwrite this once the data is laid out, so the seed value
+        // just guarantees a sensible first frame.
         center: [139.8175, 35.6727],
         zoom: 12,
         maxZoom: 18,
@@ -144,9 +142,6 @@ export default function RouteMapClient({
       mapRef.current = map;
       map.on("load", () => {
         if (cancelled) return;
-        if (bounds != null) {
-          map.fitBounds(bounds, { padding: 32, animate: false });
-        }
         setMapReady(true);
       });
     }
@@ -157,7 +152,24 @@ export default function RouteMapClient({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [directions]);
+  }, []);
+
+  // Re-fit to the currently-active directions on first paint and on
+  // direction / variant changes. First fit is instantaneous so the
+  // initial render lands oriented; subsequent fits animate so the
+  // visitor sees the camera move and connects it with their pick.
+  const firstFitRef = useRef(true);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const bounds = fitBoundsFor(directions);
+    if (bounds == null) return;
+    map.fitBounds(bounds, {
+      padding: 32,
+      animate: !firstFitRef.current,
+    });
+    firstFitRef.current = false;
+  }, [directions, mapReady]);
 
   // (Re-)attach the route polylines as a single GeoJSON source/layer.
   useEffect(() => {
@@ -194,22 +206,6 @@ export default function RouteMapClient({
       });
     }
   }, [geojson, mapReady]);
-
-  // Visibility filter for the direction picker.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady) return;
-    if (!map.getLayer("route-lines-layer")) return;
-    if (activeDirection === "all") {
-      map.setFilter("route-lines-layer", null);
-    } else {
-      map.setFilter("route-lines-layer", [
-        "==",
-        ["get", "directionId"],
-        activeDirection,
-      ]);
-    }
-  }, [activeDirection, mapReady]);
 
   // Pan to the highlighted stop. Without this the visitor only sees a
   // red dot somewhere on the polyline — long routes leave that dot
@@ -273,9 +269,6 @@ export default function RouteMapClient({
       const seen = new Set<string>();
       let highlightHit: { stop: Stop; color: string } | null = null;
       for (const d of directions) {
-        if (activeDirection !== "all" && d.directionId !== activeDirection) {
-          continue;
-        }
         for (const s of d.stops) {
           if (seen.has(s.stopId)) continue;
           seen.add(s.stopId);
@@ -293,7 +286,7 @@ export default function RouteMapClient({
     return () => {
       cancelled = true;
     };
-  }, [directions, activeDirection, mapReady, highlightStopId]);
+  }, [directions, mapReady, highlightStopId]);
 
   // Silently re-acquire the visitor's location when consent was already
   // granted on a previous visit (typically via /map). First-time visitors
