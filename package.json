@@ -3,19 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/install-dev-sw-killer.mjs && node scripts/ensure-data.mjs",
+    "predev": "node scripts/install-dev-sw-killer.mjs && npx tsx scripts/ensure-data.ts",
     "dev": "next dev --turbopack",
     "dev:webpack": "next dev",
-    "prebuild": "node scripts/ensure-data.mjs",
+    "prebuild": "npx tsx scripts/ensure-data.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
-    "pretest": "node scripts/ensure-data.mjs",
+    "pretest": "npx tsx scripts/ensure-data.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.3",
     "@touch4it/ical-timezones": "^1.9.0",
     "@vercel/functions": "^3.5.0",
     "@vercel/kv": "^3.0.0",

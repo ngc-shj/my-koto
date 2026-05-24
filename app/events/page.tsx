@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { fetchEventsDataset } from "@/lib/opendata/datasets/events";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readEvents } from "@/lib/opendata/db/readers";
 import { toEvent, filterUpcoming } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
 import Attribution from "@/components/Attribution";
@@ -20,9 +21,10 @@ export const metadata: Metadata = {
 };
 
 export default async function EventsPage() {
-  // Pull events from the CKAN-backed dataset (CSV → mapped + Zod-parsed
-  // server-side) and filter to the 90-day window the list view renders.
-  const dataset = await fetchEventsDataset();
+  // Read events from the local libsql snapshot. `ensure-data` populates
+  // it via Conditional fetch against CKAN — this page never touches the
+  // upstream itself, so per-ISR revalidations cost zero upstream load.
+  const dataset = await readEvents(openDatasetsDb());
   const allEvents: Event[] = dataset.result.records.map((r, i) => toEvent(r, i));
   const upcomingEvents = filterUpcoming(allEvents);
 

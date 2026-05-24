@@ -1,4 +1,5 @@
-import { fetchEventsDataset } from "@/lib/opendata/datasets/events";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readEvents } from "@/lib/opendata/db/readers";
 import { buildEventIcs } from "@/lib/ics";
 import { toEvent, filterUpcoming } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
@@ -19,11 +20,11 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
-  // Pull events from the CKAN-backed dataset (lib does the CSV fetch +
-  // column mapping + Zod parse) and filter to the same 90-day window the
-  // /events page renders so the calendar feed never exposes years of
-  // historical records (F-16).
-  const dataset = await fetchEventsDataset();
+  // Pull events from the local libsql snapshot (populated by ensure-data)
+  // and filter to the same 90-day window /events renders so the calendar
+  // feed never exposes years of historical records (F-16). No upstream
+  // call per request.
+  const dataset = await readEvents(openDatasetsDb());
   const events: Event[] = dataset.result.records.map((r, i) => toEvent(r, i));
   const upcoming = filterUpcoming(events);
 

@@ -43,7 +43,7 @@ cmd_init() {
   echo "[dev] npm install"
   npm install
   echo "[dev] ensure-data"
-  node scripts/ensure-data.mjs
+  npx tsx scripts/ensure-data.ts
   echo "[dev] init complete — run \`./scripts/dev.sh start\` next."
 }
 
@@ -152,7 +152,7 @@ cmd_logs() {
 # Runs ensure-data with whatever extra args were given (notably --force).
 cmd_data() {
   cd "$ROOT"
-  node scripts/ensure-data.mjs "$@"
+  npx tsx scripts/ensure-data.ts "$@"
 }
 
 case "${1:-}" in

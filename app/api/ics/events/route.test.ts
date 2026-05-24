@@ -17,9 +17,12 @@ vi.mock("@vercel/kv", () => ({
   },
 }));
 
-// Stub the upstream CSV fetcher so tests don't hit the network.
-vi.mock("@/lib/opendata/datasets/events", () => ({
-  fetchEventsDataset: vi.fn(async () => ({
+// Stub the libsql reader so tests don't open a real database.
+vi.mock("@/lib/opendata/db/client", () => ({
+  openDatasetsDb: vi.fn(() => ({})),
+}));
+vi.mock("@/lib/opendata/db/readers", () => ({
+  readEvents: vi.fn(async () => ({
     result: {
       records: [
         {

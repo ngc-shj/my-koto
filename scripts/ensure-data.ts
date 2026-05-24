@@ -31,6 +31,18 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { openDatasetsDb, ensureSchema } from "@/lib/opendata/db/client";
+import { readMetaVersion } from "@/lib/opendata/db/readers";
+import {
+  writeAed,
+  writeEvents,
+  writeGomi,
+  writeToilet,
+} from "@/lib/opendata/db/writers";
+import { fetchAedDatasetConditional } from "@/lib/opendata/datasets/aed";
+import { fetchToiletDatasetConditional } from "@/lib/opendata/datasets/toilet";
+import { fetchEventsDatasetConditional } from "@/lib/opendata/datasets/events";
+import { fetchGomiDatasetConditional } from "@/lib/opendata/datasets/gomi";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FORCE = process.argv.includes("--force") || process.env.FORCE === "1";
@@ -48,9 +60,21 @@ const USER_AGENT = "koto-city-ensure-data/1.0 (+/about)";
 const CKAN_API =
   "https://catalog.data.metro.tokyo.lg.jp/api/3/action/package_show";
 
+type GroupSpec = {
+  name: string;
+  files: readonly string[];
+  cmd: readonly [string, readonly string[]];
+};
+
+type SourceSpec =
+  | { id: string; group: string; kind: "head"; url: string }
+  | { id: string; group: string; kind: "ckan"; datasetId: string };
+
+type Sidecar = Record<string, string>;
+
 // One entry per generator script. The script runs iff any of its files
 // is missing (or --force, or --check-upstream sees an updated source).
-const GROUPS = [
+const GROUPS: readonly GroupSpec[] = [
   {
     name: "districts",
     files: ["data/districts.json"],
@@ -80,7 +104,7 @@ const GROUPS = [
 // regenerates when the source changes. Per source we either ask CKAN for
 // `metadata_modified` (cheap, accurate) or do a HEAD and read
 // `Last-Modified` (one round trip, no body).
-const SOURCES = [
+const SOURCES: readonly SourceSpec[] = [
   {
     id: "districts:waste-csv",
     group: "districts",
@@ -131,32 +155,33 @@ const SOURCES = [
   },
 ];
 
-function run(cmd, args) {
+function run(cmd: string, args: readonly string[]): void {
   console.log(`\n[ensure-data] $ ${cmd} ${args.join(" ")}`);
-  const result = spawnSync(cmd, args, { stdio: "inherit", cwd: ROOT });
+  const result = spawnSync(cmd, [...args], { stdio: "inherit", cwd: ROOT });
   if (result.status !== 0) {
     console.error(`[ensure-data] FAILED: ${cmd} ${args.join(" ")}`);
     process.exit(1);
   }
 }
 
-function readSidecar() {
+function readSidecar(): Sidecar {
   if (!existsSync(SIDECAR_PATH)) return {};
   try {
-    return JSON.parse(readFileSync(SIDECAR_PATH, "utf-8"));
+    const raw = JSON.parse(readFileSync(SIDECAR_PATH, "utf-8")) as unknown;
+    return raw && typeof raw === "object" ? (raw as Sidecar) : {};
   } catch {
     return {};
   }
 }
 
-function writeSidecar(data) {
+function writeSidecar(data: Sidecar): void {
   writeFileSync(SIDECAR_PATH, JSON.stringify(data, null, 2) + "\n", "utf-8");
 }
 
 // Last-Modified probe. Tries HEAD first (cheapest), falls back to a
 // 1-byte ranged GET when the server rejects HEAD — the ODPT bus GTFS
 // mirror, for instance, returns 404 on HEAD but 206 on `Range: bytes=0-0`.
-async function probeLastModified(url) {
+async function probeLastModified(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
       method: "HEAD",
@@ -182,27 +207,26 @@ async function probeLastModified(url) {
   return res.headers.get("last-modified") ?? "";
 }
 
-async function getRemoteVersion(src) {
+async function getRemoteVersion(src: SourceSpec): Promise<string> {
   if (src.kind === "head") {
     return probeLastModified(src.url);
   }
-  if (src.kind === "ckan") {
-    const url = `${CKAN_API}?id=${encodeURIComponent(src.datasetId)}`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    });
-    if (!res.ok) throw new Error(`CKAN ${src.datasetId}: HTTP ${res.status}`);
-    const body = await res.json();
-    return body.result?.metadata_modified ?? "";
-  }
-  throw new Error(`unknown source kind: ${src.kind}`);
+  const url = `${CKAN_API}?id=${encodeURIComponent(src.datasetId)}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`CKAN ${src.datasetId}: HTTP ${res.status}`);
+  const body = (await res.json()) as {
+    result?: { metadata_modified?: string };
+  };
+  return body.result?.metadata_modified ?? "";
 }
 
-async function main() {
+async function main(): Promise<void> {
   const sidecar = readSidecar();
-  const toRun = new Set();
-  let staleSummary = [];
+  const toRun = new Set<string>();
+  let staleSummary: string[] = [];
 
   // Presence check: any missing file marks its group for regen.
   for (const group of GROUPS) {
@@ -216,7 +240,7 @@ async function main() {
   }
 
   // Upstream freshness check (optional, slower).
-  let remoteVersions = {};
+  const remoteVersions: Sidecar = {};
   if (CHECK_UPSTREAM) {
     console.log("[ensure-data] checking upstream freshness...");
     for (const src of SOURCES) {
@@ -234,8 +258,9 @@ async function main() {
           console.log(`  - fresh ${src.id}`);
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         console.warn(
-          `  - check failed for ${src.id} (${err.message}); will refresh ${src.group} to be safe.`,
+          `  - check failed for ${src.id} (${msg}); will refresh ${src.group} to be safe.`,
         );
         toRun.add(src.group);
         staleSummary.push(`${src.group}: upstream check failed (${src.id})`);
@@ -250,26 +275,72 @@ async function main() {
   }
 
   if (toRun.size === 0) {
-    console.log("[ensure-data] all data fresh, nothing to do.");
-    return;
+    console.log("[ensure-data] static data fresh, no JSON regeneration.");
+  } else {
+    console.log(`[ensure-data] groups to refresh: ${[...toRun].join(", ")}`);
+    for (const reason of staleSummary) console.log(`  reason: ${reason}`);
+
+    for (const group of GROUPS) {
+      if (!toRun.has(group.name)) continue;
+      run(group.cmd[0], group.cmd[1]);
+    }
+
+    // Persist whatever remote versions we observed so the next
+    // --check-upstream call has a baseline. Skip when we never asked.
+    if (CHECK_UPSTREAM) {
+      writeSidecar({ ...sidecar, ...remoteVersions });
+      console.log(`[ensure-data] sidecar updated: ${SIDECAR_PATH}`);
+    }
   }
 
-  console.log(`[ensure-data] groups to refresh: ${[...toRun].join(", ")}`);
-  for (const reason of staleSummary) console.log(`  reason: ${reason}`);
-
-  for (const group of GROUPS) {
-    if (!toRun.has(group.name)) continue;
-    run(group.cmd[0], group.cmd[1]);
-  }
-
-  // Persist whatever remote versions we observed so the next
-  // --check-upstream call has a baseline. Skip when we never asked.
-  if (CHECK_UPSTREAM) {
-    writeSidecar({ ...sidecar, ...remoteVersions });
-    console.log(`[ensure-data] sidecar updated: ${SIDECAR_PATH}`);
-  }
+  // Dynamic datasets live in data/datasets.sqlite. The 4 CKAN-resolved
+  // sources (aed/toilet/events/gomi) used to be fetched per request by
+  // the /api/datasets/* routes or per ISR by SSR pages; now they're
+  // refreshed here using the same Conditional-fetch helpers so SSR and
+  // future Edge readers stay off the upstream.
+  await syncDynamicDatasets();
 
   console.log("\n[ensure-data] done.");
+}
+
+async function syncDynamicDatasets(): Promise<void> {
+  console.log("\n[ensure-data] syncing dynamic datasets → libsql...");
+  const db = openDatasetsDb();
+  await ensureSchema(db);
+
+  type Job<T> = {
+    id: string;
+    fetcher: (
+      prev: string | undefined,
+    ) => Promise<import("@/lib/opendata/datasets/source").ConditionalLoadResult<T>>;
+    writer: (db: ReturnType<typeof openDatasetsDb>, data: T, meta: { sourceId: string; version: string }) => Promise<void>;
+  };
+
+  const jobs: Array<Job<unknown>> = [
+    { id: "aed", fetcher: fetchAedDatasetConditional, writer: writeAed as never },
+    { id: "toilet", fetcher: fetchToiletDatasetConditional, writer: writeToilet as never },
+    { id: "events", fetcher: fetchEventsDatasetConditional, writer: writeEvents as never },
+    { id: "gomi", fetcher: fetchGomiDatasetConditional, writer: writeGomi as never },
+  ];
+
+  for (const job of jobs) {
+    const prev = FORCE ? undefined : await readMetaVersion(db, job.id);
+    try {
+      const result = await job.fetcher(prev);
+      if (result.unchanged) {
+        console.log(`  - ${job.id}: unchanged (version ${result.version})`);
+        continue;
+      }
+      await job.writer(db, result.data, {
+        sourceId: job.id,
+        version: result.version,
+      });
+      console.log(`  - ${job.id}: refreshed (version ${result.version})`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`  - ${job.id}: FAILED (${msg}); keeping existing rows`);
+    }
+  }
 }
 
 main().catch((err) => {

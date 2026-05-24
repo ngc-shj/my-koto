@@ -10,7 +10,8 @@ import {
   type District,
   type SpecialOverlay,
 } from "@/lib/gomi/types";
-import { fetchEventsDataset } from "@/lib/opendata/datasets/events";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readEvents } from "@/lib/opendata/db/readers";
 import { filterUpcoming, toEvent } from "@/lib/events/normalize";
 import districtsRaw from "@/data/districts.json";
 import overlaysRaw from "@/data/gomi-schedule.json";
@@ -29,7 +30,9 @@ export default async function HomePage() {
   const districts: District[] = DistrictSchema.array().parse(districtsRaw);
   const overlays: SpecialOverlay[] =
     SpecialOverlaySchema.array().parse(overlaysRaw);
-  const eventsDataset = await fetchEventsDataset();
+  // Events come from the local libsql snapshot (populated by ensure-data
+  // via Conditional fetch), so home rendering never pings the upstream.
+  const eventsDataset = await readEvents(openDatasetsDb());
   const events = eventsDataset.result.records.map(toEvent);
   const upcomingEvents = filterUpcoming(events).slice(0, 5);
 
