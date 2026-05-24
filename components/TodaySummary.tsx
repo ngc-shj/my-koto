@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { addDays, isAfter, isSameDay } from "date-fns";
 import { formatDayWithWeekday } from "@/lib/i18n/datetime";
+import { withBasePath } from "@/lib/site/base-path";
 import {
   GOMI_CATEGORY_LABELS,
   type District,
@@ -66,7 +68,7 @@ export default function TodaySummary({
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/weather", { signal: controller.signal })
+    void fetch(withBasePath("/api/weather"), { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as WeatherResponse;
@@ -84,7 +86,7 @@ export default function TodaySummary({
     // renders nothing) since the user can still read the weather forecast
     // and dedicated /weather page surfaces a louder error if they care.
     const controller = new AbortController();
-    void fetch("/api/wbgt", { signal: controller.signal })
+    void fetch(withBasePath("/api/wbgt"), { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const raw = (await res.json()) as unknown;
@@ -148,12 +150,12 @@ export default function TodaySummary({
         <p className="text-sm text-blue-800">
           ごみ収集や通知の対象となる地区を一度だけ登録すると、トップページに今日の予定が表示されます。
         </p>
-        <a
+        <Link
           href="/settings"
           className="inline-block px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
         >
           設定画面へ
-        </a>
+        </Link>
       </div>
     );
   }
@@ -170,12 +172,12 @@ export default function TodaySummary({
             </span>
           </p>
         </div>
-        <a
+        <Link
           href="/settings"
           className="text-xs text-blue-600 underline hover:text-blue-800 flex-shrink-0"
         >
           切替
-        </a>
+        </Link>
       </header>
 
       <GomiSection occurrence={gomiTodayTomorrow?.today ?? null} label="今日" />

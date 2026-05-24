@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { NOTIFY_HOUR_MAX, NOTIFY_HOUR_MIN } from "@/lib/push/types";
+import { withBasePath } from "@/lib/site/base-path";
 
 type Status =
   | "loading"
@@ -101,7 +102,7 @@ export default function PushOptIn({ districtId }: PushOptInProps) {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await fetch("/api/push/subscribe", {
+        await fetch(withBasePath("/api/push/subscribe"), {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: sub.endpoint }),
@@ -252,7 +253,7 @@ async function postSubscription(
   hour: number,
 ): Promise<void> {
   const json = sub.toJSON();
-  const res = await fetch("/api/push/subscribe", {
+  const res = await fetch(withBasePath("/api/push/subscribe"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -66,6 +66,10 @@ const withPWA = withPWAInit({
 });
 
 const baseConfig: NextConfig = {
+  // Configured via NEXT_PUBLIC_BASE_PATH so dev keeps serving at /. The
+  // Tailscale Funnel deployment sets it to "/my-koto"; lib/site/base-path.ts
+  // mirrors the same env var for non-Next surfaces (raw <a> / fetch).
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
   async headers() {
     return [
       {

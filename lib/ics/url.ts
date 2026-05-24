@@ -1,3 +1,5 @@
+import { BASE_PATH } from "@/lib/site/base-path";
+
 // iOS uses the webcal:// scheme to directly open the Calendar app when
 // subscribing. Other platforms open a browser-based subscribe flow that
 // expects an http(s):// URL — and that URL must use the same scheme as
@@ -37,7 +39,7 @@ export function gomiSubscriptionUrl(
   userAgent: string,
   pageProtocol: string = "https:",
 ): string {
-  const path = `/api/ics/gomi/${district}`;
+  const path = `${BASE_PATH}/api/ics/gomi/${district}`;
   const scheme = pickSubscriptionScheme(userAgent, pageProtocol);
   return `${scheme}://${host}${path}`;
 }
@@ -56,7 +58,7 @@ export function eventsSubscriptionUrl(
   userAgent: string,
   pageProtocol: string = "https:",
 ): string {
-  const path = "/api/ics/events";
+  const path = `${BASE_PATH}/api/ics/events`;
   const scheme = pickSubscriptionScheme(userAgent, pageProtocol);
   return `${scheme}://${host}${path}`;
 }

@@ -9,6 +9,7 @@ import {
   type WbgtData,
   type WbgtReading,
 } from "@/lib/opendata/schemas/wbgt";
+import { withBasePath } from "@/lib/site/base-path";
 
 type State =
   | { status: "loading" }
@@ -21,7 +22,7 @@ export default function WbgtPanel() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/wbgt", { signal: controller.signal })
+    void fetch(withBasePath("/api/wbgt"), { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const raw = (await res.json()) as unknown;

@@ -7,6 +7,7 @@ import {
 } from "@/lib/i18n/datetime";
 import type { Event } from "@/lib/events/types";
 import { eventsSubscriptionUrl } from "@/lib/ics/url";
+import { withBasePath } from "@/lib/site/base-path";
 
 // Reusable pure filter so it can be unit-tested without rendering the
 // client. Case-folds only ASCII; CJK kanji vary in case-insensitivity
@@ -165,7 +166,7 @@ function EventCard({
               Google カレンダーに追加
             </a>
             <a
-              href="/api/ics/events"
+              href={withBasePath("/api/ics/events")}
               download="koto-events.ics"
               className="inline-block text-sm bg-gray-50 border border-gray-200 text-gray-700 rounded px-2 py-1 hover:bg-gray-100"
               onClick={(e) => e.stopPropagation()}
@@ -426,7 +427,7 @@ export default function EventsClient({ events }: Props) {
         </div>
 
         <a
-          href="/api/ics/events"
+          href={withBasePath("/api/ics/events")}
           download="koto-events.ics"
           className="text-sm bg-gray-100 border border-gray-300 text-gray-700 rounded px-3 py-1.5 hover:bg-gray-200"
         >

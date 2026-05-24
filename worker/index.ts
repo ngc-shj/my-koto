@@ -19,6 +19,10 @@
 
 declare const self: ServiceWorkerGlobalScope;
 
+// next-pwa runs this through webpack so `process.env.NEXT_PUBLIC_BASE_PATH` is
+// inlined as a literal at build time. Empty string in dev keeps everything at /.
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 type PushPayload = {
   title?: string;
   body?: string;
@@ -36,10 +40,10 @@ self.addEventListener("push", (event: PushEvent) => {
   const title = payload.title || "通知";
   const options: NotificationOptions = {
     body: payload.body,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    icon: `${BASE_PATH}/icons/icon-192.png`,
+    badge: `${BASE_PATH}/icons/icon-192.png`,
     tag: payload.tag,
-    data: { url: payload.url ?? "/gomi" },
+    data: { url: payload.url ?? `${BASE_PATH}/gomi` },
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -47,7 +51,8 @@ self.addEventListener("push", (event: PushEvent) => {
 self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   const targetUrl =
-    (event.notification.data as { url?: string } | null)?.url ?? "/gomi";
+    (event.notification.data as { url?: string } | null)?.url ??
+    `${BASE_PATH}/gomi`;
   event.waitUntil(focusOrOpen(targetUrl));
 });
 

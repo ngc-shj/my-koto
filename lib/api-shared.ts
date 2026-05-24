@@ -125,5 +125,14 @@ export function jsonResponseHeaders(
 }
 
 export function getAllowedOrigin(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // NEXT_PUBLIC_SITE_URL is allowed to include a basePath (e.g.
+  // "https://host/my-koto") for absolute-URL concatenation elsewhere, but
+  // Access-Control-Allow-Origin must be a bare origin — strip the path
+  // here so the header stays standards-compliant.
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return raw;
+  }
 }

@@ -12,6 +12,7 @@ import { formatDayWithWeekday } from "@/lib/i18n/datetime";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
 import { cachedFetchJson } from "@/lib/client-cache";
+import { withBasePath } from "@/lib/site/base-path";
 import { WEATHER_CACHE } from "@/config/cache";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -43,7 +44,7 @@ export default function WeatherPage() {
     const controller = new AbortController();
     void cachedFetchJson<WeatherResponse>(
       "weather:v1",
-      "/api/weather",
+      withBasePath("/api/weather"),
       WeatherResponseSchema,
       { ttlMs: WEATHER_CACHE.CLIENT_TTL_MS, signal: controller.signal },
     )

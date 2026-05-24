@@ -7,6 +7,7 @@ import { formatDayWithWeekday } from "@/lib/i18n/datetime";
 import { WeatherResponseSchema } from "@/lib/opendata/schemas/weather";
 import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
 import { cachedFetchJson } from "@/lib/client-cache";
+import { withBasePath } from "@/lib/site/base-path";
 import { WEATHER_CACHE } from "@/config/cache";
 
 // Open-Meteo daily timestamps are bare "YYYY-MM-DD" — assemble a JST Date
@@ -27,7 +28,7 @@ export default function WeatherWidget() {
     const controller = new AbortController();
     void cachedFetchJson<WeatherResponse>(
       "weather:v1",
-      "/api/weather",
+      withBasePath("/api/weather"),
       WeatherResponseSchema,
       { ttlMs: WEATHER_CACHE.CLIENT_TTL_MS, signal: controller.signal },
     )

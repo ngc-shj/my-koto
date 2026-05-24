@@ -1,3 +1,5 @@
+import { BASE_PATH } from "@/lib/site/base-path";
+
 /**
  * Generates a cryptographically secure nonce for use in Content-Security-Policy headers.
  * Uses CSPRNG (crypto.getRandomValues) to produce 128-bit entropy.
@@ -71,7 +73,9 @@ export function buildCsp(
 // middleware.ts. Centralised so the CSP directive and the header can never
 // drift apart.
 export const CSP_REPORT_GROUP = "csp-endpoint";
-export const CSP_REPORT_PATH = "/api/csp-report";
+// Prefixed with BASE_PATH so the browser's report-uri/report-to lookup hits
+// the actual route under the Tailscale Funnel mount.
+export const CSP_REPORT_PATH = `${BASE_PATH}/api/csp-report`;
 
 // Builds the value for the Reporting-Endpoints response header. Browsers
 // (Chrome 96+, Edge 96+) read this to learn where to POST CSP violation

@@ -147,17 +147,18 @@ function NavCard({
   const className =
     "block rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors";
   const label = `${title} — ${description}`;
-  if (internal) {
-    return (
-      <Link href={href} aria-label={label} className={className}>
-        {inner}
-      </Link>
-    );
-  }
+  // `internal` keeps Link's prefetch behaviour for the heaviest landing
+  // (currently /bus); other cards skip prefetch but still use Link so
+  // Next.js handles basePath rewriting uniformly across the home nav.
   return (
-    <a href={href} aria-label={label} className={className}>
+    <Link
+      href={href}
+      prefetch={internal ? undefined : false}
+      aria-label={label}
+      className={className}
+    >
       {inner}
-    </a>
+    </Link>
   );
 }
 

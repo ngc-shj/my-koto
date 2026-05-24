@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { KanjiText } from "@/components/Furigana";
 import { escalateBannerWarnings } from "@/lib/jma/banner";
 import type { AreaWarnings, NormalizedWarning } from "@/lib/jma/normalize";
+import { withBasePath } from "@/lib/site/base-path";
 
 type State =
   | { status: "loading" }
@@ -39,7 +40,7 @@ export default function JmaWarningBanner() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/jma-warnings", { signal: controller.signal })
+    void fetch(withBasePath("/api/jma-warnings"), { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) {
           setState({ status: "none" });

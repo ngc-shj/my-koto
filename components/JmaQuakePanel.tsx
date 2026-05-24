@@ -5,6 +5,7 @@ import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import type { NormalizedQuake, QuakeFeed } from "@/lib/jma/quake";
+import { withBasePath } from "@/lib/site/base-path";
 
 type State =
   | { status: "loading" }
@@ -48,7 +49,7 @@ export default function JmaQuakePanel() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/jma-quakes", { signal: controller.signal })
+    void fetch(withBasePath("/api/jma-quakes"), { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const raw: unknown = await res.json();

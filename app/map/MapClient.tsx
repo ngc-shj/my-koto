@@ -18,6 +18,7 @@ import {
   saveGeolocationConsent,
 } from "@/lib/geolocation-consent";
 import { loadBusCache, saveBusCache } from "@/lib/map/bus-cache";
+import { withBasePath } from "@/lib/site/base-path";
 import {
   buildStopRouteIndex,
   type StopRouteIndex,
@@ -237,7 +238,7 @@ export default function MapClient({
       const cached = await loadBusCache();
       if (!cancelled && cached != null) setBusData(cached);
       try {
-        const res = await fetch("/api/map/bus");
+        const res = await fetch(withBasePath("/api/map/bus"));
         if (!res.ok) return;
         const raw: unknown = await res.json();
         const parsed = BusToeiDataSchema.safeParse(raw);
@@ -413,7 +414,7 @@ export default function MapClient({
         bbox: `${snapped.south.toFixed(2)},${snapped.west.toFixed(2)},${snapped.north.toFixed(2)},${snapped.east.toFixed(2)}`,
         types: sortedTypes.join(","),
       });
-      const res = await fetch(`/api/pois?${params.toString()}`);
+      const res = await fetch(withBasePath(`/api/pois?${params.toString()}`));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = (await res.json()) as { records: MapPoint[] };
       setExternalPoints((prev) => {

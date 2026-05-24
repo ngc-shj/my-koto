@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import "./globals.css";
 import { SITE_TITLE, SITE_DESCRIPTION, SITE_THEME_COLOR } from "@/config/site";
 import { messages } from "@/lib/i18n/messages";
@@ -94,15 +95,15 @@ export default async function RootLayout({
               </a>
             </p>
             <nav className="flex gap-4 pt-2 text-xs">
-              <a href="/about" className="underline hover:text-gray-900">
+              <Link href="/about" className="underline hover:text-gray-900">
                 {messages.nav.about}
-              </a>
-              <a href="/privacy" className="underline hover:text-gray-900">
+              </Link>
+              <Link href="/privacy" className="underline hover:text-gray-900">
                 {messages.nav.privacy}
-              </a>
-              <a href="/disclaimer" className="underline hover:text-gray-900">
+              </Link>
+              <Link href="/disclaimer" className="underline hover:text-gray-900">
                 {messages.nav.disclaimer}
-              </a>
+              </Link>
             </nav>
           </div>
         </footer>

@@ -6,6 +6,7 @@ import { KanjiText } from "@/components/Furigana";
 import { formatDateTime } from "@/lib/i18n/datetime";
 import type { AreaWarnings, NormalizedWarning } from "@/lib/jma/normalize";
 import type { WarningTier } from "@/lib/jma/warning-codes";
+import { withBasePath } from "@/lib/site/base-path";
 
 type State =
   | { status: "loading" }
@@ -53,7 +54,7 @@ export default function JmaWarningPanel() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/jma-warnings", { signal: controller.signal })
+    void fetch(withBasePath("/api/jma-warnings"), { signal: controller.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const raw: unknown = await res.json();
