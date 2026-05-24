@@ -68,13 +68,13 @@ const USER_AGENT = "my-koto-ensure-data/1.0 (+/about)";
 const CKAN_API =
   "https://catalog.data.metro.tokyo.lg.jp/api/3/action/package_show";
 
-type GroupSpec = {
+export type GroupSpec = {
   name: string;
   files: readonly string[];
   cmd: readonly [string, readonly string[]];
 };
 
-type SourceSpec =
+export type SourceSpec =
   | { id: string; group: string; kind: "head"; url: string }
   | { id: string; group: string; kind: "ckan"; datasetId: string };
 
@@ -231,6 +231,57 @@ async function getRemoteVersion(src: SourceSpec): Promise<string> {
   return body.result?.metadata_modified ?? "";
 }
 
+// Pure decision: given which files exist and what the upstream reported,
+// pick the groups to regenerate. Extracted from main() so the
+// presence/upstream/force interaction can be tested without spinning up
+// real fs or network mocks.
+export type GroupDecision = {
+  toRun: Set<string>;
+  staleSummary: string[];
+};
+
+export function selectGroupsToRun(args: {
+  groups: readonly GroupSpec[];
+  sources: readonly SourceSpec[];
+  missingByGroup: ReadonlyMap<string, readonly string[]>;
+  // For each source id, the remote-vs-local comparison the caller already did.
+  // 'fresh' = no work needed; 'stale' = upstream moved; 'check-failed' = network/HTTP
+  // error during probe (treated like stale to avoid silent staleness).
+  upstreamStatus: ReadonlyMap<string, "fresh" | "stale" | "check-failed">;
+  force: boolean;
+}): GroupDecision {
+  const toRun = new Set<string>();
+  const staleSummary: string[] = [];
+
+  if (args.force) {
+    for (const g of args.groups) toRun.add(g.name);
+    return { toRun, staleSummary: ["--force: regenerating all groups"] };
+  }
+
+  for (const group of args.groups) {
+    const missing = args.missingByGroup.get(group.name) ?? [];
+    if (missing.length > 0) {
+      toRun.add(group.name);
+      staleSummary.push(
+        `${group.name}: missing ${missing.length} file(s) (${missing.join(", ")})`,
+      );
+    }
+  }
+
+  for (const src of args.sources) {
+    const status = args.upstreamStatus.get(src.id);
+    if (status === "stale") {
+      toRun.add(src.group);
+      staleSummary.push(`${src.group}: upstream changed (${src.id})`);
+    } else if (status === "check-failed") {
+      toRun.add(src.group);
+      staleSummary.push(`${src.group}: upstream check failed (${src.id})`);
+    }
+  }
+
+  return { toRun, staleSummary };
+}
+
 async function main(): Promise<void> {
   if (DYNAMIC_ONLY) {
     // Cron-against-Turso path: only the libsql dynamic datasets matter;
@@ -242,22 +293,20 @@ async function main(): Promise<void> {
   }
 
   const sidecar = readSidecar();
-  const toRun = new Set<string>();
-  let staleSummary: string[] = [];
 
   // Presence check: any missing file marks its group for regen.
+  const missingByGroup = new Map<string, readonly string[]>();
   for (const group of GROUPS) {
     const missing = group.files.filter((f) => !existsSync(join(ROOT, f)));
-    if (missing.length > 0) {
-      toRun.add(group.name);
-      staleSummary.push(
-        `${group.name}: missing ${missing.length} file(s) (${missing.join(", ")})`,
-      );
-    }
+    if (missing.length > 0) missingByGroup.set(group.name, missing);
   }
 
   // Upstream freshness check (optional, slower).
   const remoteVersions: Sidecar = {};
+  const upstreamStatus = new Map<
+    string,
+    "fresh" | "stale" | "check-failed"
+  >();
   if (CHECK_UPSTREAM) {
     console.log("[ensure-data] checking upstream freshness...");
     for (const src of SOURCES) {
@@ -269,27 +318,28 @@ async function main(): Promise<void> {
           console.log(
             `  - stale ${src.id}: local=${local || "<none>"}, remote=${remote}`,
           );
-          toRun.add(src.group);
-          staleSummary.push(`${src.group}: upstream changed (${src.id})`);
+          upstreamStatus.set(src.id, "stale");
         } else {
           console.log(`  - fresh ${src.id}`);
+          upstreamStatus.set(src.id, "fresh");
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(
           `  - check failed for ${src.id} (${msg}); will refresh ${src.group} to be safe.`,
         );
-        toRun.add(src.group);
-        staleSummary.push(`${src.group}: upstream check failed (${src.id})`);
+        upstreamStatus.set(src.id, "check-failed");
       }
     }
   }
 
-  // --force overrides everything.
-  if (FORCE) {
-    for (const g of GROUPS) toRun.add(g.name);
-    staleSummary = ["--force: regenerating all groups"];
-  }
+  const { toRun, staleSummary } = selectGroupsToRun({
+    groups: GROUPS,
+    sources: SOURCES,
+    missingByGroup,
+    upstreamStatus,
+    force: FORCE,
+  });
 
   if (toRun.size === 0) {
     console.log("[ensure-data] static data fresh, no JSON regeneration.");
@@ -375,21 +425,40 @@ async function syncDynamicDatasets(): Promise<void> {
 const BUS_GTFS_URL =
   "https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip";
 
-async function syncBus(
+// Bundle the I/O that syncBus reaches for so tests can swap each
+// dependency without monkey-patching modules.
+export type SyncBusDeps = {
+  probe: (url: string) => Promise<string>;
+  exists: (path: string) => boolean;
+  readJsonRaw: (path: string) => string;
+  runSpawn: (cmd: string, args: readonly string[]) => void;
+};
+
+const DEFAULT_BUS_DEPS: SyncBusDeps = {
+  probe: probeLastModified,
+  exists: existsSync,
+  readJsonRaw: (p) => readFileSync(p, "utf-8"),
+  runSpawn: run,
+};
+
+export async function syncBus(
   db: ReturnType<typeof openDatasetsDb>,
+  opts: { force?: boolean; deps?: Partial<SyncBusDeps> } = {},
 ): Promise<void> {
-  const remoteVersion = await probeLastModified(BUS_GTFS_URL);
-  const prev = FORCE ? undefined : await readMetaVersion(db, "bus");
+  const deps: SyncBusDeps = { ...DEFAULT_BUS_DEPS, ...(opts.deps ?? {}) };
+  const force = opts.force ?? FORCE;
+  const remoteVersion = await deps.probe(BUS_GTFS_URL);
+  const prev = force ? undefined : await readMetaVersion(db, "bus");
   if (prev && remoteVersion && prev === remoteVersion) {
     console.log(`  - bus: unchanged (Last-Modified ${remoteVersion})`);
     return;
   }
   const jsonPath = join(ROOT, "data", "bus-toei.json");
-  if (!existsSync(jsonPath)) {
+  if (!deps.exists(jsonPath)) {
     console.log("  - bus: invoking fetch-bus-toei.ts (no local JSON)...");
-    run("npx", ["--yes", "tsx", "scripts/fetch-bus-toei.ts"]);
+    deps.runSpawn("npx", ["--yes", "tsx", "scripts/fetch-bus-toei.ts"]);
   }
-  const raw: unknown = JSON.parse(readFileSync(jsonPath, "utf-8"));
+  const raw: unknown = JSON.parse(deps.readJsonRaw(jsonPath));
   const parsed = BusToeiDataSchema.parse(raw);
   await writeBus(db, "toei", parsed, {
     sourceId: "bus",
@@ -398,7 +467,12 @@ async function syncBus(
   console.log(`  - bus: refreshed (Last-Modified ${remoteVersion})`);
 }
 
-main().catch((err) => {
-  console.error(`[ensure-data] error: ${err.stack ?? err.message}`);
-  process.exit(1);
-});
+// Only fire main() when invoked directly (`tsx scripts/ensure-data.ts`),
+// not when imported by the unit tests below. Matches the gate used in
+// scripts/fetch-bus-toei.ts.
+if (process.argv[1] && process.argv[1].endsWith("ensure-data.ts")) {
+  main().catch((err) => {
+    console.error(`[ensure-data] error: ${err.stack ?? err.message}`);
+    process.exit(1);
+  });
+}
