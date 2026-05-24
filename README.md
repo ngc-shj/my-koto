@@ -228,6 +228,33 @@ AED / 公衆トイレ / イベント / ゴミ収集日 / 都営バスは ensure-
 - `data/gomi-dictionary.json` — ゴミ品目辞書
 - `data/gomi-schedule.json` — 特殊収集日のオーバーレイ
 
+### 4. Edge プロキシ + KV キャッシュ (request-time fetch)
+
+リクエストのたびに上流を叩き、レスポンスを Vercel KV に短時間キャッシュする
+パターン。**Cron + libsql の `/api/datasets/*` とは別系統** で、以下の理由で
+こちらに残しています。
+
+| route | 上流 | TTL | per-user キー | KV を選んでる理由 |
+|---|---|---|---|---|
+| `/api/weather` | Open-Meteo | 60min | なし (固定 koto-center) | 単一値だが、Cron 化しても上流ヒット数は同じ。既存実装で十分 |
+| `/api/wbgt` | 環境省 CSV | 30min | なし (固定 station) | 同上 (1 日 5 回更新なので 30min TTL でも 1 回分くらいの遅延) |
+| `/api/jma-quakes` | 気象庁 JSON | ~60s | なし (Koto 区固定) | 地震速報は数分単位の鮮度が必要。GitHub Actions cron は最小 5min なので不向き |
+| `/api/jma-warnings` | 気象庁 JSON | ~60s | なし (東京都固定) | 警報・注意報も数分単位の更新。同上 |
+| `/api/pois` | Overpass API | 60min | **bbox + types** | クエリ空間 (任意 viewport) が無限なので Cron で事前 warm 不能。KV が唯一の選択肢 |
+
+共通仕様:
+
+- runtime: Edge (`runtime = "edge"`)
+- 上流ホストは `lib/upstream/fetch.ts` で allowlist 検証 (SSRF 対策、R31)
+- レスポンス body サイズ上限 (256KB〜1MB)、Content-Type 厳格チェック
+- Zod スキーマで上流レスポンス検証
+- 上流失敗時は KV の前回値で `stale-if-error` (pois は除く — 部分結果が誤解を生むため空配列)
+- IP/UA バケットによる rate limit (60 rpm/IP 既定、Overpass は 30 rpm)
+
+**判断基準**: 「同じ値を全ユーザーに返す & 1h 以上の遅延 OK」なら Cron + libsql
+(`/api/datasets/*` 側) に寄せる。逆に「per-user キー」「分単位の鮮度」「クエリ
+空間が無限」のどれかに該当するなら Edge KV proxy 側。
+
 ## Vercel 本番デプロイ
 
 ```bash
