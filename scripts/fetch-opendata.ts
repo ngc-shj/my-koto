@@ -28,7 +28,10 @@ import { AedResponseSchema } from "@/lib/opendata/schemas/aed";
 import { ToiletResponseSchema } from "@/lib/opendata/schemas/toilet";
 import { GomiResponseSchema, type Weekday } from "@/lib/opendata/schemas/gomi";
 import { EventResponseSchema } from "@/lib/opendata/schemas/events";
-import { WbgtDataSchema } from "@/lib/opendata/schemas/wbgt";
+import {
+  WbgtDataSchema,
+  type WbgtReading,
+} from "@/lib/opendata/schemas/wbgt";
 import { parseCsv, type CsvRow } from "@/lib/csv";
 
 const DATA_DIR = join(process.cwd(), "data");
@@ -131,30 +134,6 @@ export async function fetchCsvText(
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   const buf = Buffer.from(await res.arrayBuffer());
   return new TextDecoder(encoding).decode(buf).replace(/^﻿/, "");
-}
-
-// Exported pure parser for the WBGT CSV (T-03). Input is the full body.
-// Drops the header row, ignores blank lines, and rejects rows missing a
-// datetime or whose WBGT value is not a finite number.
-export function parseWbgtCsv(
-  csv: string,
-  station = "東京",
-): Array<{ station: string; datetime: string; wbgt: number }> {
-  const lines = csv.trim().split(/\r?\n/);
-  if (lines.length <= 1) return [];
-  return lines
-    .slice(1)
-    .filter((line) => line.trim().length > 0)
-    .map((line) => {
-      const parts = line.split(",");
-      const datetime = parts[0]?.trim() ?? "";
-      const wbgt = parseFloat(parts[1]?.trim() ?? "");
-      if (!datetime || !Number.isFinite(wbgt)) return null;
-      return { station, datetime, wbgt };
-    })
-    .filter((r): r is { station: string; datetime: string; wbgt: number } =>
-      r !== null,
-    );
 }
 
 // ---------------------------------------------------------------------------
@@ -376,28 +355,97 @@ async function fetchEvents(): Promise<void> {
   );
 }
 
+// Parses the 環境省 month-bucketed observation CSV (`wbgt_<station>_YYYYMM.csv`):
+//
+//   Date,Time,<station>
+//   2026/5/1,1:00,10.6
+//   2026/5/1,2:00,10.6
+//   ...
+//   2026/5/24,20:00,            <- future hours come back blank; we skip them
+//
+// Values are in °C (already decimal, no tenths-conversion needed). The
+// observation feed runs 4/23 → 10/22 only; outside that window the
+// upstream returns 404 and the task is skipped silently.
+export function parseWbgtObservationCsv(
+  csv: string,
+  station: string,
+): WbgtReading[] {
+  const rows = parseCsv(csv);
+  const out: WbgtReading[] = [];
+  for (const r of rows) {
+    const date = (r["Date"] ?? "").trim();
+    const time = (r["Time"] ?? "").trim();
+    const raw = (r[station] ?? "").trim();
+    if (!date || !time || !raw) continue;
+    const wbgt = Number(raw);
+    if (!Number.isFinite(wbgt)) continue;
+    const iso = toIsoDatetimeJst(date, time);
+    if (iso == null) continue;
+    out.push({ station, datetime: iso, wbgt });
+  }
+  return out;
+}
+
+// "2026/5/24" + "13:00" → "2026-05-24T13:00:00+09:00". Hour "24:00" means
+// midnight of the next day (環境省 uses 24-hour wrap), so shift the date
+// forward by one and emit "T00:00".
+export function toIsoDatetimeJst(date: string, time: string): string | null {
+  const dm = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(date);
+  const tm = /^(\d{1,2}):(\d{2})$/.exec(time);
+  if (!dm || !tm) return null;
+  const [, y, mo, d] = dm;
+  const [, hh, mm] = tm;
+  const hour = Number(hh);
+  if (!Number.isFinite(hour) || hour < 0 || hour > 24) return null;
+  const pad = (n: string | number) => String(n).padStart(2, "0");
+  if (hour === 24) {
+    const dt = new Date(Date.UTC(Number(y), Number(mo!) - 1, Number(d)));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}T00:${mm}:00+09:00`;
+  }
+  return `${y}-${pad(mo!)}-${pad(d!)}T${pad(hh!)}:${mm}:00+09:00`;
+}
+
+function currentMonthJst(now: Date = new Date()): string {
+  // YYYYMM for JST. The workflow runs at 18:00 UTC (= 03:00 JST), so the
+  // shift always lands inside the JST day; computing in UTC + offset is
+  // fine for naming purposes.
+  const jst = new Date(now.getTime() + 9 * 3600 * 1000);
+  return `${jst.getUTCFullYear()}${String(jst.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 async function fetchWbgt(): Promise<void> {
-  // Ministry of Environment WBGT CSV download for Tokyo observation point.
-  const url = `${WBGT_BASE_URL}/wbgt_data.php?pd=today&obs=${WBGT_STATION_CODE}&format=csv`;
+  // Documented in R08_wbgt_data_service_manual.pdf: observations live at
+  // /est15WG/dl/wbgt_<station>_<YYYYMM>.csv, regenerated hourly during
+  // the 4/23 → 10/22 operating window.
+  const url = `${WBGT_BASE_URL}/est15WG/dl/wbgt_${WBGT_STATION_CODE}_${currentMonthJst()}.csv`;
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT },
     redirect: "manual",
     signal: AbortSignal.timeout(15_000),
   });
-
-  if (!res.ok) {
-    throw new Error(`WBGT fetch failed: HTTP ${res.status}`);
+  if (res.status === 404) {
+    // Off-season (outside 4/23–10/22) — upstream has no file. Nothing to
+    // refresh; leave the existing data/wbgt.json (last in-season snapshot)
+    // in place.
+    console.log(`Skipped: WBGT observation file not published yet (${url})`);
+    return;
   }
-
+  if (!res.ok) throw new Error(`WBGT fetch failed: HTTP ${res.status}`);
   const csv = await res.text();
-  const readings = parseWbgtCsv(csv);
-
-  const wbgtData = {
-    fetchedAt: new Date().toISOString(),
-    readings,
-  };
-
-  await validateAndPersist(wbgtData, WbgtDataSchema, join(DATA_DIR, "wbgt.json"));
+  const readings = parseWbgtObservationCsv(csv, WBGT_STATION_CODE);
+  // Anchor fetchedAt to the latest reading rather than wall-clock so the
+  // file only changes when the upstream actually published a new hour —
+  // otherwise the daily cron produces a timestamp-only PR every run.
+  const fetchedAt =
+    readings.length > 0
+      ? (readings[readings.length - 1]?.datetime ?? new Date().toISOString())
+      : new Date().toISOString();
+  await validateAndPersist(
+    { fetchedAt, readings },
+    WbgtDataSchema,
+    join(DATA_DIR, "wbgt.json"),
+  );
 }
 
 async function main(): Promise<void> {
