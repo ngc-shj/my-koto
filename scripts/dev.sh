@@ -12,10 +12,10 @@
 #   ./scripts/dev.sh restart          # stop + start
 #   ./scripts/dev.sh status           # exit 0 if alive, 1 otherwise
 #   ./scripts/dev.sh logs             # tail -f the log file
-#   ./scripts/dev.sh data [--force|--check-upstream]
-#                                     # incremental ensure-data;
-#                                     # --force          regen every group
-#                                     # --check-upstream HEAD/CKAN compare
+#   ./scripts/dev.sh data [flags]     # ensure-data; conditional upstream
+#                                     # check runs by default.
+#                                     # --force                regen all
+#                                     # --skip-upstream-check  presence-only
 #
 # Configurable env: PORT (default 3000).
 
@@ -173,11 +173,12 @@ Usage: $0 {init|start|stop|restart|status|logs|data [flags]}
   restart        stop + start.
   status         Report PID + URL if running.
   logs           tail -f the dev server log.
-  data           Incrementally refresh data/*.json (only missing groups).
-       --force            Regenerate every group regardless.
-       --check-upstream   HEAD / CKAN compare; refresh groups whose
-                          upstream source changed since the last fetch
-                          (recorded in data/.versions.json).
+  data           Incrementally refresh data/*.json; conditional upstream
+                 check (HEAD / CKAN) runs by default and only the groups
+                 whose source moved since data/.versions.json get a
+                 full body fetch.
+       --force                Regenerate every group regardless.
+       --skip-upstream-check  Presence-only mode (offline / fast path).
 
 Env: PORT=$PORT (override to run on a different port).
 EOF

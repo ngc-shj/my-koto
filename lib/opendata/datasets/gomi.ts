@@ -7,8 +7,13 @@ import {
   type GomiResponse,
   type Weekday,
 } from "@/lib/opendata/schemas/gomi";
-import type { CsvRow } from "@/lib/csv";
-import { loadCsvRows } from "./source";
+import { parseCsv, type CsvRow } from "@/lib/csv";
+import {
+  loadCsvRows,
+  ckanResolveAndCheck,
+  fetchCsvText,
+  type ConditionalLoadResult,
+} from "./source";
 
 const WEEKDAY_MAP: Record<string, Weekday> = {
   月: "mon",
@@ -45,12 +50,33 @@ export function toGomiRecord(row: CsvRow): Record<string, unknown> {
   };
 }
 
+function buildGomiResponse(rows: readonly CsvRow[]): GomiResponse {
+  const records = rows.map(toGomiRecord);
+  return GomiResponseSchema.parse({ result: { records } });
+}
+
 export async function fetchGomiDataset(): Promise<GomiResponse> {
   const rows = await loadCsvRows({
     datasetId: DATASETS.gomi,
     resourcePattern: /\.csv$/i,
     encoding: "shift-jis",
   });
-  const records = rows.map(toGomiRecord);
-  return GomiResponseSchema.parse({ result: { records } });
+  return buildGomiResponse(rows);
+}
+
+export async function fetchGomiDatasetConditional(
+  prevVersion: string | undefined,
+): Promise<ConditionalLoadResult<GomiResponse>> {
+  const resolved = await ckanResolveAndCheck(
+    DATASETS.gomi,
+    /\.csv$/i,
+    prevVersion,
+  );
+  if (resolved.unchanged) return { unchanged: true, version: resolved.version };
+  const text = await fetchCsvText(resolved.url, "shift-jis");
+  return {
+    unchanged: false,
+    data: buildGomiResponse(parseCsv(text)),
+    version: resolved.version,
+  };
 }

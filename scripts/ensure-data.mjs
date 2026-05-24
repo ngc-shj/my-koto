@@ -11,10 +11,13 @@
  *     not run. So if only `data/bus-toei.json` is missing, only the
  *     bus fetcher runs (~10–15 s) instead of all three generators.
  *   - `--force` (or env FORCE=1) regenerates every group regardless.
- *   - `--check-upstream` (or env CHECK_UPSTREAM=1) additionally HEADs
- *     every upstream URL (and pokes CKAN `package_show.metadata_modified`)
- *     and regenerates any group whose source has a newer version than
- *     the sidecar `data/.versions.json` records. ~1–2 s overhead.
+ *   - Conditional upstream probing is now the default: every run HEADs
+ *     each source (and pokes CKAN `package_show.metadata_modified`) and
+ *     regenerates groups whose source moved since `data/.versions.json`
+ *     was last written (~1–2 s network overhead, mostly 304s after the
+ *     first run).
+ *   - `--skip-upstream-check` (or env SKIP_UPSTREAM_CHECK=1) reverts to
+ *     presence-only mode for offline dev or transient upstream outages.
  *
  * Curated files (`gomi-dictionary.json`, `gomi-schedule.json`) are NOT
  * listed here — they have no upstream and are tracked by git directly.
@@ -31,8 +34,13 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FORCE = process.argv.includes("--force") || process.env.FORCE === "1";
-const CHECK_UPSTREAM =
-  process.argv.includes("--check-upstream") || process.env.CHECK_UPSTREAM === "1";
+// Conditional upstream probing is now the default. Pass --skip-upstream-check
+// (or SKIP_UPSTREAM_CHECK=1) to fall back to presence-only mode, useful in
+// offline dev or when the upstream is temporarily unreachable.
+const SKIP_UPSTREAM_CHECK =
+  process.argv.includes("--skip-upstream-check") ||
+  process.env.SKIP_UPSTREAM_CHECK === "1";
+const CHECK_UPSTREAM = !SKIP_UPSTREAM_CHECK;
 
 const SIDECAR_PATH = join(ROOT, "data", ".versions.json");
 const UPSTREAM_TIMEOUT_MS = 10_000;

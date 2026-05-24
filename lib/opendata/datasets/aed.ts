@@ -7,8 +7,14 @@ import {
   AedResponseSchema,
   type AedResponse,
 } from "@/lib/opendata/schemas/aed";
-import type { CsvRow } from "@/lib/csv";
-import { loadCsvRows, isFiniteNumberString } from "./source";
+import { parseCsv, type CsvRow } from "@/lib/csv";
+import {
+  loadCsvRows,
+  isFiniteNumberString,
+  ckanResolveAndCheck,
+  fetchCsvText,
+  type ConditionalLoadResult,
+} from "./source";
 
 export function toAedRecord(row: CsvRow): Record<string, string> {
   // Hours: "HH:MM-HH:MM" from start/end when both populated; otherwise
@@ -28,16 +34,41 @@ export function toAedRecord(row: CsvRow): Record<string, string> {
   };
 }
 
-export async function fetchAedDataset(): Promise<AedResponse> {
-  const rows = await loadCsvRows({
-    datasetId: DATASETS.aed,
-    resourcePattern: /aed.*\.csv$/i,
-    encoding: "utf-8",
-  });
+function buildAedResponse(rows: readonly CsvRow[]): AedResponse {
   const records = rows
     .filter(
       (r) => isFiniteNumberString(r["緯度"]) && isFiniteNumberString(r["経度"]),
     )
     .map(toAedRecord);
   return AedResponseSchema.parse({ result: { records } });
+}
+
+export async function fetchAedDataset(): Promise<AedResponse> {
+  const rows = await loadCsvRows({
+    datasetId: DATASETS.aed,
+    resourcePattern: /aed.*\.csv$/i,
+    encoding: "utf-8",
+  });
+  return buildAedResponse(rows);
+}
+
+// Conditional variant: CKAN `metadata_modified` is consulted first;
+// when it matches `prevVersion`, the CSV is not re-fetched at all.
+export async function fetchAedDatasetConditional(
+  prevVersion: string | undefined,
+): Promise<ConditionalLoadResult<AedResponse>> {
+  const resolved = await ckanResolveAndCheck(
+    DATASETS.aed,
+    /aed.*\.csv$/i,
+    prevVersion,
+  );
+  if (resolved.unchanged) {
+    return { unchanged: true, version: resolved.version };
+  }
+  const text = await fetchCsvText(resolved.url, "utf-8");
+  return {
+    unchanged: false,
+    data: buildAedResponse(parseCsv(text)),
+    version: resolved.version,
+  };
 }

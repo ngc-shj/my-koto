@@ -5,8 +5,13 @@ import {
   EventResponseSchema,
   type EventResponse,
 } from "@/lib/opendata/schemas/events";
-import type { CsvRow } from "@/lib/csv";
-import { loadCsvRows } from "./source";
+import { parseCsv, type CsvRow } from "@/lib/csv";
+import {
+  loadCsvRows,
+  ckanResolveAndCheck,
+  fetchCsvText,
+  type ConditionalLoadResult,
+} from "./source";
 
 // Normalise "YYYY/M/D" / "YYYY-M-D" / "YYYY-MM-D" → "YYYY-MM-DD". The
 // Koto event CSV mixes `-` and `/` separators and drops zero-padding on
@@ -48,17 +53,38 @@ export function toEventRecord(row: CsvRow): Record<string, string | undefined> {
   };
 }
 
+// Drop rows where 開始日 is blank — historical drafts the city never
+// published. The strict EventSchema regex downstream would otherwise
+// reject the whole payload on a single bad row.
+function buildEventsResponse(rows: readonly CsvRow[]): EventResponse {
+  const records = rows
+    .map(toEventRecord)
+    .filter((r) => typeof r.開始日 === "string" && r.開始日.length > 0);
+  return EventResponseSchema.parse({ result: { records } });
+}
+
 export async function fetchEventsDataset(): Promise<EventResponse> {
-  // Drop rows where 開始日 is blank — historical drafts the city never
-  // published. The strict EventSchema regex downstream would otherwise
-  // reject the whole payload on a single bad row.
   const rows = await loadCsvRows({
     datasetId: DATASETS.events,
     resourcePattern: /event.*\.csv$/i,
     encoding: "utf-8",
   });
-  const records = rows
-    .map(toEventRecord)
-    .filter((r) => typeof r.開始日 === "string" && r.開始日.length > 0);
-  return EventResponseSchema.parse({ result: { records } });
+  return buildEventsResponse(rows);
+}
+
+export async function fetchEventsDatasetConditional(
+  prevVersion: string | undefined,
+): Promise<ConditionalLoadResult<EventResponse>> {
+  const resolved = await ckanResolveAndCheck(
+    DATASETS.events,
+    /event.*\.csv$/i,
+    prevVersion,
+  );
+  if (resolved.unchanged) return { unchanged: true, version: resolved.version };
+  const text = await fetchCsvText(resolved.url, "utf-8");
+  return {
+    unchanged: false,
+    data: buildEventsResponse(parseCsv(text)),
+    version: resolved.version,
+  };
 }
