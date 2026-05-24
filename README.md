@@ -343,6 +343,7 @@ Sentry / Vercel Analytics 等の観測性ツールを導入する場合は、以
 - **Map**: MapLibre GL JS + 国土地理院標準地図 (raster)
 - **Schema/Validation**: Zod
 - **State**: React Server Components + LocalStorage allowlist (`config/storage.ts`)
-- **Persistence (Edge)**: Vercel KV (`@vercel/kv`)
+- **Datasets persistence**: libsql (`@libsql/client`) — local file `data/datasets.sqlite` で dev、本番は Turso (`DATASETS_DB_URL`)
+- **Cache / rate limit / Push 購読**: Vercel KV (`@vercel/kv`) — JMA・天気・WBGT・POI などの Edge proxy 経路で使用
 - **Test**: Vitest + Testing Library + vitest-axe
 - **Hosting**: Vercel (Hobby)
