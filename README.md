@@ -240,10 +240,10 @@ npx vercel deploy --prod
 | 変数 | 用途 |
 |------|------|
 | `KV_URL` / `KV_REST_API_URL` / `KV_REST_API_TOKEN` / `KV_REST_API_READ_ONLY_TOKEN` | Vercel KV (天気プロキシ・OSM POI のキャッシュ + レート制限・Push 購読の永続化) |
-| `DATASETS_DB_URL` | libsql URL (本番は Turso: `libsql://<db>-<org>.turso.io`)。未設定なら `file:./data/datasets.sqlite` にフォールバック |
+| `DATASETS_DB_URL` | libsql URL (本番は Turso: `libsql://<db>-<org>.turso.io`)。Production deploy では必須 — 未設定だと build がエラー終了 (`VERCEL_ENV=production` 判定)。Preview / ローカルは未設定なら `file:./data/datasets.sqlite` にフォールバック |
 | `DATASETS_DB_AUTH_TOKEN` | Turso auth token (libsql:// URL 利用時のみ必要) |
+| `DISCORD_WEBHOOK` | データ取得失敗の通知 (任意)。設定すると `/api/push/dispatch` と Cron 失敗時に通知。GitHub Secrets にも同名で登録 |
 | `NEXT_PUBLIC_SITE_URL` | OG 画像生成・CORS の origin (本番ドメイン) |
-| `DISCORD_WEBHOOK` | データ取得失敗の通知 (任意) |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push 公開鍵 (`pushManager.subscribe` の `applicationServerKey`) |
 | `VAPID_PRIVATE_KEY` | Web Push 秘密鍵 (`/api/push/dispatch` のみで使用) |
 | `VAPID_SUBJECT` | VAPID 連絡先 (`mailto:` URL、Push サービスからの通知を受け取るアドレス) |
@@ -254,6 +254,8 @@ npx vercel deploy --prod
 `/api/datasets/*` と SSR の events 読み出しは libsql に依存しています。
 本番では Turso (libsql の OSS マネージドサービス) を推奨。
 
+#### 初期セットアップ
+
 1. Turso CLI で db 作成 (無料枠 9 GB / 1B reads):
 
    ```bash
@@ -262,13 +264,39 @@ npx vercel deploy --prod
    turso db tokens create my-koto-datasets    # → DATASETS_DB_AUTH_TOKEN
    ```
 
-2. Vercel 環境変数に上記 2 つを設定
-3. GitHub Secrets に `TURSO_DB_URL` / `TURSO_DB_AUTH_TOKEN` を設定すると
-   `.github/workflows/datasets-sync.yml` が **毎時** Conditional fetch で
-   上流→Turso の同期を実行（変更がなければ書き込みなし）
+2. **GitHub Secrets**: `TURSO_DB_URL` / `TURSO_DB_AUTH_TOKEN` / `DISCORD_WEBHOOK`
+   を登録。Cron (`.github/workflows/datasets-sync.yml`) が **毎時**
+   Conditional fetch で 上流→Turso の同期を実行（変更がなければ書き込みなし）。
+
+3. Cron を `workflow_dispatch` で 1 回手動実行し、Turso に初期データを投入。
+
+4. ローカルから Turso 接続の sanity check:
+
+   ```bash
+   DATASETS_DB_URL="libsql://..." DATASETS_DB_AUTH_TOKEN="..." \
+     npx tsx scripts/turso-smoke.ts
+   ```
+
+   全テーブルに行があり `_meta` が埋まっていれば OK。失敗したら Cron の
+   GitHub Actions run を確認。
+
+5. **Vercel 環境変数 (Production)**: `DATASETS_DB_URL` / `DATASETS_DB_AUTH_TOKEN`
+   を登録。Preview には設定しないでよい（file: fallback で動作）。
+
+6. Vercel を再デプロイ。Production build は `VERCEL_ENV=production` で
+   `DATASETS_DB_URL` を必須にしているので、忘れると build がエラー終了
+   します（フェイルセーフ）。
 
 Vercel ランタイムは Turso を SELECT するだけなので、上流負荷ゼロ。
 Cron だけが Conditional fetch (大半は 304) で上流に触ります。
+
+#### ロールバック
+
+Turso 障害時は Vercel から `DATASETS_DB_URL` を削除して再デプロイ。
+ただし Production はそのままだと build が失敗するため、緊急用には
+`DATASETS_DB_URL=file:./data/datasets.sqlite` を明示的にセットして
+`data/datasets.sqlite` のビルド時版にフォールバックさせる手があります
+（CKAN/GTFS は最新ではないので応急処置）。
 
 GitHub Actions 側 (`.github/workflows/push-dispatch.yml`) の Secrets:
 
