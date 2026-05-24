@@ -1,14 +1,14 @@
 import type { NextRequest } from "next/server";
-import { AedResponseSchema } from "@/lib/opendata/schemas/aed";
-import { fetchAedDatasetConditional } from "@/lib/opendata/datasets/aed";
-import { handleDatasetRoute } from "@/lib/opendata/datasets/edge-handler";
+import { readAed } from "@/lib/opendata/db/readers";
+import { handleDatasetRoute } from "@/lib/opendata/datasets/route-handler";
 
-export const runtime = "edge";
+// Node runtime: libsql file:// URL needs fs access (V8-isolate Edge
+// runtime cannot read SQLite from disk). When DATASETS_DB_URL switches
+// to libsql:// (Phase 4 / Turso), the same code runs unchanged.
 
 export async function GET(request: NextRequest): Promise<Response> {
   return handleDatasetRoute(request, {
     key: "aed",
-    schema: AedResponseSchema,
-    load: fetchAedDatasetConditional,
+    read: readAed,
   });
 }

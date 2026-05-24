@@ -1,14 +1,10 @@
 import type { NextRequest } from "next/server";
-import { ToiletResponseSchema } from "@/lib/opendata/schemas/toilet";
-import { fetchToiletDatasetConditional } from "@/lib/opendata/datasets/toilet";
-import { handleDatasetRoute } from "@/lib/opendata/datasets/edge-handler";
-
-export const runtime = "edge";
+import { readToilet } from "@/lib/opendata/db/readers";
+import { handleDatasetRoute } from "@/lib/opendata/datasets/route-handler";
 
 export async function GET(request: NextRequest): Promise<Response> {
   return handleDatasetRoute(request, {
     key: "toilet",
-    schema: ToiletResponseSchema,
-    load: fetchToiletDatasetConditional,
+    read: readToilet,
   });
 }
