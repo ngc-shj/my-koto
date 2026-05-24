@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readEvents } from "@/lib/opendata/db/readers";
-import { toEvent, filterUpcoming } from "@/lib/events/normalize";
+import { toEvent } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
 import Attribution from "@/components/Attribution";
 import BackToHome from "@/components/BackToHome";
@@ -24,9 +24,14 @@ export default async function EventsPage() {
   // Read events from the local libsql snapshot. `ensure-data` populates
   // it via Conditional fetch against CKAN — this page never touches the
   // upstream itself, so per-ISR revalidations cost zero upstream load.
-  const dataset = await readEvents(openDatasetsDb());
-  const allEvents: Event[] = dataset.result.records.map((r, i) => toEvent(r, i));
-  const upcomingEvents = filterUpcoming(allEvents);
+  // Pass `upcomingFrom` so the SQL layer narrows the result to the 90-day
+  // window the page renders.
+  const dataset = await readEvents(openDatasetsDb(), {
+    upcomingFrom: new Date(),
+  });
+  const upcomingEvents: Event[] = dataset.result.records.map((r, i) =>
+    toEvent(r, i),
+  );
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">

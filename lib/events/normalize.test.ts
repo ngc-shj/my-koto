@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toEvent, filterUpcoming } from "./normalize";
-import type { Event } from "./types";
+import { toEvent } from "./normalize";
 
 describe("toEvent", () => {
   it("maps the upstream record into the in-app Event shape", () => {
@@ -57,70 +56,5 @@ describe("toEvent", () => {
       0,
     );
     expect(event.note).toBeUndefined();
-  });
-});
-
-describe("filterUpcoming", () => {
-  // Anchor "today" so the assertions are reproducible on any wall clock.
-  const NOW = new Date("2026-05-04T00:00:00+09:00");
-
-  function event(id: string, startDate: string, endDate?: string): Event {
-    return {
-      id,
-      title: "x",
-      startDate,
-      endDate,
-      status: "confirmed",
-    };
-  }
-
-  it("includes events whose start is within the window", () => {
-    const result = filterUpcoming(
-      [event("a", "2026-05-10")],
-      NOW,
-      90,
-    );
-    expect(result).toHaveLength(1);
-  });
-
-  it("excludes events that already ended before today", () => {
-    const result = filterUpcoming(
-      [event("past", "2026-04-01", "2026-04-30")],
-      NOW,
-      90,
-    );
-    expect(result).toHaveLength(0);
-  });
-
-  it("includes events whose end is exactly today", () => {
-    // The boundary passes for the right reason today (UTC midnight 5/4 ≥
-    // JST midnight 5/3 = 2026-05-03T15:00Z, regardless of the host
-    // timezone) but `filterUpcoming` does naive Date comparison without
-    // a TZ contract. T-17 tracked as a Phase 2 follow-up (TZ-aware
-    // window OR an explicit TZ-pinned test fixture).
-    const result = filterUpcoming(
-      [event("ends-today", "2026-05-01", "2026-05-04")],
-      NOW,
-      90,
-    );
-    expect(result).toHaveLength(1);
-  });
-
-  it("excludes events whose start is past the window", () => {
-    const result = filterUpcoming(
-      [event("future", "2026-12-01")],
-      NOW,
-      90,
-    );
-    expect(result).toHaveLength(0);
-  });
-
-  it("respects custom window length", () => {
-    const result = filterUpcoming(
-      [event("d20", "2026-05-24"), event("d100", "2026-08-12")],
-      NOW,
-      30,
-    );
-    expect(result.map((e) => e.id)).toEqual(["d20"]);
   });
 });

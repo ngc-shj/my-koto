@@ -1,7 +1,7 @@
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readEvents } from "@/lib/opendata/db/readers";
 import { buildEventIcs } from "@/lib/ics";
-import { toEvent, filterUpcoming } from "@/lib/events/normalize";
+import { toEvent } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
 import { checkRateLimit } from "@/lib/api-shared";
 
@@ -21,12 +21,13 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   // Pull events from the local libsql snapshot (populated by ensure-data)
-  // and filter to the same 90-day window /events renders so the calendar
-  // feed never exposes years of historical records (F-16). No upstream
-  // call per request.
-  const dataset = await readEvents(openDatasetsDb());
-  const events: Event[] = dataset.result.records.map((r, i) => toEvent(r, i));
-  const upcoming = filterUpcoming(events);
+  // narrowed at the SQL layer to the same 90-day window /events renders,
+  // so the calendar feed never exposes years of historical records (F-16).
+  // No upstream call per request.
+  const dataset = await readEvents(openDatasetsDb(), {
+    upcomingFrom: new Date(),
+  });
+  const upcoming: Event[] = dataset.result.records.map((r, i) => toEvent(r, i));
 
   const ics = buildEventIcs(upcoming);
 

@@ -12,7 +12,7 @@ import {
 } from "@/lib/gomi/types";
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readEvents } from "@/lib/opendata/db/readers";
-import { filterUpcoming, toEvent } from "@/lib/events/normalize";
+import { toEvent } from "@/lib/events/normalize";
 import districtsRaw from "@/data/districts.json";
 import overlaysRaw from "@/data/gomi-schedule.json";
 
@@ -32,9 +32,10 @@ export default async function HomePage() {
     SpecialOverlaySchema.array().parse(overlaysRaw);
   // Events come from the local libsql snapshot (populated by ensure-data
   // via Conditional fetch), so home rendering never pings the upstream.
-  const eventsDataset = await readEvents(openDatasetsDb());
-  const events = eventsDataset.result.records.map(toEvent);
-  const upcomingEvents = filterUpcoming(events).slice(0, 5);
+  const eventsDataset = await readEvents(openDatasetsDb(), {
+    upcomingFrom: new Date(),
+  });
+  const upcomingEvents = eventsDataset.result.records.map(toEvent).slice(0, 5);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">

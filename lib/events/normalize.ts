@@ -35,21 +35,3 @@ export function toEvent(record: EventRecord, index: number): Event {
     status,
   });
 }
-
-// Returns events whose interval overlaps the next `windowDays` from `now`.
-// Defaults to 90 days to match the plan's "直近 90 日" window.
-export function filterUpcoming(
-  events: Event[],
-  now: Date = new Date(),
-  windowDays = 90,
-): Event[] {
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const limit = new Date(today);
-  limit.setDate(limit.getDate() + windowDays);
-  return events.filter((evt) => {
-    const start = new Date(evt.startDate);
-    const end = evt.endDate ? new Date(evt.endDate) : start;
-    return end >= today && start <= limit;
-  });
-}

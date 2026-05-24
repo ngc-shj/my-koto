@@ -86,10 +86,29 @@ export async function readToilet(client: Client): Promise<ToiletResponse> {
   return ToiletResponseSchema.parse({ result: { records } });
 }
 
-export async function readEvents(client: Client): Promise<EventResponse> {
-  const res = await client.execute(
-    "SELECT * FROM events ORDER BY start_date",
-  );
+// `upcomingFrom` narrows the result to events whose interval overlaps
+// [today, today + windowDays] at the SQL layer. Dropping the in-memory
+// filterUpcoming pass means SSR/ICS don't ship the whole multi-year row
+// set through libsql just to throw most of it away in JS.
+export async function readEvents(
+  client: Client,
+  options?: { upcomingFrom?: Date; windowDays?: number },
+): Promise<EventResponse> {
+  let sql = "SELECT * FROM events";
+  const args: (string | number)[] = [];
+  if (options?.upcomingFrom) {
+    const today = formatLocalDate(options.upcomingFrom);
+    const limit = formatLocalDate(
+      addDays(options.upcomingFrom, options.windowDays ?? 90),
+    );
+    // start_date / end_date are stored as YYYY-MM-DD; lexical comparison
+    // is correct date comparison for that format. COALESCE handles the
+    // common case of single-day events with no end_date.
+    sql += " WHERE COALESCE(end_date, start_date) >= ? AND start_date <= ?";
+    args.push(today, limit);
+  }
+  sql += " ORDER BY start_date";
+  const res = await client.execute({ sql, args });
   const records = res.rows.map((row) => ({
     名称: s(row, "name"),
     開始日: s(row, "start_date"),
@@ -102,6 +121,19 @@ export async function readEvents(client: Client): Promise<EventResponse> {
     備考: sOptional(row, "note"),
   }));
   return EventResponseSchema.parse({ result: { records } });
+}
+
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 export async function readGomi(client: Client): Promise<GomiResponse> {
