@@ -174,8 +174,14 @@ export default function MapClient({
   // box is the primary affordance. Visitors who want to browse rather
   // than search expand the drawer once.
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
-  // Guards storage writes until after the initial hydration pass.
-  const filtersHydratedRef = useRef(false);
+  // Guards storage writes until after the initial hydration pass. Has to
+  // be state, not a ref: the save effect runs in the same effect cycle
+  // as hydration on Render 1, so a synchronously-flipped ref would let
+  // save see the stale `filters` closure (initialFilters, all off) and
+  // overwrite the stored selection. As state it triggers Render 2, where
+  // both `filters` (= stored) and `filtersHydrated` (= true) are visible
+  // to the save effect.
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
 
   // Hydrate filters from localStorage on mount unless the URL already
   // specified `?layers=` (deep links win). When `?focus=` targets a bus
@@ -189,9 +195,7 @@ export default function MapClient({
     // of how to surface layers.
     let nextLayers: MapFilters["layers"] = filters.layers;
 
-    if (urlHasLayersParam) {
-      filtersHydratedRef.current = true;
-    } else {
+    if (!urlHasLayersParam) {
       const stored = loadMapFilters();
       if (stored != null) {
         const next: MapFilters = {
@@ -210,8 +214,8 @@ export default function MapClient({
           layers: { ...prev.layers, bus_stop: true },
         }));
       }
-      filtersHydratedRef.current = true;
     }
+    setFiltersHydrated(true);
 
     if (LAYERS.every((l) => !nextLayers[l.id])) {
       setCategoryDrawerOpen(true);
@@ -219,9 +223,9 @@ export default function MapClient({
   }, [urlHasLayersParam, focusIsBusStop]);
 
   useEffect(() => {
-    if (!filtersHydratedRef.current) return;
+    if (!filtersHydrated) return;
     saveMapFilters(filters);
-  }, [filters]);
+  }, [filters, filtersHydrated]);
 
   // Dynamic POIs fetched from /api/pois. Includes OSM-only layers (駅・
   // 病院 etc.) fetched eagerly so chip counts populate immediately.
