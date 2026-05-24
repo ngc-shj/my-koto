@@ -118,6 +118,22 @@ npm run test
 npm run build
 ```
 
+### `scripts/dev.sh` (デタッチ運用)
+
+`npm run dev` を bg で回したい場合のラッパー。PID/ログは `.run/`
+(gitignore 済) に出します。
+
+```bash
+./scripts/dev.sh init     # 初回: npm install + ensure-data
+./scripts/dev.sh start    # bg 起動 (→ .run/dev.log)
+./scripts/dev.sh status   # 生存確認 + URL
+./scripts/dev.sh logs     # tail -f
+./scripts/dev.sh stop     # 停止 + port 3000 解放
+./scripts/dev.sh restart  # stop + start
+```
+
+`PORT=3001 ./scripts/dev.sh start` で別ポートに振れます。
+
 ## データ更新スクリプト
 
 公式 CSV から `data/*.json` を再生成します。Shift_JIS / UTF-8 BOM の差を内部で吸収します。

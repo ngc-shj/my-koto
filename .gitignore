@@ -69,3 +69,6 @@ __fixtures__/opendata/tokyo-*.csv
 data/*
 !data/gomi-dictionary.json
 !data/gomi-schedule.json
+
+# PID + log for `scripts/dev.sh` (detached `npm run dev`).
+.run/
