@@ -59,3 +59,13 @@ yarn-error.log*
 # Tokyo-wide files (避難所 ~13MB) are too large for git; the script refetches
 # from the upstream CKAN-resolved URL on demand, then filters down to Koto-ku.
 __fixtures__/opendata/tokyo-*.csv
+
+# Datasets now served live via /api/datasets/{aed,toilet,events,gomi}.
+# If a developer runs the lib helpers locally for debugging and writes the
+# output to disk, don't let it sneak back into git. wbgt.json was on the
+# same pipeline; ignore it too.
+data/aed.json
+data/toilet.json
+data/events.json
+data/gomi.json
+data/wbgt.json
