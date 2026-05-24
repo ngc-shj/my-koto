@@ -35,6 +35,7 @@ import { openDatasetsDb, ensureSchema } from "@/lib/opendata/db/client";
 import { readMetaVersion } from "@/lib/opendata/db/readers";
 import {
   writeAed,
+  writeBus,
   writeEvents,
   writeGomi,
   writeToilet,
@@ -43,6 +44,7 @@ import { fetchAedDatasetConditional } from "@/lib/opendata/datasets/aed";
 import { fetchToiletDatasetConditional } from "@/lib/opendata/datasets/toilet";
 import { fetchEventsDatasetConditional } from "@/lib/opendata/datasets/events";
 import { fetchGomiDatasetConditional } from "@/lib/opendata/datasets/gomi";
+import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FORCE = process.argv.includes("--force") || process.env.FORCE === "1";
@@ -356,6 +358,44 @@ async function syncDynamicDatasets(): Promise<void> {
       console.warn(`  - ${job.id}: FAILED (${msg}); keeping existing rows`);
     }
   }
+
+  // Bus is special: the upstream is a single 80 MB GTFS zip, parsing
+  // happens in scripts/fetch-bus-toei.ts (which writes data/bus-toei.json
+  // as a side product). We probe Last-Modified first; only when the zip
+  // actually moved do we spawn the generator (or reuse the JSON if it's
+  // already on disk from the JSON-group flow) and write the BLOB.
+  try {
+    await syncBus(db);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`  - bus: FAILED (${msg}); keeping existing row`);
+  }
+}
+
+const BUS_GTFS_URL =
+  "https://api-public.odpt.org/api/v4/files/Toei/data/ToeiBus-GTFS.zip";
+
+async function syncBus(
+  db: ReturnType<typeof openDatasetsDb>,
+): Promise<void> {
+  const remoteVersion = await probeLastModified(BUS_GTFS_URL);
+  const prev = FORCE ? undefined : await readMetaVersion(db, "bus");
+  if (prev && remoteVersion && prev === remoteVersion) {
+    console.log(`  - bus: unchanged (Last-Modified ${remoteVersion})`);
+    return;
+  }
+  const jsonPath = join(ROOT, "data", "bus-toei.json");
+  if (!existsSync(jsonPath)) {
+    console.log("  - bus: invoking fetch-bus-toei.ts (no local JSON)...");
+    run("npx", ["--yes", "tsx", "scripts/fetch-bus-toei.ts"]);
+  }
+  const raw: unknown = JSON.parse(readFileSync(jsonPath, "utf-8"));
+  const parsed = BusToeiDataSchema.parse(raw);
+  await writeBus(db, "toei", parsed, {
+    sourceId: "bus",
+    version: remoteVersion || parsed.feedVersion,
+  });
+  console.log(`  - bus: refreshed (Last-Modified ${remoteVersion})`);
 }
 
 main().catch((err) => {

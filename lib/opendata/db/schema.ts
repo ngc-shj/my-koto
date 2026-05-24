@@ -67,4 +67,16 @@ export const SCHEMA_STATEMENTS = [
     plastic_days TEXT NOT NULL,
     resource_days TEXT NOT NULL
   )`,
+
+  // Bus is the odd one out. The upstream is a single ~13 MB JSON bundle
+  // (routes + stops + shapes + schedules per direction), and every
+  // consumer in the app reads it whole. Storing it as a BLOB instead of
+  // normalising into half a dozen tables keeps consumer code unchanged
+  // — the read fn parses the JSON once. `agency` leaves room for a
+  // future second agency (Toei is the only one for now).
+  `CREATE TABLE IF NOT EXISTS bus (
+    agency TEXT NOT NULL PRIMARY KEY,
+    data BLOB NOT NULL,
+    fetched_at TEXT NOT NULL
+  )`,
 ] as const;

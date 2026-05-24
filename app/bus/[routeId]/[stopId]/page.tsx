@@ -5,13 +5,11 @@ import Attribution from "@/components/Attribution";
 import BusDeparturesPanel from "@/components/BusDeparturesPanel";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
-import busData from "@/data/bus-toei.json";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readBus } from "@/lib/opendata/db/readers";
 import { displayRouteName } from "@/lib/bus/aliases";
 import { routeColor } from "@/lib/map/bus-routes";
-import {
-  BusToeiDataSchema,
-  type DirectionPattern,
-} from "@/lib/opendata/schemas/bus";
+import type { DirectionPattern } from "@/lib/opendata/schemas/bus";
 import RouteMapClient from "../RouteMapClient";
 
 type Params = { routeId: string; stopId: string };
@@ -36,8 +34,8 @@ function pickDirection(
   return directions.find((d) => d.stopSequence.includes(stopId)) ?? null;
 }
 
-function loadStop(routeId: string, stopId: string, dirHint?: string) {
-  const data = BusToeiDataSchema.parse(busData);
+async function loadStop(routeId: string, stopId: string, dirHint?: string) {
+  const data = await readBus(openDatasetsDb());
   const route = data.routes.find((r) => r.routeId === routeId);
   if (route == null) return null;
   const stop = data.stops[stopId];
@@ -51,6 +49,7 @@ function loadStop(routeId: string, stopId: string, dirHint?: string) {
     direction.schedule[category].find((d) => d.stopId === stopId)?.times ?? [];
 
   return {
+    data,
     route,
     stop,
     direction,
@@ -68,7 +67,10 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { routeId, stopId } = await params;
-  const found = loadStop(decodeURIComponent(routeId), decodeURIComponent(stopId));
+  const found = await loadStop(
+    decodeURIComponent(routeId),
+    decodeURIComponent(stopId),
+  );
   if (found == null) return { title: "停留所時刻表 | My こうとう" };
   const routeName = displayRouteName(found.route.shortName);
   return {
@@ -88,18 +90,17 @@ export default async function StopPage({
   const { dir, from } = await searchParams;
   const cameFromMap = from === "map";
   const cameFromBus = from === "bus";
-  const found = loadStop(
+  const found = await loadStop(
     decodeURIComponent(routeId),
     decodeURIComponent(stopId),
     dir,
   );
   if (found == null) notFound();
-  const { route, stop, direction, timetable } = found;
+  const { data, route, stop, direction, timetable } = found;
 
   // Build the map view — only the visited direction, with the current
   // stop highlighted so the visitor sees where they are on the line.
   const color = routeColor(route.routeId);
-  const data = BusToeiDataSchema.parse(busData);
   const shapes: ReadonlyArray<ReadonlyArray<readonly [number, number]>> =
     (direction.shapes ??
       (direction.shape != null

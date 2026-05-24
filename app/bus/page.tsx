@@ -7,9 +7,9 @@ import BusFinder, {
 } from "@/components/BusFinder";
 import { KanjiText } from "@/components/Furigana";
 import ShareButton from "@/components/ShareButton";
-import busData from "@/data/bus-toei.json";
 import districtsRaw from "@/data/districts.json";
-import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readBus } from "@/lib/opendata/db/readers";
 import { DistrictSchema } from "@/lib/gomi/types";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 function buildStopOptions(
-  data: ReturnType<typeof BusToeiDataSchema.parse>,
+  data: Awaited<ReturnType<typeof readBus>>,
 ): readonly BusStopSearchOption[] {
   const byStop = new Map<string, BusStopSearchOption>();
   for (const stop of Object.values(data.stops)) {
@@ -47,7 +47,7 @@ function buildStopOptions(
 }
 
 function buildRouteOptions(
-  data: ReturnType<typeof BusToeiDataSchema.parse>,
+  data: Awaited<ReturnType<typeof readBus>>,
 ): readonly BusRouteSearchOption[] {
   return data.routes
     .map((r) => ({
@@ -62,8 +62,8 @@ function buildRouteOptions(
     .sort((a, b) => a.shortName.localeCompare(b.shortName, "ja"));
 }
 
-export default function BusIndexPage() {
-  const data = BusToeiDataSchema.parse(busData);
+export default async function BusIndexPage() {
+  const data = await readBus(openDatasetsDb());
   const stops = buildStopOptions(data);
   const routes = buildRouteOptions(data);
 

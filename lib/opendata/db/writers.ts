@@ -7,6 +7,7 @@ import type { AedResponse } from "@/lib/opendata/schemas/aed";
 import type { ToiletResponse } from "@/lib/opendata/schemas/toilet";
 import type { EventResponse } from "@/lib/opendata/schemas/events";
 import type { GomiResponse } from "@/lib/opendata/schemas/gomi";
+import type { BusToeiData } from "@/lib/opendata/schemas/bus";
 
 export type WriteMeta = {
   readonly sourceId: string;
@@ -104,6 +105,27 @@ export async function writeEvents(
     ],
   }));
   await replaceTable(client, "events", inserts);
+  await upsertMeta(client, meta);
+}
+
+// Bus is stored as a single JSON-encoded BLOB row keyed by agency. Every
+// consumer reads it whole, so normalising into routes/stops/shapes
+// tables would just shift the JOIN cost to the reader for no benefit.
+export async function writeBus(
+  client: Client,
+  agency: string,
+  data: BusToeiData,
+  meta: WriteMeta,
+): Promise<void> {
+  const encoded = new TextEncoder().encode(JSON.stringify(data));
+  await client.execute({
+    sql: `INSERT INTO bus (agency, data, fetched_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(agency) DO UPDATE SET
+            data = excluded.data,
+            fetched_at = excluded.fetched_at`,
+    args: [agency, encoded, new Date().toISOString()],
+  });
   await upsertMeta(client, meta);
 }
 

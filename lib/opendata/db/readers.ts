@@ -23,6 +23,10 @@ import {
   type GomiResponse,
   type Weekday,
 } from "@/lib/opendata/schemas/gomi";
+import {
+  BusToeiDataSchema,
+  type BusToeiData,
+} from "@/lib/opendata/schemas/bus";
 
 function s(row: Row, col: string): string {
   const v = row[col];
@@ -111,6 +115,30 @@ export async function readGomi(client: Client): Promise<GomiResponse> {
     資源ごみ: jsonWeekdays(row, "resource_days"),
   }));
   return GomiResponseSchema.parse({ result: { records } });
+}
+
+// Bus is stored as a single JSON-encoded BLOB row keyed by agency.
+// `agency` defaults to "toei" (the only carrier we currently sync); a
+// second one can be added later without touching the schema.
+export async function readBus(
+  client: Client,
+  agency = "toei",
+): Promise<BusToeiData> {
+  const res = await client.execute({
+    sql: "SELECT data FROM bus WHERE agency = ? LIMIT 1",
+    args: [agency],
+  });
+  const row = res.rows[0];
+  if (!row) throw new Error(`bus snapshot not loaded for agency=${agency}`);
+  const blob = row["data"];
+  // libsql returns BLOB columns as ArrayBuffer (not Uint8Array). Accept
+  // both so callers don't have to care which driver runtime is in play.
+  let bytes: Uint8Array;
+  if (blob instanceof Uint8Array) bytes = blob;
+  else if (blob instanceof ArrayBuffer) bytes = new Uint8Array(blob);
+  else throw new Error(`bus.data not a BLOB (got ${typeof blob})`);
+  const json: unknown = JSON.parse(new TextDecoder().decode(bytes));
+  return BusToeiDataSchema.parse(json);
 }
 
 // Returns the freshness token stored by ensure-data for a given source

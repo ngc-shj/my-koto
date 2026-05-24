@@ -1,16 +1,13 @@
-// Edge route returning per-route schedules for one bus stop. The
-// bundled GTFS data is large (~3.4 MB) so we ship a thin endpoint that
-// reads the in-process JSON and slices to one stop instead of sending
-// the whole catalog to every map client.
+// Node route returning per-route schedules for one bus stop. We read
+// the GTFS bundle from the libsql snapshot (BLOB) and slice it to one
+// stop instead of sending the whole catalog to every map client.
 import type { NextRequest } from "next/server";
-import busRaw from "@/data/bus-toei.json";
-import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readBus } from "@/lib/opendata/db/readers";
 import type {
   StopTimesResponse,
   StopTimesRow,
 } from "@/lib/bus/stop-times";
-
-export const runtime = "edge";
 
 // GTFS stop ids in this bundle look like "0675-03"; cap the length to
 // bound the work and reject obviously malformed input before we touch
@@ -32,7 +29,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return errorResponse("invalid stop param", 400);
   }
 
-  const data = BusToeiDataSchema.parse(busRaw);
+  const data = await readBus(openDatasetsDb());
   if (data.stops[stopId] == null) {
     return errorResponse("stop not found", 404);
   }

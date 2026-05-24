@@ -3,10 +3,10 @@ import { notFound } from "next/navigation";
 import Attribution from "@/components/Attribution";
 import BackToHome from "@/components/BackToHome";
 import { KanjiText } from "@/components/Furigana";
-import busData from "@/data/bus-toei.json";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readBus } from "@/lib/opendata/db/readers";
 import { displayRouteName } from "@/lib/bus/aliases";
 import { routeColor } from "@/lib/map/bus-routes";
-import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
 import RoutePageContent from "./RoutePageContent";
 import type { ActiveDirection } from "./RouteMapClient";
 
@@ -15,8 +15,8 @@ type Search = { dir?: string };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
-function loadRoute(routeId: string) {
-  const data = BusToeiDataSchema.parse(busData);
+async function loadRoute(routeId: string) {
+  const data = await readBus(openDatasetsDb());
   const route = data.routes.find((r) => r.routeId === routeId);
   return route != null ? { data, route } : null;
 }
@@ -32,7 +32,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { routeId } = await params;
-  const found = loadRoute(decodeURIComponent(routeId));
+  const found = await loadRoute(decodeURIComponent(routeId));
   if (found == null) return { title: "バス系統 | My こうとう" };
   const name = displayRouteName(found.route.shortName);
   return {
@@ -42,7 +42,7 @@ export async function generateMetadata({
 }
 
 export async function generateStaticParams(): Promise<Params[]> {
-  const data = BusToeiDataSchema.parse(busData);
+  const data = await readBus(openDatasetsDb());
   return data.routes.map((r) => ({ routeId: encodeURIComponent(r.routeId) }));
 }
 
@@ -55,7 +55,7 @@ export default async function RoutePage({
 }) {
   const { routeId } = await params;
   const { dir } = await searchParams;
-  const found = loadRoute(decodeURIComponent(routeId));
+  const found = await loadRoute(decodeURIComponent(routeId));
   if (found == null) notFound();
   const { data, route } = found;
 

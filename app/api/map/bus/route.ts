@@ -1,25 +1,17 @@
 // Serves the Toei bus bundle as JSON for the /map client. The bundle is
-// large (~12 MB) and only refreshes when an admin re-runs
-// scripts/fetch-bus-toei.ts. Lookup order:
-//   1. KV (set by the admin script with `--target=kv`)
-//   2. Static fallback bundled at build time (data/bus-toei.json)
-// The static fallback keeps local dev and first-deploys working before
-// the admin push, at the cost of bundling the 12 MB once into this
-// route's deploy artifact (not into /map's RSC payload).
+// large (~12 MB) and lives as a single libsql BLOB row — ensure-data
+// keeps it refreshed via Conditional fetch (Last-Modified). This route
+// is Node runtime because libsql file:// needs fs access; in production
+// the same code talks to Turso once DATASETS_DB_URL is set.
 import type { NextRequest } from "next/server";
 import { MAP_BUS_CACHE } from "@/config/cache";
-import { BusToeiDataSchema } from "@/lib/opendata/schemas/bus";
-import { busKvKey } from "@/lib/map/bus-kv";
-import { parseSchemaVersion } from "@/lib/proxy";
 import {
-  buildKv,
   rateLimitResponse,
   jsonResponseHeaders,
   getAllowedOrigin,
 } from "@/lib/api-shared";
-import busFallback from "@/data/bus-toei.json";
-
-export const runtime = "edge";
+import { openDatasetsDb } from "@/lib/opendata/db/client";
+import { readBus } from "@/lib/opendata/db/readers";
 
 export async function GET(request: NextRequest): Promise<Response> {
   if (request.method !== "GET") {
@@ -43,37 +35,22 @@ export async function GET(request: NextRequest): Promise<Response> {
   );
   if (tooMany) return tooMany;
 
-  const cacheKey = busKvKey(parseSchemaVersion());
-  const kv = buildKv();
-
-  // Try KV first so admin-pushed data wins over the bundled fallback.
-  // Wrapped in try/catch because KV failure must not block serving — the
-  // bundled fallback is always available.
-  let payload: unknown = null;
   try {
-    payload = await kv.get<unknown>(cacheKey);
-  } catch {
-    payload = null;
-  }
-  if (payload == null) {
-    payload = busFallback;
-  }
-
-  const parsed = BusToeiDataSchema.safeParse(payload);
-  if (!parsed.success) {
+    const data = await readBus(openDatasetsDb());
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: responseHeaders,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     const headers = new Headers();
     headers.set("Cache-Control", "no-store");
     headers.set("Content-Type", "application/json");
-    return new Response(
-      JSON.stringify({ error: "Bus bundle failed schema validation" }),
-      { status: 502, headers },
-    );
+    return new Response(JSON.stringify({ error: `Bus bundle unavailable: ${msg}` }), {
+      status: 503,
+      headers,
+    });
   }
-
-  return new Response(JSON.stringify(parsed.data), {
-    status: 200,
-    headers: responseHeaders,
-  });
 }
 
 export async function POST(): Promise<Response> {
