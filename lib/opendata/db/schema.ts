@@ -1,4 +1,4 @@
-// SQLite schema for the koto-city dataset store. Tables hold the
+// SQLite schema for the my-koto dataset store. Tables hold the
 // upstream-derived data that used to live in data/*.json — one row per
 // record, columns in snake_case English, originals (Japanese keys)
 // reconstructed by reader helpers when the app needs the legacy shape.

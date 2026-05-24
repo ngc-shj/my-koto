@@ -1,4 +1,4 @@
-// koto-city dev-only Service Worker killer — see plan C6
+// my-koto dev-only Service Worker killer — see plan C6
 
 self.addEventListener("install", () => {
   self.skipWaiting();

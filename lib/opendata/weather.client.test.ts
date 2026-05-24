@@ -200,7 +200,7 @@ describe("fetchWeather", () => {
 
     const callArgs = mockFetch.mock.calls[0];
     const headers = callArgs[1].headers as Headers;
-    expect(headers.get("User-Agent")).toBe("koto-city/1.0 (+/about)");
+    expect(headers.get("User-Agent")).toBe("my-koto/1.0 (+/about)");
     expect(headers.get("Accept")).toBe("application/json");
     expect(headers.get("X-Forwarded-For")).toBeNull();
     expect(headers.get("Cookie")).toBeNull();

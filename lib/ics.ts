@@ -79,7 +79,7 @@ function safeUrl(url: string | undefined): string | undefined {
  *   by ical-generator; COMMENT is escaped manually and inserted via
  *   insertComments().
  * - URL is included only for https: scheme URLs.
- * - UID is deterministic: "<event-id>@koto-city.example".
+ * - UID is deterministic: "<event-id>@my-koto.example".
  * - DTSTAMP is derived from deps.now() for testability.
  */
 export function buildEventIcs(events: readonly Event[], deps?: IcsDeps): string {
@@ -88,7 +88,7 @@ export function buildEventIcs(events: readonly Event[], deps?: IcsDeps): string 
 
   const cal = buildCalendar("江東区イベント");
   cal.prodId({
-    company: "koto-city",
+    company: "my-koto",
     product: "event-calendar",
     language: "JA",
   });
@@ -96,7 +96,7 @@ export function buildEventIcs(events: readonly Event[], deps?: IcsDeps): string 
   const comments = new Map<string, string>();
 
   for (const evt of events) {
-    const uid = `${evt.id}@koto-city.example`;
+    const uid = `${evt.id}@my-koto.example`;
     const [startY, startM, startD] = evt.startDate.split("-").map(Number);
     const endDate = evt.endDate ?? evt.startDate;
     const [endY, endM, endD] = endDate.split("-").map(Number);
@@ -138,7 +138,7 @@ export function buildEventIcs(events: readonly Event[], deps?: IcsDeps): string 
  * Build a VCALENDAR ICS string for a district's garbage collection schedule.
  *
  * - VTIMEZONE for Asia/Tokyo is included.
- * - UID is deterministic: "<district-id>-<date>@koto-city.example".
+ * - UID is deterministic: "<district-id>-<date>@my-koto.example".
  * - CATEGORIES lists the Japanese waste category labels.
  * - DTSTAMP is derived from deps.now() for testability.
  */
@@ -152,14 +152,14 @@ export function buildGomiIcs(
 
   const cal = buildCalendar(`ごみ収集カレンダー (${district.label})`);
   cal.prodId({
-    company: "koto-city",
+    company: "my-koto",
     product: "gomi-calendar",
     language: "JA",
   });
 
   for (const occ of occurrences) {
     const dateStr = occ.date.toISOString().slice(0, 10); // "YYYY-MM-DD"
-    const uid = `${district.id}-${dateStr}@koto-city.example`;
+    const uid = `${district.id}-${dateStr}@my-koto.example`;
     const labels = occ.categories.map((c) => GOMI_CATEGORY_LABELS[c]);
     const summary = labels.join("・");
 

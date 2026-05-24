@@ -59,9 +59,9 @@ describe("swRuntimeCaching", () => {
       expect(pattern.test("http://x/api/ics/events")).toBe(true);
     });
 
-    it("matches http://x/api/ics/gomi/koto-city", () => {
+    it("matches http://x/api/ics/gomi/my-koto", () => {
       const pattern = icsRule!.urlPattern as RegExp;
-      expect(pattern.test("http://x/api/ics/gomi/koto-city")).toBe(true);
+      expect(pattern.test("http://x/api/ics/gomi/my-koto")).toBe(true);
     });
 
     it("does not match http://x/api/ics (no trailing path segment)", () => {

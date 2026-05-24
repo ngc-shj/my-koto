@@ -82,7 +82,7 @@ async function putKv(
   }
 }
 const USER_AGENT =
-  process.env["UA_OVERRIDE"] ?? "koto-city-bot/1.0 (+https://example.com/about)";
+  process.env["UA_OVERRIDE"] ?? "my-koto-bot/1.0 (+https://example.com/about)";
 const TOEI_LICENSE = {
   name: "CC-BY 4.0",
   url: "https://creativecommons.org/licenses/by/4.0/deed.ja",

@@ -37,7 +37,7 @@ function notify(_msg: string): void {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      content: "[koto-city] primary KV failure, fell back to LRU",
+      content: "[my-koto] primary KV failure, fell back to LRU",
     }),
   }).catch(() => {});
 }

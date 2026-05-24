@@ -11,6 +11,7 @@
 
 import { TOKYO_OPEN_DATA_CKAN_API } from "@/config/opendata";
 import { parseCsv, type CsvRow } from "@/lib/csv";
+import { PRODUCT_UA } from "@/lib/upstream/ua";
 
 export type CsvEncoding = "utf-8" | "shift-jis";
 
@@ -21,8 +22,6 @@ export type CsvEncoding = "utf-8" | "shift-jis";
 export type ConditionalLoadResult<T> =
   | { readonly unchanged: true; readonly version: string }
   | { readonly unchanged: false; readonly data: T; readonly version: string };
-
-export const DATASETS_USER_AGENT = "koto-city/1.0 (+/about)";
 
 // Per-call timeout. Long enough for cold CKAN responses, short enough that
 // a stuck upstream does not pin Edge invocation budget.
@@ -38,7 +37,7 @@ export async function ckanResolveCsvUrl(
 ): Promise<string> {
   const url = `${TOKYO_OPEN_DATA_CKAN_API}?id=${encodeURIComponent(datasetId)}`;
   const res = await fetchImpl(url, {
-    headers: { "User-Agent": DATASETS_USER_AGENT, Accept: "application/json" },
+    headers: { "User-Agent": PRODUCT_UA, Accept: "application/json" },
     redirect: "manual",
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
@@ -66,7 +65,7 @@ export async function fetchCsvText(
   fetchImpl: typeof fetch = fetch,
 ): Promise<string> {
   const res = await fetchImpl(url, {
-    headers: { "User-Agent": DATASETS_USER_AGENT },
+    headers: { "User-Agent": PRODUCT_UA },
     redirect: "manual",
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
@@ -98,7 +97,7 @@ export async function fetchCsvTextConditional(
   prev: ConditionalHeaders,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ConditionalCsvResult> {
-  const headers = new Headers({ "User-Agent": DATASETS_USER_AGENT });
+  const headers = new Headers({ "User-Agent": PRODUCT_UA });
   if (prev.etag) headers.set("If-None-Match", prev.etag);
   if (prev.lastModified) headers.set("If-Modified-Since", prev.lastModified);
   const res = await fetchImpl(url, {
@@ -144,7 +143,7 @@ export async function ckanResolveAndCheck(
 > {
   const url = `${TOKYO_OPEN_DATA_CKAN_API}?id=${encodeURIComponent(datasetId)}`;
   const res = await fetchImpl(url, {
-    headers: { "User-Agent": DATASETS_USER_AGENT, Accept: "application/json" },
+    headers: { "User-Agent": PRODUCT_UA, Accept: "application/json" },
     redirect: "manual",
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });

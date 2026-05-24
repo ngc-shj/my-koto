@@ -10,7 +10,7 @@ const FURIGANA_KEY = "a11y_furigana_v1";
 // Same-tab update channel. Components that render district / category names
 // listen for this so toggling the setting updates the screen without a
 // reload. Cross-tab updates ride the standard `storage` event.
-export const FURIGANA_CHANGE_EVENT = "koto-city:a11y-furigana-change";
+export const FURIGANA_CHANGE_EVENT = "my-koto:a11y-furigana-change";
 
 export function getFuriganaEnabled(): boolean {
   if (!isBrowser()) return false;

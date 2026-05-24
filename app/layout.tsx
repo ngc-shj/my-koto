@@ -53,7 +53,7 @@ export default async function RootLayout({
 
   if (emitKill && !nonce) {
     console.warn(
-      "[koto-city dev] CSP nonce missing; SW kill bootstrap skipped — verify middleware.ts"
+      "[my-koto dev] CSP nonce missing; SW kill bootstrap skipped — verify middleware.ts"
     );
   }
 

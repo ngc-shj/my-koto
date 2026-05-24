@@ -38,7 +38,7 @@ jobs:
         env:
           DATASETS_DB_URL: ${{ secrets.TURSO_DB_URL }}
           DATASETS_DB_AUTH_TOKEN: ${{ secrets.TURSO_DB_AUTH_TOKEN }}
-          UA_OVERRIDE: "koto-city-bot/1.0 (+https://example.com/about)"
+          UA_OVERRIDE: "my-koto-bot/1.0 (+https://example.com/about)"
         run: npx tsx scripts/ensure-data.ts --dynamic-only
         # --dynamic-only skips the JSON-file generators entirely; only
         # the libsql tables get refreshed, which is exactly what the

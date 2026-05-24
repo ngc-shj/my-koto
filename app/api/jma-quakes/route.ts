@@ -15,6 +15,7 @@ import {
   jsonResponseHeaders,
   getAllowedOrigin,
 } from "@/lib/api-shared";
+import { upstreamGet } from "@/lib/upstream/fetch";
 
 export const runtime = "edge";
 
@@ -60,15 +61,9 @@ export async function GET(request: NextRequest): Promise<Response> {
     return errorResponse("Upstream host not allowed", 500);
   }
 
-  const upstreamHeaders = new Headers();
-  upstreamHeaders.set("User-Agent", "koto-city/1.0 (+/about)");
-  upstreamHeaders.set("Accept", "application/json");
-
   try {
-    const upstream = await fetch(upstreamUrl.toString(), {
-      headers: upstreamHeaders,
-      redirect: "manual",
-      signal: AbortSignal.timeout(5000),
+    const upstream = await upstreamGet(upstreamUrl, {
+      accept: "application/json",
     });
 
     if (!upstream.ok) {

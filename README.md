@@ -232,9 +232,9 @@ npx vercel deploy --prod
 1. Turso CLI で db 作成 (無料枠 9 GB / 1B reads):
 
    ```bash
-   turso db create koto-city-datasets
-   turso db show --url koto-city-datasets       # → DATASETS_DB_URL
-   turso db tokens create koto-city-datasets    # → DATASETS_DB_AUTH_TOKEN
+   turso db create my-koto-datasets
+   turso db show --url my-koto-datasets       # → DATASETS_DB_URL
+   turso db tokens create my-koto-datasets    # → DATASETS_DB_AUTH_TOKEN
    ```
 
 2. Vercel 環境変数に上記 2 つを設定

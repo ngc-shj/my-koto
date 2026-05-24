@@ -139,7 +139,7 @@ describe("runDevSwKill — hostname allowlist", () => {
 
   const blockedHostnames = [
     "mac-mini.local",
-    "koto-city.example.com",
+    "my-koto.example.com",
     "192.168.0.5",
     "0.0.0.0",
   ];

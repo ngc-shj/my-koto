@@ -11,6 +11,7 @@ import {
   jsonResponseHeaders,
   getAllowedOrigin,
 } from "@/lib/api-shared";
+import { upstreamGet } from "@/lib/upstream/fetch";
 
 export const runtime = "edge";
 
@@ -62,19 +63,12 @@ export async function GET(request: NextRequest): Promise<Response> {
     });
   }
 
-  // Send only safe headers to upstream — never forward XFF/Cookie/Auth.
-  const upstreamHeaders = new Headers();
-  upstreamHeaders.set("User-Agent", "koto-city/1.0 (+/about)");
-  upstreamHeaders.set("Accept", "application/json");
-
   let upstreamData: unknown = null;
   let upstreamOk = false;
 
   try {
-    const upstreamResponse = await fetch(upstreamUrl.toString(), {
-      headers: upstreamHeaders,
-      redirect: "manual", // prevent SSRF via redirect
-      signal: AbortSignal.timeout(5000),
+    const upstreamResponse = await upstreamGet(upstreamUrl, {
+      accept: "application/json",
     });
 
     // Reject non-200 upstream responses.

@@ -108,6 +108,6 @@ describe("FURIGANA_CHANGE_EVENT", () => {
   it("uses a recognisable, namespaced event name to avoid collisions", () => {
     // Sanity check — guarantees future grep-ability when tracing UI re-render
     // behaviour back to a setFuriganaEnabled call site.
-    expect(FURIGANA_CHANGE_EVENT).toContain("koto-city");
+    expect(FURIGANA_CHANGE_EVENT).toContain("my-koto");
   });
 });

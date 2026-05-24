@@ -5,6 +5,7 @@ import {
   WeatherResponseSchema,
   type WeatherResponse,
 } from "@/lib/opendata/schemas/weather";
+import { PRODUCT_UA } from "@/lib/upstream/ua";
 
 export type LatLng = { lat: number; lng: number };
 
@@ -78,7 +79,7 @@ export async function fetchWeather(
   }
 
   const headers = new Headers();
-  headers.set("User-Agent", "koto-city/1.0 (+/about)");
+  headers.set("User-Agent", PRODUCT_UA);
   headers.set("Accept", "application/json");
 
   const response = await deps.fetch(url.toString(), {

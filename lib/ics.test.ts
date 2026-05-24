@@ -186,10 +186,10 @@ describe("buildEventIcs — CRLF line endings", () => {
 });
 
 describe("buildEventIcs — UID determinism", () => {
-  it("uses <event-id>@koto-city.example as UID", () => {
+  it("uses <event-id>@my-koto.example as UID", () => {
     const evt = sampleEvent({ id: "my-event-42" });
     const ics = buildEventIcs([evt], fixedDeps);
-    expect(ics).toContain("UID:my-event-42@koto-city.example");
+    expect(ics).toContain("UID:my-event-42@my-koto.example");
   });
 
   it("produces the same UID on repeated calls with the same input", () => {
@@ -295,9 +295,9 @@ describe("buildGomiIcs — structure", () => {
     expect(count).toBe(sampleOccurrences().length);
   });
 
-  it("uses deterministic UID: <district-id>-<date>@koto-city.example", () => {
+  it("uses deterministic UID: <district-id>-<date>@my-koto.example", () => {
     const ics = buildGomiIcs(sampleDistrict(), sampleOccurrences(), fixedDeps);
-    expect(ics).toContain("UID:kameido-1-3-2026-05-04@koto-city.example");
+    expect(ics).toContain("UID:kameido-1-3-2026-05-04@my-koto.example");
   });
 
   it("uses CRLF line endings", () => {

@@ -28,7 +28,7 @@ const VALID_CSV = `,,2026050421,2026050424,2026050503
 44132,2026/05/04 20:25, 140, 120, 100`;
 
 function makeRequest(method = "GET"): Request {
-  return new Request("https://koto-city.example.com/api/wbgt", { method });
+  return new Request("https://my-koto.example.com/api/wbgt", { method });
 }
 
 describe("GET /api/wbgt", () => {

@@ -11,7 +11,7 @@ import { MAP_BUS_CACHE } from "@/config/cache";
 import { BusToeiDataSchema, type BusToeiData } from "@/lib/opendata/schemas/bus";
 import { hasIndexedDB } from "@/lib/ssr";
 
-const DB_NAME = "koto-city-map";
+const DB_NAME = "my-koto-map";
 const DB_VERSION = 1;
 const STORE = "bus";
 // Single canonical key — only one bus bundle in flight at a time.

@@ -35,7 +35,7 @@ vi.mock("@vercel/functions", () => ({
 import { POST, GET } from "./route";
 
 function makeReq(body: unknown): Request {
-  return new Request("https://koto-city.example.com/api/csp-report", {
+  return new Request("https://my-koto.example.com/api/csp-report", {
     method: "POST",
     headers: { "Content-Type": "application/reports+json" },
     body: typeof body === "string" ? body : JSON.stringify(body),

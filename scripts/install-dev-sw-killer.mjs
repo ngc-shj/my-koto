@@ -35,4 +35,4 @@ for (const name of entries) {
 const killerContent = readFileSync(killerSrc, "utf8");
 writeFileSync(join(publicDir, "sw.js"), killerContent, "utf8");
 
-console.log("[koto-city] dev-sw-killer installed to public/sw.js");
+console.log("[my-koto] dev-sw-killer installed to public/sw.js");

@@ -64,7 +64,7 @@ const DYNAMIC_ONLY =
 
 const SIDECAR_PATH = join(ROOT, "data", ".versions.json");
 const UPSTREAM_TIMEOUT_MS = 10_000;
-const USER_AGENT = "koto-city-ensure-data/1.0 (+/about)";
+const USER_AGENT = "my-koto-ensure-data/1.0 (+/about)";
 const CKAN_API =
   "https://catalog.data.metro.tokyo.lg.jp/api/3/action/package_show";
 

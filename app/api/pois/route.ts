@@ -26,6 +26,7 @@ import {
   jsonResponseHeaders,
   getAllowedOrigin,
 } from "@/lib/api-shared";
+import { PRODUCT_UA_BARE } from "@/lib/upstream/ua";
 
 export const runtime = "edge";
 
@@ -160,10 +161,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   // Build query with clamped bbox.
   const overpassQL = buildOverpassQuery(snapped, types);
   const upstreamHeaders = new Headers();
-  // Overpass's Apache rejects User-Agents whose parenthetical comment
-  // does not look like a full URL — "(+/about)" earned us a 406 in
-  // every request. A clean product/version token works.
-  upstreamHeaders.set("User-Agent", "koto-city/1.0");
+  upstreamHeaders.set("User-Agent", PRODUCT_UA_BARE);
   upstreamHeaders.set("Accept", "application/json");
   upstreamHeaders.set("Content-Type", "application/x-www-form-urlencoded");
 

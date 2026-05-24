@@ -52,4 +52,4 @@ jobs:
         run: |
           curl -sS -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"[koto-city] Push dispatch failed. See: $RUN_URL\"}"
+            -d "{\"content\": \"[my-koto] Push dispatch failed. See: $RUN_URL\"}"

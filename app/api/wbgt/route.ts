@@ -17,6 +17,7 @@ import {
   jsonResponseHeaders,
   getAllowedOrigin,
 } from "@/lib/api-shared";
+import { upstreamGet } from "@/lib/upstream/fetch";
 
 export const runtime = "edge";
 
@@ -51,17 +52,11 @@ export async function GET(request: NextRequest): Promise<Response> {
     );
   }
 
-  const upstreamHeaders = new Headers();
-  upstreamHeaders.set("User-Agent", "koto-city/1.0 (+/about)");
-  // The CSV is text/csv per content-type header; the upstream sometimes
-  // omits it so we don't enforce a strict accept.
-  upstreamHeaders.set("Accept", "text/csv,*/*;q=0.5");
-
   try {
-    const upstream = await fetch(upstreamUrl.toString(), {
-      headers: upstreamHeaders,
-      redirect: "manual",
-      signal: AbortSignal.timeout(5000),
+    // The CSV is text/csv per content-type header; the upstream sometimes
+    // omits it so we don't enforce a strict accept.
+    const upstream = await upstreamGet(upstreamUrl, {
+      accept: "text/csv,*/*;q=0.5",
     });
 
     if (!upstream.ok) {

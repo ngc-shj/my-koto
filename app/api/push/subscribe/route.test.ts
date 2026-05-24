@@ -53,7 +53,7 @@ vi.mock("@vercel/functions", () => ({
 import { POST, DELETE, GET } from "./route";
 
 function makeRequest(method: string, body?: unknown): Request {
-  return new Request("https://koto-city.example.com/api/push/subscribe", {
+  return new Request("https://my-koto.example.com/api/push/subscribe", {
     method,
     headers: { "Content-Type": "application/json" },
     body: body == null ? undefined : JSON.stringify(body),

@@ -106,7 +106,7 @@ describe("GET /api/pois", () => {
     expect(init.method).toBe("POST");
     expect(init.redirect).toBe("manual");
     const headers = init.headers as Headers;
-    expect(headers.get("User-Agent")).toContain("koto-city");
+    expect(headers.get("User-Agent")).toContain("my-koto");
     // Sensitive headers must NOT be forwarded.
     expect(headers.get("Cookie")).toBeNull();
     expect(headers.get("Authorization")).toBeNull();

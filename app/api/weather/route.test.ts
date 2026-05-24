@@ -37,7 +37,7 @@ import { GET, POST, PUT, DELETE } from "./route";
 
 function makeRequest(
   method: string,
-  url = "https://koto-city.example.com/api/weather",
+  url = "https://my-koto.example.com/api/weather",
   headers?: Record<string, string>,
 ): Request {
   return new Request(url, { method, headers });
@@ -122,7 +122,7 @@ describe("GET /api/weather", () => {
       );
     }) as typeof fetch;
 
-    const req = makeRequest("GET", "https://koto-city.example.com/api/weather?lat=99&lng=99");
+    const req = makeRequest("GET", "https://my-koto.example.com/api/weather?lat=99&lng=99");
     await GET(req as import("next/server").NextRequest);
 
     expect(callArgs[0]).toContain("latitude=35.6727");
@@ -144,7 +144,7 @@ describe("GET /api/weather", () => {
 
     const req = makeRequest(
       "GET",
-      "https://koto-city.example.com/api/weather?url=https://evil.com",
+      "https://my-koto.example.com/api/weather?url=https://evil.com",
     );
     await GET(req as import("next/server").NextRequest);
 
