@@ -38,6 +38,35 @@ is_running() {
   kill -0 "$pid" 2>/dev/null
 }
 
+# Print a PID and every descendant, leaves first. `pgrep -P` only walks
+# one level, so without recursion we leave Turbopack workers and the
+# predev tsx subprocess alive — they reparent to init when npm exits
+# and survive past `stop`. Leaves-first ordering means parents see
+# their children gone before they get signalled themselves, so they
+# don't spend their grace window spawning replacements.
+collect_descendants() {
+  local root=$1
+  local child
+  for child in $(pgrep -P "$root" 2>/dev/null || true); do
+    collect_descendants "$child"
+  done
+  echo "$root"
+}
+
+# TERM (or KILL with -k) every pid in the given newline-separated list.
+# Loops in shell rather than piping to xargs so we don't depend on
+# `xargs -r` (GNU-only on older macOS) and so empty input is a no-op.
+signal_pids() {
+  local signal=$1
+  shift
+  local pids=$1
+  local p
+  for p in $pids; do
+    [[ -n "$p" ]] || continue
+    kill "-$signal" "$p" 2>/dev/null || true
+  done
+}
+
 cmd_init() {
   cd "$ROOT"
   echo "[dev] npm install"
@@ -74,30 +103,29 @@ cmd_start() {
   fi
 }
 
-# Reaps the npm process, its descendants, and anything else holding the
-# port. The lsof fallback catches orphaned `next dev` processes left
-# behind by an earlier crashed run that didn't unbind cleanly.
+# Reaps the npm process, every descendant in its tree, and anything
+# else still holding the port. The lsof fallback catches orphaned
+# listeners left behind by an earlier crashed run that didn't unbind
+# cleanly.
 cmd_stop() {
   local pid="" stopped=0
   if [[ -f "$PID_FILE" ]]; then
     pid=$(cat "$PID_FILE" 2>/dev/null || true)
   fi
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-    # Take a snapshot of children before signalling the parent — once npm
-    # exits, the children may reparent to init and disappear from `pgrep -P`.
-    local children
-    children=$(pgrep -P "$pid" 2>/dev/null || true)
-    kill -TERM "$pid" 2>/dev/null || true
-    [[ -n "$children" ]] && echo "$children" | xargs -r kill -TERM 2>/dev/null || true
-    # Up to 5s for graceful shutdown.
+    # Snapshot the entire tree before signalling — once npm exits, the
+    # grandchildren reparent to init and `pgrep -P <npm>` no longer
+    # surfaces them.
+    local tree
+    tree=$(collect_descendants "$pid")
+    signal_pids TERM "$tree"
+    # Up to 5s for graceful shutdown of the root npm process.
     for _ in 1 2 3 4 5; do
       sleep 1
       kill -0 "$pid" 2>/dev/null || break
     done
-    if kill -0 "$pid" 2>/dev/null; then
-      kill -KILL "$pid" 2>/dev/null || true
-      [[ -n "$children" ]] && echo "$children" | xargs -r kill -KILL 2>/dev/null || true
-    fi
+    # Hard-kill any stragglers (parent or descendant) still standing.
+    signal_pids KILL "$tree"
     stopped=1
   fi
   # Free the port even if no recorded PID matched — common after a crash.
@@ -105,10 +133,10 @@ cmd_stop() {
   port_pids=$(lsof -ti:"$PORT" 2>/dev/null || true)
   if [[ -n "$port_pids" ]]; then
     echo "[dev] freeing port $PORT (pids: $(echo "$port_pids" | tr '\n' ' '))"
-    echo "$port_pids" | xargs kill -TERM 2>/dev/null || true
+    signal_pids TERM "$port_pids"
     sleep 1
     port_pids=$(lsof -ti:"$PORT" 2>/dev/null || true)
-    [[ -n "$port_pids" ]] && echo "$port_pids" | xargs kill -KILL 2>/dev/null || true
+    [[ -n "$port_pids" ]] && signal_pids KILL "$port_pids"
     stopped=1
   fi
   rm -f "$PID_FILE"
