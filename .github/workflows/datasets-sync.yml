@@ -34,6 +34,15 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci --ignore-scripts
+
+      # Mirrors push-dispatch.yml — registers the webhook URL with the
+      # log redactor before any later step can echo it. No-op when the
+      # secret is unset (echo of an empty mask directive does nothing).
+      - name: Mask Discord webhook URL
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: echo "::add-mask::$DISCORD_WEBHOOK"
+
       - name: Sync datasets to libsql
         env:
           DATASETS_DB_URL: ${{ secrets.TURSO_DB_URL }}
@@ -51,14 +60,13 @@ jobs:
       - name: Notify Discord on failure
         if: failure()
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-            echo "DISCORD_WEBHOOK_URL secret not set; skipping notification."
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK secret not set; skipping notification."
             exit 0
           fi
-          payload=$(jq -nc --arg url "$RUN_URL" \
-            '{content: "datasets-sync failed: \($url)"}')
           curl -fsS -X POST -H "Content-Type: application/json" \
-            --data "$payload" "$DISCORD_WEBHOOK_URL"
+            -d "{\"content\": \"[my-koto] datasets-sync failed. See: $RUN_URL\"}" \
+            "$DISCORD_WEBHOOK"
