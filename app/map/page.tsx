@@ -10,11 +10,8 @@ import {
   type LayerId,
 } from "@/lib/map/registry";
 import type { MapFilters } from "@/lib/map/types";
-import { MAP_TILE } from "@/config/map";
 import MapClient from "./MapClient";
-import BackToHome from "@/components/BackToHome";
-import { KanjiText } from "@/components/Furigana";
-import ShareButton from "@/components/ShareButton";
+import PageHeader from "@/components/PageHeader";
 import { fetchAedDataset } from "@/lib/opendata/datasets/aed";
 import { fetchToiletDataset } from "@/lib/opendata/datasets/toilet";
 import parkRaw from "@/data/park.json";
@@ -108,40 +105,17 @@ export default async function MapPage({
     radius: null,
   };
 
+  // Source credits live on the map itself (MapLibre's attribution
+  // control) — duplicating them in the header would just waste the
+  // visitor's vertical real estate.
   return (
     <div className="flex flex-col h-screen">
-      <header className="px-4 py-3 border-b border-gray-200 bg-white">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <BackToHome />
-            <h1 className="text-lg font-semibold text-slate-700">
-              <KanjiText text="区民マップ" />
-            </h1>
-          </div>
-          <ShareButton title="区民マップ" url={`${SITE_URL}/map`} />
-        </div>
-        <p className="text-xs text-gray-500 mt-0.5">
-          地図:{" "}
-          <a
-            href={MAP_TILE.attributionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-gray-700"
-          >
-            {MAP_TILE.attribution}
-          </a>
-          {" / "}施設データ: 江東区・東京都 (CC-BY 4.0) +{" "}
-          <a
-            href="https://www.openstreetmap.org/copyright"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-gray-700"
-          >
-            © OpenStreetMap contributors
-          </a>{" "}
-          (ODbL)
-        </p>
-      </header>
+      <PageHeader
+        back={{ href: "/", label: "ホームへ戻る" }}
+        title="区民マップ"
+        share={{ title: "区民マップ", url: `${SITE_URL}/map` }}
+        maxWidth="4xl"
+      />
       <div className="flex-1 overflow-hidden">
         <MapClient
           points={allPoints}

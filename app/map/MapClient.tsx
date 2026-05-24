@@ -309,7 +309,18 @@ export default function MapClient({
         zoom: MAP_INITIAL.zoom,
         maxZoom: MAP_INITIAL.maxZoom,
         minZoom: MAP_INITIAL.minZoom,
-        attributionControl: {},
+        // Compact attribution control hosts both the tile credit (GSI,
+        // carried by GSI_STYLE.sources.gsi.attribution) and the dataset
+        // credits below. Keeping all source credits in one place avoids
+        // the previous duplication where the page header also spelled
+        // out the GSI link.
+        attributionControl: {
+          compact: true,
+          customAttribution: [
+            '施設データ: 江東区・東京都 <a href="https://creativecommons.org/licenses/by/4.0/deed.ja" target="_blank" rel="noopener noreferrer">(CC-BY 4.0)</a>',
+            '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> (ODbL)',
+          ],
+        },
       });
 
       mapRef.current = map;
@@ -490,13 +501,39 @@ export default function MapClient({
 
     const BUCKET_SIZE = 36;
     const layerPoints = visiblePoints.filter((p) => isLayerId(p.type));
+    // Exclude the selected point from clustering so a zoom-out doesn't
+    // hide the visitor's pick behind a count bubble. We re-insert it
+    // below as a forced single-point cluster, which routes it through
+    // the singleton-pin branch with isSelected=true.
+    const selectedInView =
+      selectedPoint != null &&
+      layerPoints.some((p) => p.id === selectedPoint.id)
+        ? selectedPoint
+        : null;
+    const clusterables =
+      selectedInView != null
+        ? layerPoints.filter((p) => p.id !== selectedInView.id)
+        : layerPoints;
     const clusters = clusterByPixelBucket(
-      layerPoints,
+      clusterables,
       (p) => map.project([p.lng, p.lat]),
       BUCKET_SIZE,
     );
+    // Selected cluster appended last so its marker is the final DOM
+    // node added to the map — MapLibre stacks markers in append order,
+    // and the selected teardrop needs to sit on top of any nearby pins
+    // that would otherwise overlap it.
+    const allClusters = selectedInView != null
+      ? [
+          ...clusters,
+          {
+            points: [selectedInView] as readonly MapPoint[],
+            center: { lat: selectedInView.lat, lng: selectedInView.lng },
+          },
+        ]
+      : clusters;
 
-    for (const cluster of clusters) {
+    for (const cluster of allClusters) {
       if (cluster.points.length === 1) {
         const point = cluster.points[0];
         if (point == null) continue;

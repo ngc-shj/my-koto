@@ -51,9 +51,7 @@ export default function SettingsPageClient() {
   }
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-8 space-y-8">
-      <h1 className="text-2xl font-bold text-gray-900">設定</h1>
-
+    <div className="max-w-xl mx-auto px-4 py-6 space-y-8">
       <ProfileManager onChange={handleProfileChange} />
 
       <PushOptIn districtId={activeDistrictId} />

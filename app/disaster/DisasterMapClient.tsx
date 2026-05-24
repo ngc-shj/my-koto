@@ -10,6 +10,7 @@ import GeolocationConsent from "@/components/GeolocationConsent";
 import { MAP_INITIAL, TILE_STYLES } from "@/config/map";
 import { haversineDistance } from "@/lib/distance";
 import { loadGeolocationConsent } from "@/lib/geolocation-consent";
+import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { getLayer, isLayerId } from "@/lib/map/registry";
 import {
   HAZARD_LABELS,
@@ -59,6 +60,9 @@ export default function DisasterMapClient({ points }: Props) {
   // modal and request location silently.
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  // Bumped on pan/zoom so the cluster pass re-runs with the current
+  // pixel projection. Same pattern as /map's MapClient.
+  const [renderTick, setRenderTick] = useState(0);
 
   useEffect(() => {
     const choice = loadGeolocationConsent();
@@ -91,7 +95,14 @@ export default function DisasterMapClient({ points }: Props) {
         zoom: MAP_INITIAL.zoom,
         maxZoom: MAP_INITIAL.maxZoom,
         minZoom: MAP_INITIAL.minZoom,
-        attributionControl: {},
+        // GSI tile credit rides in via PALE_STYLE.sources; dataset credit
+        // joins it here so the header can drop the duplicate paragraph
+        // (header real estate matters on a map-first page).
+        attributionControl: {
+          compact: true,
+          customAttribution:
+            '施設データ: 江東区・東京都 <a href="https://creativecommons.org/licenses/by/4.0/deed.ja" target="_blank" rel="noopener noreferrer">(CC-BY 4.0)</a>',
+        },
       });
       mapRef.current = map;
       map.on("load", () => {
@@ -106,9 +117,10 @@ export default function DisasterMapClient({ points }: Props) {
     };
   }, []);
 
-  // Render pins. No clustering — disaster sites are sparse enough that
-  // individual pins read better than buckets, and visibility matters
-  // more than density here.
+  // Render pins with pixel-bucket clustering. The selected point is
+  // pulled out before clustering and re-inserted as a forced single
+  // so zoom-out can't hide the visitor's pick behind a count bubble —
+  // same approach as /map's MapClient.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -120,75 +132,155 @@ export default function DisasterMapClient({ points }: Props) {
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
-      for (const point of points) {
-        if (!isLayerId(point.type)) continue;
-        const layer = getLayer(point.type);
-        const isSelected = selectedPoint?.id === point.id;
-        const el = document.createElement("div");
-        el.setAttribute("role", "button");
-        el.setAttribute(
-          "aria-label",
-          `${point.name}${isSelected ? " (選択中)" : ""}`,
-        );
-        el.setAttribute("aria-pressed", isSelected ? "true" : "false");
-        let marker: maplibregl.Marker;
-        if (isSelected) {
-          // Selected pin stands up — same teardrop-with-tip pattern as
-          // /map so the visual language stays consistent across the
-          // two map pages.
-          el.style.cssText = `
-            cursor: pointer;
-            filter: drop-shadow(0 3px 4px rgba(0,0,0,0.45));
-            line-height: 0;
-          `;
-          el.innerHTML = `
-            <svg width="34" height="46" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path
-                d="M14 1 C 21 1, 26 6, 26 13 C 26 21, 14 37, 14 37 C 14 37, 2 21, 2 13 C 2 6, 7 1, 14 1 Z"
-                fill="${layer.color}"
-                stroke="#0f172a"
-                stroke-width="2.5"
-              />
-              <text x="14" y="14" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui, -apple-system, sans-serif">${layer.letter}</text>
-            </svg>
-          `;
-          el.addEventListener("click", () => {
-            setSelectedPoint((prev) => (prev?.id === point.id ? null : point));
-          });
-          marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
-            .setLngLat([point.lng, point.lat])
-            .addTo(map);
+      const BUCKET_SIZE = 36;
+      const layerPoints = points.filter((p) => isLayerId(p.type));
+      const selectedInView =
+        selectedPoint != null &&
+        layerPoints.some((p) => p.id === selectedPoint.id)
+          ? selectedPoint
+          : null;
+      const clusterables =
+        selectedInView != null
+          ? layerPoints.filter((p) => p.id !== selectedInView.id)
+          : layerPoints;
+      const clusters = clusterByPixelBucket(
+        clusterables,
+        (p) => map.project([p.lng, p.lat]),
+        BUCKET_SIZE,
+      );
+      // Selected cluster appended last so its marker is the final DOM
+      // node added to the map — MapLibre stacks markers in append order,
+      // and the selected teardrop needs to sit on top of any nearby pins
+      // that would otherwise overlap it.
+      const allClusters = selectedInView != null
+        ? [
+            ...clusters,
+            {
+              points: [selectedInView] as readonly MapPoint[],
+              center: { lat: selectedInView.lat, lng: selectedInView.lng },
+            },
+          ]
+        : clusters;
+
+      for (const cluster of allClusters) {
+        if (cluster.points.length === 1) {
+          const point = cluster.points[0];
+          if (point == null) continue;
+          const layer = getLayer(point.type as Parameters<typeof getLayer>[0]);
+          const isSelected = selectedPoint?.id === point.id;
+          const el = document.createElement("div");
+          el.setAttribute("role", "button");
+          el.setAttribute(
+            "aria-label",
+            `${point.name}${isSelected ? " (選択中)" : ""}`,
+          );
+          el.setAttribute("aria-pressed", isSelected ? "true" : "false");
+          let marker: maplibregl.Marker;
+          if (isSelected) {
+            // Selected pin stands up — same teardrop-with-tip pattern as
+            // /map so the visual language stays consistent across the
+            // two map pages.
+            el.style.cssText = `
+              cursor: pointer;
+              filter: drop-shadow(0 3px 4px rgba(0,0,0,0.45));
+              line-height: 0;
+            `;
+            el.innerHTML = `
+              <svg width="34" height="46" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path
+                  d="M14 1 C 21 1, 26 6, 26 13 C 26 21, 14 37, 14 37 C 14 37, 2 21, 2 13 C 2 6, 7 1, 14 1 Z"
+                  fill="${layer.color}"
+                  stroke="#0f172a"
+                  stroke-width="2.5"
+                />
+                <text x="14" y="14" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-size="11" font-weight="700" font-family="system-ui, -apple-system, sans-serif">${layer.letter}</text>
+              </svg>
+            `;
+            el.addEventListener("click", () => {
+              setSelectedPoint((prev) => (prev?.id === point.id ? null : point));
+            });
+            marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
+              .setLngLat([point.lng, point.lat])
+              .addTo(map);
+          } else {
+            el.style.cssText = `
+              width: 26px;
+              height: 26px;
+              border-radius: 50%;
+              border: 2px solid white;
+              cursor: pointer;
+              background-color: ${layer.color};
+              color: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 12px;
+              font-weight: bold;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            `;
+            el.textContent = layer.letter;
+            el.addEventListener("click", () => {
+              setSelectedPoint((prev) => (prev?.id === point.id ? null : point));
+            });
+            marker = new maplibregl.Marker({ element: el, anchor: "center" })
+              .setLngLat([point.lng, point.lat])
+              .addTo(map);
+          }
+          markersRef.current.push(marker);
         } else {
+          const count = cluster.points.length;
+          const el = document.createElement("button");
+          el.type = "button";
+          el.setAttribute("aria-label", `${count} 件の地点 (クリックで拡大)`);
           el.style.cssText = `
-            width: 26px;
-            height: 26px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             border: 2px solid white;
             cursor: pointer;
-            background-color: ${layer.color};
+            background-color: rgba(71,85,105,0.9);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-size: 13px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            padding: 0;
           `;
-          el.textContent = layer.letter;
+          el.textContent = count >= 100 ? "99+" : String(count);
           el.addEventListener("click", () => {
-            setSelectedPoint((prev) => (prev?.id === point.id ? null : point));
+            const nextZoom = Math.min(map.getZoom() + 2, map.getMaxZoom());
+            map.flyTo({
+              center: [cluster.center.lng, cluster.center.lat],
+              zoom: nextZoom,
+            });
           });
-          marker = new maplibregl.Marker({ element: el, anchor: "center" })
-            .setLngLat([point.lng, point.lat])
+          const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+            .setLngLat([cluster.center.lng, cluster.center.lat])
             .addTo(map);
+          markersRef.current.push(marker);
         }
-        markersRef.current.push(marker);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [points, mapReady, selectedPoint]);
+  }, [points, mapReady, selectedPoint, renderTick]);
+
+  // Re-cluster after pan/zoom settles so bucket positions reflect the
+  // new projection. Debounced via maplibre's `moveend` (fires once per
+  // settle, not per frame).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const bump = () => setRenderTick((n) => n + 1);
+    map.on("moveend", bump);
+    return () => {
+      map.off("moveend", bump);
+    };
+  }, [mapReady]);
 
   // User location marker + auto-fly on grant.
   useEffect(() => {

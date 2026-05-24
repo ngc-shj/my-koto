@@ -116,9 +116,8 @@ export default function GomiPageClient({ districts, overlays }: Props) {
   const isViewingCurrentMonth = isSameMonth(viewMonth, today);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">ごみ収集カレンダー</h1>
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+      <div className="flex items-center justify-end">
         {district && (
           <button
             type="button"

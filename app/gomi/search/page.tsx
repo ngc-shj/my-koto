@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import BackToHome from "@/components/BackToHome";
+import PageHeader from "@/components/PageHeader";
 import GomiSearchClient from "./GomiSearchClient";
 
 export const metadata: Metadata = {
@@ -10,9 +10,10 @@ export const metadata: Metadata = {
 export default function GomiSearchPage() {
   return (
     <div>
-      <div className="max-w-2xl mx-auto px-4 pt-8">
-        <BackToHome href="/gomi" label="ごみ収集に戻る" />
-      </div>
+      <PageHeader
+        back={{ href: "/gomi", label: "ごみ収集に戻る" }}
+        title="ゴミ品目検索"
+      />
       <GomiSearchClient />
     </div>
   );

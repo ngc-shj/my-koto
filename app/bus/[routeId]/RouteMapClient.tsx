@@ -242,9 +242,36 @@ export default function RouteMapClient({
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
+      const addStopMarker = (
+        s: Stop,
+        directionColor: string,
+        isHighlight: boolean,
+      ) => {
+        const el = document.createElement("div");
+        el.setAttribute("role", "img");
+        el.setAttribute("aria-label", s.name);
+        const size = isHighlight ? 16 : 10;
+        el.style.cssText = `
+          width: ${size}px;
+          height: ${size}px;
+          border-radius: 50%;
+          border: 2px solid white;
+          background-color: ${isHighlight ? "#dc2626" : directionColor};
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        `;
+        el.title = s.name;
+        const marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([s.lng, s.lat])
+          .addTo(map);
+        markersRef.current.push(marker);
+      };
+
       // Dedupe by stopId — both directions usually share most stops, and
-      // doubling up clutters the map.
+      // doubling up clutters the map. The highlighted stop is deferred
+      // to a final pass so MapLibre's DOM-order stacking places it on
+      // top of any neighbouring pins that would otherwise overlap it.
       const seen = new Set<string>();
+      let highlightHit: { stop: Stop; color: string } | null = null;
       for (const d of directions) {
         if (activeDirection !== "all" && d.directionId !== activeDirection) {
           continue;
@@ -252,25 +279,15 @@ export default function RouteMapClient({
         for (const s of d.stops) {
           if (seen.has(s.stopId)) continue;
           seen.add(s.stopId);
-          const isHighlight = s.stopId === highlightStopId;
-          const el = document.createElement("div");
-          el.setAttribute("role", "img");
-          el.setAttribute("aria-label", s.name);
-          const size = isHighlight ? 16 : 10;
-          el.style.cssText = `
-            width: ${size}px;
-            height: ${size}px;
-            border-radius: 50%;
-            border: 2px solid white;
-            background-color: ${isHighlight ? "#dc2626" : d.color};
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-          `;
-          el.title = s.name;
-          const marker = new maplibregl.Marker({ element: el, anchor: "center" })
-            .setLngLat([s.lng, s.lat])
-            .addTo(map);
-          markersRef.current.push(marker);
+          if (s.stopId === highlightStopId) {
+            highlightHit = { stop: s, color: d.color };
+            continue;
+          }
+          addStopMarker(s, d.color, false);
         }
+      }
+      if (highlightHit != null) {
+        addStopMarker(highlightHit.stop, highlightHit.color, true);
       }
     })();
     return () => {

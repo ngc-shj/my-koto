@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import BackToHome from "@/components/BackToHome";
 import { KanjiAuto } from "@/components/Furigana";
+import PageHeader from "@/components/PageHeader";
 import { ATTRIBUTIONS } from "@/config/attribution";
 import { messages } from "@/lib/i18n/messages";
 
@@ -11,10 +11,12 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <KanjiAuto>
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      <BackToHome />
-      <h1 className="text-2xl font-bold">{messages.about.heading}</h1>
-
+      <PageHeader
+        back={{ href: "/", label: "ホームへ戻る" }}
+        title={messages.about.heading}
+        maxWidth="4xl"
+      />
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">非公式サイトについて</h2>
         <p className="text-gray-700">{messages.about.officialDisclaimer}</p>

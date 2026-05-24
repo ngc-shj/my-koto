@@ -11,7 +11,7 @@
 import type { Metadata } from "next";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import BackToHome from "@/components/BackToHome";
+import PageHeader from "@/components/PageHeader";
 import { formatAuditDateTime } from "@/lib/i18n/datetime";
 import {
   defaultCspReportKv,
@@ -108,20 +108,19 @@ export default async function StatusPage() {
   ]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      <BackToHome />
-      <header>
-        <h1 className="text-2xl font-bold text-slate-700">運用ステータス</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          各データセットの最終更新時刻、Push 配信ジョブの直近実行結果、CSP
-          違反レポートの直近 50 件を表示します。
-        </p>
-      </header>
-
-      <FreshnessSection rows={freshness} />
-      <DispatchSection summary={lastDispatch} />
-      <CspReportsSection reports={reports} />
-    </div>
+    <>
+      <PageHeader
+        back={{ href: "/", label: "ホームへ戻る" }}
+        title="運用ステータス"
+        subtitle="各データセットの最終更新時刻、Push 配信ジョブの直近実行結果、CSP 違反レポートの直近 50 件を表示します。"
+        maxWidth="4xl"
+      />
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+        <FreshnessSection rows={freshness} />
+        <DispatchSection summary={lastDispatch} />
+        <CspReportsSection reports={reports} />
+      </div>
+    </>
   );
 }
 

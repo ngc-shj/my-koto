@@ -3,10 +3,9 @@ import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readEvents } from "@/lib/opendata/db/readers";
 import { toEvent } from "@/lib/events/normalize";
 import type { Event } from "@/lib/events/types";
-import Attribution from "@/components/Attribution";
-import BackToHome from "@/components/BackToHome";
 import { KanjiText } from "@/components/Furigana";
-import ShareButton from "@/components/ShareButton";
+import PageFooter from "@/components/PageFooter";
+import PageHeader from "@/components/PageHeader";
 import EventsClient from "./EventsClient";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -34,23 +33,19 @@ export default async function EventsPage() {
   );
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8">
-      <BackToHome />
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <h1 className="text-2xl font-bold">
-          <KanjiText text="イベントカレンダー" />
-        </h1>
-        <ShareButton title="イベントカレンダー" url={`${SITE_URL}/events`} />
-      </div>
-      <p className="text-sm text-gray-600 mb-6">
-        <KanjiText text="直近 90 日のイベント情報" />
-      </p>
+    <>
+      <PageHeader
+        back={{ href: "/", label: "ホームへ戻る" }}
+        title="イベントカレンダー"
+        subtitle={<KanjiText text="直近 90 日のイベント情報" />}
+        share={{ title: "イベントカレンダー", url: `${SITE_URL}/events` }}
+        maxWidth="4xl"
+      />
+      <main className="max-w-4xl mx-auto px-4 py-6">
+        <EventsClient events={upcomingEvents} />
 
-      <EventsClient events={upcomingEvents} />
-
-      <div className="mt-8">
-        <Attribution dataset="koto-events" />
-      </div>
-    </main>
+        <PageFooter dataset="koto-events" />
+      </main>
+    </>
   );
 }

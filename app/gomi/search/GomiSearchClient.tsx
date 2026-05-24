@@ -122,8 +122,6 @@ export default function GomiSearchClient() {
 
   return (
     <main className="mx-auto max-w-xl px-4 py-6">
-      <h1 className="mb-4 text-xl font-bold text-gray-900">ゴミ品目検索</h1>
-
       {/* Search input */}
       <div className="relative">
         <label htmlFor="search-input" className="sr-only">

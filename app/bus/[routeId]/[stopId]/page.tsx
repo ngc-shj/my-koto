@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Attribution from "@/components/Attribution";
 import BusDeparturesPanel from "@/components/BusDeparturesPanel";
 import { KanjiText } from "@/components/Furigana";
-import ShareButton from "@/components/ShareButton";
+import PageFooter from "@/components/PageFooter";
+import PageHeader from "@/components/PageHeader";
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readBus } from "@/lib/opendata/db/readers";
 import { displayRouteName } from "@/lib/bus/aliases";
@@ -129,116 +129,78 @@ export default async function StopPage({
       ? `${SITE_URL}/bus/${encodeURIComponent(route.routeId)}/${encodeURIComponent(stop.stopId)}?dir=${direction.directionId}`
       : undefined;
 
-  // Three entry flows reach this page; the primary "戻る" link is
-  // tailored to where the visitor actually came from (?from=...) so the
-  // word "戻る" never points at a page they didn't visit. The route
-  // page is always offered as a secondary "stop list of this 系統" link
-  // because exploring the rest of the line is a likely next move.
-  const routeListLink = (
-    <Link
-      href={`/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}`}
-      className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-    >
-      <span aria-hidden="true">←</span>
-      <span>
-        <KanjiText text={`${displayRouteName(route.shortName)} 系統へ戻る`} />
-      </span>
-    </Link>
-  );
+  // Back-link selection follows the entry flow so "戻る" never asks the
+  // visitor to leap further back than where they actually were.
+  const back = cameFromBus
+    ? { href: "/bus", label: "バス時刻表へ戻る" }
+    : cameFromMap
+      ? {
+          href: `/map?focus=${encodeURIComponent(`bus-stop-${stop.stopId}`)}`,
+          label: "区民マップへ戻る",
+        }
+      : {
+          href: `/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}&from=stop&stopId=${encodeURIComponent(stop.stopId)}`,
+          label: `${displayRouteName(route.shortName)} 系統へ戻る`,
+        };
   return (
-    <main className="max-w-2xl mx-auto px-4 py-8">
-      <nav aria-label="ページ内ナビゲーション" className="mb-4 flex flex-wrap gap-x-4 gap-y-1">
-        {cameFromBus ? (
-          <>
-            <Link
-              href="/bus"
-              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-            >
-              <span aria-hidden="true">←</span>
-              <span>
-                <KanjiText text="バス時刻表へ戻る" />
-              </span>
-            </Link>
-            <Link
-              href={`/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}`}
-              className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-            >
-              <span>
-                <KanjiText text={`${displayRouteName(route.shortName)} 系統の停留所一覧`} />
-              </span>
-              <span aria-hidden="true">→</span>
-            </Link>
-          </>
-        ) : (
-          routeListLink
-        )}
-        {cameFromMap && (
+    <>
+      <PageHeader
+        back={back}
+        title={stop.name}
+        subtitle={
           <Link
-            href={`/map?focus=${encodeURIComponent(`bus-stop-${stop.stopId}`)}`}
-            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+            href={`/bus/${encodeURIComponent(route.routeId)}?dir=${direction.directionId}`}
+            aria-label={`${displayRouteName(route.shortName)} 系統 ${direction.headsign} 方面の停留所一覧を開く`}
+            className="text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
           >
-            <span aria-hidden="true">←</span>
-            <span>
-              <KanjiText text="区民マップへ戻る" />
-            </span>
-          </Link>
-        )}
-      </nav>
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <div>
-          <h1 className="text-2xl font-bold">
-            <KanjiText text={stop.name} />
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
             <KanjiText
               text={`${displayRouteName(route.shortName)}系統 / ${direction.headsign} 方面`}
             />
-          </p>
+          </Link>
+        }
+        share={{
+          title: `${stop.name} (${displayRouteName(route.shortName)})`,
+          url: shareUrl,
+        }}
+      />
+      <main className="max-w-2xl mx-auto px-4 py-6">
+        <div>
+          <RouteMapClient
+            routeName={displayRouteName(route.shortName)}
+            directions={mapDirections}
+            highlightStopId={stop.stopId}
+          />
         </div>
-        <ShareButton
-          title={`${stop.name} (${displayRouteName(route.shortName)})`}
-          url={shareUrl}
-        />
-      </div>
 
-      <div className="mt-6">
-        <RouteMapClient
-          routeName={displayRouteName(route.shortName)}
-          directions={mapDirections}
-          highlightStopId={stop.stopId}
-        />
-      </div>
+        <div className="mt-6">
+          <BusDeparturesPanel
+            weekday={timetable.weekday}
+            saturday={timetable.saturday}
+            sunday={timetable.sunday}
+          />
+        </div>
 
-      <div className="mt-6">
-        <BusDeparturesPanel
-          weekday={timetable.weekday}
-          saturday={timetable.saturday}
-          sunday={timetable.sunday}
-        />
-      </div>
+        {route.directions.length > 1 && (
+          <nav aria-label="反対方向" className="mt-6">
+            <ul className="flex gap-2 flex-wrap text-sm">
+              {route.directions
+                .filter((d) => d.directionId !== direction.directionId)
+                .map((d) => (
+                  <li key={d.directionId}>
+                    <Link
+                      href={`/bus/${encodeURIComponent(route.routeId)}?dir=${d.directionId}`}
+                      className="underline text-blue-600 hover:text-blue-800"
+                    >
+                      <KanjiText text={`${d.headsign} 方面の停留所一覧`} />
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </nav>
+        )}
 
-      {route.directions.length > 1 && (
-        <nav aria-label="反対方向" className="mt-6">
-          <ul className="flex gap-2 flex-wrap text-sm">
-            {route.directions
-              .filter((d) => d.directionId !== direction.directionId)
-              .map((d) => (
-                <li key={d.directionId}>
-                  <Link
-                    href={`/bus/${encodeURIComponent(route.routeId)}?dir=${d.directionId}`}
-                    className="underline text-blue-600 hover:text-blue-800"
-                  >
-                    <KanjiText text={`${d.headsign} 方面の停留所一覧`} />
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        </nav>
-      )}
-
-      <div className="mt-8">
-        <Attribution dataset="toei-bus" />
-      </div>
-    </main>
+        <PageFooter dataset="toei-bus" />
+      </main>
+    </>
   );
 }

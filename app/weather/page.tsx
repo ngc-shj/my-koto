@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import BackToHome from "@/components/BackToHome";
 import DataFreshness from "@/components/DataFreshness";
 import { KanjiText } from "@/components/Furigana";
-import ShareButton from "@/components/ShareButton";
+import PageHeader from "@/components/PageHeader";
 import JmaQuakePanel from "@/components/JmaQuakePanel";
 import JmaWarningPanel from "@/components/JmaWarningPanel";
 import WbgtPanel from "@/components/WbgtPanel";
@@ -59,15 +58,13 @@ export default function WeatherPage() {
   }, []);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <BackToHome />
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-slate-700">
-          <KanjiText text="天気（江東区）" />
-        </h1>
-        <ShareButton title="天気（江東区）" url={`${SITE_URL}/weather`} />
-      </div>
-
+    <>
+      <PageHeader
+        back={{ href: "/", label: "ホームへ戻る" }}
+        title="天気（江東区）"
+        share={{ title: "天気（江東区）", url: `${SITE_URL}/weather` }}
+      />
+      <div className="max-w-2xl mx-auto px-4 py-6">
       {state.status === "loading" && (
         <p className="text-gray-500">読み込み中…</p>
       )}
@@ -252,6 +249,7 @@ export default function WeatherPage() {
           <WbgtPanel />
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

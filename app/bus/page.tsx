@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Attribution from "@/components/Attribution";
-import BackToHome from "@/components/BackToHome";
 import BusFinder, {
   type BusRouteSearchOption,
   type BusStopSearchOption,
 } from "@/components/BusFinder";
 import { KanjiText } from "@/components/Furigana";
-import ShareButton from "@/components/ShareButton";
+import PageFooter from "@/components/PageFooter";
+import PageHeader from "@/components/PageHeader";
 import districtsRaw from "@/data/districts.json";
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readBus } from "@/lib/opendata/db/readers";
@@ -74,30 +73,29 @@ export default async function BusIndexPage() {
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-8">
-      <BackToHome />
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <h1 className="text-2xl font-bold">
-          <KanjiText text="バス時刻表（都営バス）" />
-        </h1>
-        <ShareButton title="バス時刻表" url={`${SITE_URL}/bus`} />
-      </div>
-      <p className="text-sm text-gray-600 mb-6">
-        <KanjiText text="バス停名または系統名で検索して、時刻表・路線図を確認できます。江東区コミュニティバス「しおかぜ」(江東01) も含まれます。" />
-      </p>
-
-      <BusFinder
-        stops={stops}
-        routes={routes}
-        districtLabelById={districtLabelById}
+    <>
+      <PageHeader
+        back={{ href: "/", label: "ホームへ戻る" }}
+        title="バス時刻表（都営バス）"
+        share={{ title: "バス時刻表", url: `${SITE_URL}/bus` }}
       />
-
-      <div className="mt-8 space-y-1">
-        <Attribution dataset="toei-bus" />
-        <p className="text-xs text-gray-400">
-          <KanjiText text="feed バージョン:" /> {data.feedVersion}
+      <main className="max-w-2xl mx-auto px-4 py-6">
+        <p className="text-sm text-gray-600 mb-6">
+          <KanjiText text="バス停名または系統名で検索して、時刻表・路線図を確認できます。江東区コミュニティバス「しおかぜ」(江東01) も含まれます。" />
         </p>
-      </div>
-    </main>
+
+        <BusFinder
+          stops={stops}
+          routes={routes}
+          districtLabelById={districtLabelById}
+        />
+
+        <PageFooter dataset="toei-bus">
+          <p className="text-xs text-gray-400">
+            <KanjiText text="feed バージョン:" /> {data.feedVersion}
+          </p>
+        </PageFooter>
+      </main>
+    </>
   );
 }

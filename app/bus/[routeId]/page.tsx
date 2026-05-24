@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Attribution from "@/components/Attribution";
-import BackToHome from "@/components/BackToHome";
 import { KanjiText } from "@/components/Furigana";
+import PageFooter from "@/components/PageFooter";
+import PageHeader from "@/components/PageHeader";
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readBus } from "@/lib/opendata/db/readers";
 import { displayRouteName } from "@/lib/bus/aliases";
@@ -11,7 +11,7 @@ import RoutePageContent from "./RoutePageContent";
 import type { ActiveDirection } from "./RouteMapClient";
 
 type Params = { routeId: string };
-type Search = { dir?: string };
+type Search = { dir?: string; from?: string; stopId?: string };
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 
@@ -54,10 +54,28 @@ export default async function RoutePage({
   searchParams: Promise<Search>;
 }) {
   const { routeId } = await params;
-  const { dir } = await searchParams;
+  const { dir, from, stopId } = await searchParams;
   const found = await loadRoute(decodeURIComponent(routeId));
   if (found == null) notFound();
   const { data, route } = found;
+
+  // Back-link selection follows the entry flow so "戻る" never asks the
+  // visitor to leap further back than where they actually were. From a
+  // stop detail page (?from=stop&stopId=…) the link returns to that
+  // stop; otherwise the default points one level up to the bus search.
+  const stopReturn =
+    from === "stop" && stopId != null
+      ? data.stops[decodeURIComponent(stopId)] ?? null
+      : null;
+  const stopReturnDir = dir === "0" || dir === "1" ? dir : "0";
+  const backHref =
+    stopReturn != null
+      ? `/bus/${encodeURIComponent(route.routeId)}/${encodeURIComponent(stopReturn.stopId)}?dir=${stopReturnDir}`
+      : "/bus";
+  const backLabel =
+    stopReturn != null
+      ? `${stopReturn.name} 停留所へ戻る`
+      : "バス時刻表へ戻る";
 
   // Build the map's per-direction view. `shapes` carries every variant
   // (terminals, detours) so the renderer can draw them all without
@@ -86,35 +104,36 @@ export default async function RoutePage({
   });
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8">
-      <BackToHome href="/bus" label="バス時刻表へ" />
-      <h1 className="text-2xl font-bold mb-2">
-        <KanjiText text={`${displayRouteName(route.shortName)} 系統`} />
-      </h1>
-      {route.longName.length > 0 && (
-        <p className="text-sm text-gray-600 mb-4">
-          <KanjiText text={route.longName} />
-        </p>
-      )}
-
-      <RoutePageContent
-        routeId={route.routeId}
-        routeName={displayRouteName(route.shortName)}
-        directions={mapDirections}
-        initialDirection={parseInitialDirection(dir)}
+    <>
+      <PageHeader
+        back={{ href: backHref, label: backLabel }}
+        title={`${displayRouteName(route.shortName)} 系統`}
+        subtitle={
+          route.longName.length > 0 ? (
+            <KanjiText text={route.longName} />
+          ) : undefined
+        }
+        maxWidth="4xl"
       />
+      <main className="max-w-4xl mx-auto px-4 py-6">
+        <RoutePageContent
+          routeId={route.routeId}
+          routeName={displayRouteName(route.shortName)}
+          directions={mapDirections}
+          initialDirection={parseInitialDirection(dir)}
+        />
 
-      <div className="mt-8 space-y-1">
-        <Attribution dataset="toei-bus" />
-        <p className="text-xs text-gray-400">
-          <a
-            href={`${SITE_URL}/bus`}
-            className="underline hover:text-gray-600"
-          >
-            <KanjiText text="系統一覧へ戻る" />
-          </a>
-        </p>
-      </div>
-    </main>
+        <PageFooter dataset="toei-bus">
+          <p className="text-xs text-gray-400">
+            <a
+              href={`${SITE_URL}/bus`}
+              className="underline hover:text-gray-600"
+            >
+              <KanjiText text="バス時刻表へ戻る" />
+            </a>
+          </p>
+        </PageFooter>
+      </main>
+    </>
   );
 }
