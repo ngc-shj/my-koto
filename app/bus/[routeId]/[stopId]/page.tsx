@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { type Departure } from "@/components/BusDeparturesPanel";
 import { KanjiText } from "@/components/Furigana";
@@ -75,8 +76,11 @@ function buildDeparturesAtStop(
   }));
 }
 
+// Deduplicate readBus calls within a single render cycle
+const getCachedBusData = cache(() => readBus(openDatasetsDb()));
+
 async function loadStop(routeId: string, stopId: string, dirHint?: string) {
-  const data = await readBus(openDatasetsDb());
+  const data = await getCachedBusData();
   const route = data.routes.find((r) => r.routeId === routeId);
   if (route == null) return null;
   const stop = data.stops[stopId];

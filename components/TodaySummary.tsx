@@ -13,11 +13,16 @@ import {
 import { resolveSchedule } from "@/lib/gomi/schedule";
 import type { Event } from "@/lib/events/types";
 import { getActiveProfile, type Profile } from "@/lib/profiles";
-import type { WeatherResponse } from "@/lib/opendata/schemas/weather";
+import {
+  WeatherResponseSchema,
+  type WeatherResponse,
+} from "@/lib/opendata/schemas/weather";
 import {
   WbgtDataSchema,
   type WbgtData,
 } from "@/lib/opendata/schemas/wbgt";
+import { cachedFetchJson } from "@/lib/client-cache";
+import { WEATHER_CACHE } from "@/config/cache";
 import { classifyWbgt } from "@/lib/wbgt/bands";
 
 type Props = {
@@ -68,10 +73,13 @@ export default function TodaySummary({
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(withBasePath("/api/weather"), { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as WeatherResponse;
+    void cachedFetchJson<WeatherResponse>(
+      "weather:v1",
+      withBasePath("/api/weather"),
+      WeatherResponseSchema,
+      { ttlMs: WEATHER_CACHE.CLIENT_TTL_MS, signal: controller.signal },
+    )
+      .then((data) => {
         setWeather({ status: "success", data });
       })
       .catch((err: unknown) => {
@@ -136,7 +144,7 @@ export default function TodaySummary({
     // wait for the localStorage read to resolve.
     return (
       <div className="rounded-xl border border-gray-200 p-4 text-sm text-gray-500">
-        Today サマリを読み込み中…
+        本日の情報を読み込み中…
       </div>
     );
   }

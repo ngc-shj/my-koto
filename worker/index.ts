@@ -56,14 +56,26 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.waitUntil(focusOrOpen(targetUrl));
 });
 
+function isSameOriginUrl(path: string): boolean {
+  try {
+    const u = new URL(path, self.location.origin);
+    return u.origin === self.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 async function focusOrOpen(path: string): Promise<void> {
+  // Reject non-same-origin URLs to prevent open-redirect via crafted push payload
+  const safePath = isSameOriginUrl(path) ? path : `${BASE_PATH}/gomi`;
+
   const clientList = await self.clients.matchAll({
     type: "window",
     includeUncontrolled: true,
   });
   for (const client of clientList) {
     const clientUrl = new URL(client.url);
-    const targetUrl = new URL(path, clientUrl.origin);
+    const targetUrl = new URL(safePath, clientUrl.origin);
     if (clientUrl.origin === targetUrl.origin) {
       await client.focus();
       if ("navigate" in client) {
@@ -74,5 +86,5 @@ async function focusOrOpen(path: string): Promise<void> {
       return;
     }
   }
-  await self.clients.openWindow(path);
+  await self.clients.openWindow(safePath);
 }

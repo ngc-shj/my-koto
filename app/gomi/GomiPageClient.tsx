@@ -12,6 +12,7 @@ import {
   isTomorrow,
   isSameDay,
   isSameMonth,
+  addDays,
   addMonths,
   subMonths,
 } from "date-fns";
@@ -166,7 +167,7 @@ export default function GomiPageClient({ districts, overlays }: Props) {
             </div>
             <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                明日 ({formatDayWithWeekday(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))})
+                明日 ({formatDayWithWeekday(addDays(today, 1))})
               </p>
               {renderCategories(tomorrowOccurrence)}
             </div>

@@ -42,11 +42,11 @@ export async function GET(request: NextRequest): Promise<Response> {
       headers: responseHeaders,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[map/bus]", err instanceof Error ? err.message : String(err));
     const headers = new Headers();
     headers.set("Cache-Control", "no-store");
     headers.set("Content-Type", "application/json");
-    return new Response(JSON.stringify({ error: `Bus bundle unavailable: ${msg}` }), {
+    return new Response(JSON.stringify({ error: "Bus bundle unavailable" }), {
       status: 503,
       headers,
     });

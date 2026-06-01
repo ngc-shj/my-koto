@@ -55,7 +55,6 @@ type InMemoryEntry = {
 
 export function inMemoryKvStore(): KVStore {
   const store = new Map<string, InMemoryEntry>();
-  const counters = new Map<string, number>();
 
   function isExpired(entry: InMemoryEntry): boolean {
     if (entry.expiresAt == null) return false;
@@ -76,24 +75,22 @@ export function inMemoryKvStore(): KVStore {
       store.set(key, { value, expiresAt });
     },
     async incr(key: string): Promise<number> {
-      const current = counters.get(key) ?? 0;
+      const entry = store.get(key);
+      if (entry != null && isExpired(entry)) {
+        store.delete(key);
+      }
+      const current = (store.get(key)?.value as number) ?? 0;
       const next = current + 1;
-      counters.set(key, next);
+      store.set(key, {
+        value: next,
+        expiresAt: store.get(key)?.expiresAt ?? null,
+      });
       return next;
     },
     async expire(key: string, ttlSec: number): Promise<void> {
       const entry = store.get(key);
       if (entry != null) {
         store.set(key, { ...entry, expiresAt: Date.now() + ttlSec * 1000 });
-      }
-      // Also apply TTL to counter entries
-      const counterVal = counters.get(key);
-      if (counterVal != null) {
-        // Store counter in main store for expiry tracking
-        store.set(key, {
-          value: counterVal,
-          expiresAt: Date.now() + ttlSec * 1000,
-        });
       }
     },
   };
@@ -111,7 +108,6 @@ type LRUEntry = {
 export function lruFallbackKvStore(maxEntries = 1000): KVStore {
   // Simple LRU using insertion-order Map and eviction on overflow
   const cache = new Map<string, LRUEntry>();
-  const counters = new Map<string, number>();
 
   function evictIfNeeded(): void {
     if (cache.size >= maxEntries) {
@@ -150,9 +146,17 @@ export function lruFallbackKvStore(maxEntries = 1000): KVStore {
       cache.set(key, { value, expiresAt });
     },
     async incr(key: string): Promise<number> {
-      const current = counters.get(key) ?? 0;
+      const entry = cache.get(key);
+      if (entry != null && isExpired(entry)) {
+        cache.delete(key);
+      }
+      const current = (cache.get(key)?.value as number) ?? 0;
       const next = current + 1;
-      counters.set(key, next);
+      evictIfNeeded();
+      cache.set(key, {
+        value: next,
+        expiresAt: cache.get(key)?.expiresAt ?? null,
+      });
       return next;
     },
     async expire(key: string, ttlSec: number): Promise<void> {

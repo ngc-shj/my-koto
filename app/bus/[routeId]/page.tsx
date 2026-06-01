@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { KanjiText } from "@/components/Furigana";
 import PageFooter from "@/components/PageFooter";
@@ -22,8 +23,11 @@ type Search = {
   variant?: string;
 };
 
+// Deduplicate readBus calls within a single render cycle
+const getCachedBusData = cache(() => readBus(openDatasetsDb()));
+
 async function loadRoute(routeId: string) {
-  const data = await readBus(openDatasetsDb());
+  const data = await getCachedBusData();
   const route = data.routes.find((r) => r.routeId === routeId);
   return route != null ? { data, route } : null;
 }
@@ -49,7 +53,7 @@ export async function generateMetadata({
 }
 
 export async function generateStaticParams(): Promise<Params[]> {
-  const data = await readBus(openDatasetsDb());
+  const data = await getCachedBusData();
   return data.routes.map((r) => ({ routeId: encodeURIComponent(r.routeId) }));
 }
 
