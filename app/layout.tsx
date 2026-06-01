@@ -59,8 +59,7 @@ export default async function RootLayout({
   }
 
   return (
-    // data-nonce exposes the per-request nonce for any inline scripts that require it.
-    <html lang="ja" suppressHydrationWarning {...(nonce ? { "data-nonce": nonce } : {})}>
+    <html lang="ja" suppressHydrationWarning>
       <head>
         {emitKill && nonce && (
           // suppressHydrationWarning: React 19 strips the nonce attribute on

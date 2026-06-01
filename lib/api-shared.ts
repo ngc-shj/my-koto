@@ -124,8 +124,19 @@ export function jsonResponseHeaders(
   return h;
 }
 
+let _warnedMissingSiteUrl = false;
+
 export function getAllowedOrigin(): string {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const raw = process.env.NEXT_PUBLIC_SITE_URL;
+  if (raw == null || raw === "") {
+    if (process.env.NODE_ENV === "production" && !_warnedMissingSiteUrl) {
+      _warnedMissingSiteUrl = true;
+      console.warn(
+        "[api-shared] NEXT_PUBLIC_SITE_URL is not set in production — CORS will fall back to localhost",
+      );
+    }
+    return "http://localhost:3000";
+  }
   // NEXT_PUBLIC_SITE_URL is allowed to include a basePath (e.g.
   // "https://host/my-koto") for absolute-URL concatenation elsewhere, but
   // Access-Control-Allow-Origin must be a bare origin — strip the path

@@ -2,6 +2,7 @@
 // the GTFS bundle from the libsql snapshot (BLOB) and slice it to one
 // stop instead of sending the whole catalog to every map client.
 import type { NextRequest } from "next/server";
+import { rateLimitResponse, jsonResponseHeaders, getAllowedOrigin } from "@/lib/api-shared";
 import { openDatasetsDb } from "@/lib/opendata/db/client";
 import { readBus } from "@/lib/opendata/db/readers";
 import type {
@@ -23,6 +24,16 @@ function errorResponse(message: string, status: number): Response {
 
 export async function GET(request: NextRequest): Promise<Response> {
   if (request.method !== "GET") return new Response(null, { status: 405 });
+
+  const allowedOrigin = getAllowedOrigin();
+  const responseHeaders = jsonResponseHeaders(allowedOrigin);
+
+  const tooMany = await rateLimitResponse(
+    request,
+    { bucket: "bus-stop-times", limit: 60, windowSec: 60 },
+    responseHeaders,
+  );
+  if (tooMany) return tooMany;
 
   const stopId = request.nextUrl.searchParams.get("stop");
   if (stopId == null || !STOP_ID_RE.test(stopId)) {
