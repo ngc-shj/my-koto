@@ -54,6 +54,26 @@ function normalizeEvent(
   };
 }
 
+// Collapse the multiple reports JMA emits per quake (震度速報 → 震源に関する
+// 情報 → 震源・震度情報, all sharing one eid) down to the latest revision.
+// Without this the same quake appears several times — and the duplicate eids
+// collide as React keys. Newer `ctt` wins; when ctt is absent we keep the
+// first occurrence, which is the latest since upstream is ordered latest-first.
+function latestPerEvent(events: JmaQuakeList): JmaQuakeEvent[] {
+  const byEid = new Map<string, JmaQuakeEvent>();
+  for (const ev of events) {
+    const prev = byEid.get(ev.eid);
+    if (prev == null) {
+      byEid.set(ev.eid, ev);
+      continue;
+    }
+    const prevCtt = prev.ctt ?? "";
+    const curCtt = ev.ctt ?? "";
+    if (curCtt > prevCtt) byEid.set(ev.eid, ev);
+  }
+  return [...byEid.values()];
+}
+
 export function buildQuakeFeed(
   events: JmaQuakeList,
   kotoCityCode: string,
@@ -62,9 +82,9 @@ export function buildQuakeFeed(
   // Upstream returns latest-first across the country. Scope the feed to
   // events 江東区 actually observed — the panel is ward-specific, and a
   // nationwide list buries the few quakes that mattered locally under
-  // dozens of unrelated ones.
+  // dozens of unrelated ones. Dedupe revisions first so each quake is one row.
   const normalized: NormalizedQuake[] = [];
-  for (const ev of events) {
+  for (const ev of latestPerEvent(events)) {
     const kotoShindo = findKotoShindo(ev, kotoCityCode);
     if (kotoShindo == null) continue;
     normalized.push(normalizeEvent(ev, kotoCityCode, kotoShindo));

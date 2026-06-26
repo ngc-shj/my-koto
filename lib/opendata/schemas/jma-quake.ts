@@ -18,6 +18,10 @@ const QuakePrefSchema = z.object({
 export const JmaQuakeEventSchema = z.object({
   eid: z.string(),
   rdt: z.string(),
+  // Content update time (YYYYMMDDHHMMSS). JMA emits several reports per
+  // event (震度速報 → 震源に関する情報 → 震源・震度情報) that all share one
+  // eid; ctt distinguishes the revisions so we can keep only the latest.
+  ctt: z.string().optional(),
   ttl: z.string(),
   at: z.string().optional(),
   anm: z.string().optional(),

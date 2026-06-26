@@ -73,4 +73,37 @@ describe("buildQuakeFeed", () => {
     const feed = buildQuakeFeed(events, KOTO);
     expect(feed.events[0]?.magnitude).toBeNull();
   });
+
+  // JMA emits several reports per quake sharing one eid (震度速報 → 震源・震度
+  // 情報). They must collapse to a single row, else the same quake repeats and
+  // the duplicate eids collide as React keys.
+  it("collapses multiple reports of the same eid into one, keeping latest ctt", () => {
+    const events: JmaQuakeList = [
+      makeEvent({ ctt: "20260626224113", ttl: "震源・震度情報", mag: "4.1" }),
+      makeEvent({ ctt: "20260626223412", ttl: "震源・震度情報", mag: "4.0" }),
+      makeEvent({ ctt: "20260626223047", ttl: "震度速報", mag: undefined }),
+    ];
+    const feed = buildQuakeFeed(events, KOTO);
+    expect(feed.events).toHaveLength(1);
+    expect(feed.events[0]?.magnitude).toBe("4.1");
+  });
+
+  it("keeps distinct eids as separate events", () => {
+    const events: JmaQuakeList = [
+      makeEvent({ eid: "quake-a", ctt: "20260626224113" }),
+      makeEvent({ eid: "quake-b", ctt: "20260626223412" }),
+    ];
+    const feed = buildQuakeFeed(events, KOTO);
+    expect(feed.events.map((e) => e.eventId)).toEqual(["quake-a", "quake-b"]);
+  });
+
+  it("keeps the first occurrence when ctt is absent (upstream is latest-first)", () => {
+    const events: JmaQuakeList = [
+      makeEvent({ mag: "5.4" }),
+      makeEvent({ mag: "5.0" }),
+    ];
+    const feed = buildQuakeFeed(events, KOTO);
+    expect(feed.events).toHaveLength(1);
+    expect(feed.events[0]?.magnitude).toBe("5.4");
+  });
 });
