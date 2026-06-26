@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import EmergencyContactCard from "@/components/EmergencyContactCard";
+import { KanjiText } from "@/components/Furigana";
 import JmaWarningPanel from "@/components/JmaWarningPanel";
 import PageHeader from "@/components/PageHeader";
 import {
@@ -39,6 +41,16 @@ export default function DisasterPage() {
       <div className="px-4 py-2 border-b border-gray-200 bg-amber-50 space-y-2">
         <JmaWarningPanel />
         <EmergencyContactCard />
+        <Link
+          href="/disaster/guide"
+          className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
+        >
+          <span className="flex items-center gap-2">
+            <span aria-hidden="true">🎒</span>
+            <KanjiText text="防災の備え (備蓄・避難の心得)" />
+          </span>
+          <span aria-hidden="true">›</span>
+        </Link>
       </div>
 
       <div className="flex-1 overflow-hidden">

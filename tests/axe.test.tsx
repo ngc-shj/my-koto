@@ -34,6 +34,7 @@ import OfflinePage from "@/app/offline/page";
 import Attribution from "@/components/Attribution";
 import ShareButton from "@/components/ShareButton";
 import EmergencyContactCard from "@/components/EmergencyContactCard";
+import EmergencyChecklist from "@/components/EmergencyChecklist";
 
 // Helper: render a Server Component to a DOM element via renderToString + JSDOM.
 function renderServerComponent(element: React.ReactElement): HTMLElement {
@@ -104,6 +105,11 @@ describe("Accessibility (axe) — Client Components", () => {
     );
     fireEvent.click(getByRole("button", { name: /災害用伝言ダイヤル/ }));
     expect(getByRole("button").getAttribute("aria-expanded")).toBe("true");
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("EmergencyChecklist has no violations", async () => {
+    const { container } = render(React.createElement(EmergencyChecklist));
     expect(await axe(container)).toHaveNoViolations();
   });
 });
