@@ -28,6 +28,9 @@ import { filterPoints } from "@/lib/map/filter";
 import { loadMapFilters, saveMapFilters } from "@/lib/map/filters-storage";
 import { loadCachedPois, saveCachedPois } from "@/lib/map/poi-cache";
 import { isLayerBundled } from "@/lib/map/registry";
+import { useRasterOverlays } from "@/lib/map/use-raster-overlays";
+import HazardOverlayPanel from "@/components/HazardOverlayPanel";
+import type { HazardOverlayId } from "@/config/hazard-tiles";
 import {
   BusToeiDataSchema,
   type BusToeiData,
@@ -174,6 +177,12 @@ export default function MapClient({
   // box is the primary affordance. Visitors who want to browse rather
   // than search expand the drawer once.
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+  // Active hazard raster overlays (キキクル / 国交省 浸水想定). Session-only,
+  // off by default — these are deliberately opt-in, not persisted with the
+  // facility-layer filters.
+  const [activeOverlays, setActiveOverlays] = useState<ReadonlySet<HazardOverlayId>>(
+    () => new Set(),
+  );
   // Guards storage writes until after the initial hydration pass. Has to
   // be state, not a ref: the save effect runs in the same effect cycle
   // as hydration on Render 1, so a synchronously-flipped ref would let
@@ -319,6 +328,7 @@ export default function MapClient({
           customAttribution: [
             '施設データ: 江東区・東京都 <a href="https://creativecommons.org/licenses/by/4.0/deed.ja" target="_blank" rel="noopener noreferrer">(CC-BY 4.0)</a>',
             '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> (ODbL)',
+            'ハザード: <a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener noreferrer">国土交通省</a> / キキクル: <a href="https://www.jma.go.jp/bosai/risk/" target="_blank" rel="noopener noreferrer">気象庁</a>',
           ],
         },
       });
@@ -350,6 +360,8 @@ export default function MapClient({
       map.off("dragstart", collapse);
     };
   }, [mapReady]);
+
+  useRasterOverlays(mapRef, mapReady, activeOverlays);
 
   // Active layer ids derived once per filter change.
   const activeLayerIds = useMemo<LayerId[]>(
@@ -769,6 +781,15 @@ export default function MapClient({
     setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
+  function toggleOverlay(id: HazardOverlayId) {
+    setActiveOverlays((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const focusPoint = useCallback((point: MapPoint) => {
     setSelectedPoint(point);
     mapRef.current?.flyTo({ center: [point.lng, point.lat], zoom: 17 });
@@ -903,6 +924,15 @@ export default function MapClient({
                   active={filters.twentyFourOnly}
                   label="24h"
                   onClick={() => toggleAccessibility("twentyFourOnly")}
+                />
+              </div>
+              <div className="pt-2 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-500 mb-1.5">
+                  <KanjiText text="災害リスク表示" />
+                </p>
+                <HazardOverlayPanel
+                  active={activeOverlays}
+                  onToggle={toggleOverlay}
                 />
               </div>
             </div>

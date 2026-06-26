@@ -41,6 +41,18 @@
 - **地震情報 (江東区震度ハイライト)** — JMA `bosai/quake/data/list.json` の最新 10 件を
   Edge proxy で正規化、江東区 (city.code 1310800) で観測された震度をイベントごとに
   突合せ。KV TTL=5min、stale-if-error 24h
+- **災害用伝言ダイヤル (171) 導線** — `/disaster` に 171 / web171 への導線カードを
+  配置。`tel:171` リンク・web171 への外部リンク・録音/再生の 4 ステップ手順を折り
+  たたみで表示。配信データなしの静的ガイド。公式 [江東区防災ポータル](https://bosai.city.koto.lg.jp/) の安否確認導線からの学び
+- **災害リスクタイル重畳 (キキクル + ハザードマップ)** — `/disaster`・`/map` の
+  地図に災害予測ラスタータイルをトグルで重畳。**キキクル** (気象庁 危険度分布) は
+  浸水害 / 洪水 / 土砂災害の 3 面を `bosai/jmatile/data/risk` から取得 (basetime は
+  `targetTimes.json` の `member:"none"` フレームで解決)。**ハザードマップ** (国土交通省
+  「重ねるハザードマップ」) は洪水 (L2 想定最大規模) / 高潮 / 津波の浸水想定区域を
+  `disaportaldata.gsi.go.jp/raster` から取得。両者とも CORS `*` のためクライアント直
+  アクセス (Edge proxy なし)。レイヤ追加機構は `lib/map/use-raster-overlays.ts` に
+  共通化し `/disaster`・`/map` で共有。ゼロメートル地帯の江東区で「自宅・避難先が
+  浸水想定区域か」を一画面で確認できることを狙った、公式 [江東区防災ポータル](https://bosai.city.koto.lg.jp/) からの学び
 - **WBGT (暑さ指数)** — 環境省 熱中症予防情報サイトの予測 CSV (東京観測所 44132)
   を Edge proxy で取得・パース。注意 / 警戒 / 厳重警戒 / 危険のバンドで色分けし
   6 時点先まで `/weather` に表示。30 分 KV キャッシュ + stale-if-error
@@ -68,7 +80,8 @@
 | 給水拠点 | 東京都水道局 ([給水拠点一覧](https://catalog.data.metro.tokyo.lg.jp/dataset/t000019d0000000001)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
 | 23 区内マップレイヤ補完データ (駅・出入口・病院・診療所・薬局を含む) | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
 | 都営バス GTFS-JP (江東01「しおかぜ」を含む) | 東京都交通局 ([ODPT 経由](https://ckan.odpt.org/dataset/b_bus_gtfs_jp-toei)) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
-| 気象警報・注意報 / 震源・震度情報 | [気象庁 防災情報](https://www.jma.go.jp/bosai/) | [気象庁ホームページ コンテンツの利用について](https://www.jma.go.jp/jma/kishou/info/coment.html) (出典明示で利用可) |
+| 気象警報・注意報 / 震源・震度情報 / キキクル (危険度分布タイル) | [気象庁 防災情報](https://www.jma.go.jp/bosai/) | [気象庁ホームページ コンテンツの利用について](https://www.jma.go.jp/jma/kishou/info/coment.html) (出典明示で利用可) |
+| 水害ハザードマップ (洪水 / 高潮 / 津波 浸水想定区域タイル) | [国土交通省 ハザードマップポータルサイト](https://disaportal.gsi.go.jp/) | [国土交通省 ハザードマップ オープンデータ](https://disaportal.gsi.go.jp/hazardmap/copyright/opendata.html) |
 | 天気予報 | [Open-Meteo](https://open-meteo.com) | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja) |
 | WBGT (暑さ指数) | [環境省 熱中症予防情報サイト](https://www.wbgt.env.go.jp/) | [出典明示の上で利用可](https://www.wbgt.env.go.jp/sp/index_pre.php) |
 | 地図タイル | [国土地理院 標準地図](https://maps.gsi.go.jp/development/ichiran.html) | 国土地理院コンテンツ利用規約 |
@@ -109,6 +122,8 @@
 | WBGT 予測 (環境省) | (C) Edge proxy | `https://www.wbgt.env.go.jp/prev15WG/dl/yohou_44132.csv` (東京観測所) |
 | OSM 補完 (Overpass) | (C) Edge proxy | `https://overpass-api.de/api/interpreter` |
 | 地図タイル (国土地理院) | クライアント直接 | `https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png` |
+| キキクル 危険度タイル | クライアント直接 | `https://www.jma.go.jp/bosai/jmatile/data/risk/{basetime}/{member}/{validtime}/surf/{element}/{z}/{x}/{y}.png` (`targetTimes.json` で basetime 解決) |
+| 水害ハザードタイル (国交省) | クライアント直接 | `https://disaportaldata.gsi.go.jp/raster/{01_flood_l2,03_hightide_l2,04_tsunami}_*/{z}/{x}/{y}.png` |
 
 ## 開発環境セットアップ
 

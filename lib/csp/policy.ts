@@ -45,8 +45,11 @@ export function buildCsp(
     // a static informational site. Revisit when Tailwind exposes a nonce
     // pipeline or when we move user-generated content into the app.
     `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: https://cyberjapandata.gsi.go.jp`,
-    `connect-src 'self' https://api.open-meteo.com https://cyberjapandata.gsi.go.jp`,
+    // GSI basemap + hazard rasters (国交省 disaportaldata, 気象庁 jma キキクル).
+    // All served with CORS `*`; fetched directly by the browser.
+    `img-src 'self' data: https://cyberjapandata.gsi.go.jp https://disaportaldata.gsi.go.jp https://www.jma.go.jp`,
+    // www.jma.go.jp is the connect entry for キキクル targetTimes.json.
+    `connect-src 'self' https://api.open-meteo.com https://cyberjapandata.gsi.go.jp https://www.jma.go.jp`,
     `font-src 'self' data:`,
     `worker-src 'self' blob:`,
     `manifest-src 'self'`,

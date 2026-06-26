@@ -106,7 +106,7 @@ describe("GET /api/jma-quakes", () => {
       fresh.incr(key),
     );
     vi.mocked(kvMod.expire).mockImplementation(
-      (key: string, ttl: number) => fresh.expire(key, ttl),
+      (key: string, ttl: number) => fresh.expire(key, ttl).then(() => 1 as const),
     );
   });
 
@@ -262,7 +262,7 @@ describe("GET /api/jma-quakes", () => {
       freshKv.incr(key),
     );
     (kvMod.kv.expire as ReturnType<typeof vi.fn>).mockImplementation(
-      (key: string, ttl: number) => freshKv.expire(key, ttl),
+      (key: string, ttl: number) => freshKv.expire(key, ttl).then(() => 1 as const),
     );
 
     // 60 allowed requests

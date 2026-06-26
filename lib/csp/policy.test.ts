@@ -71,6 +71,19 @@ describe("buildCsp", () => {
       expect(csp).toContain("'strict-dynamic'");
       expect(csp).not.toContain("'nonce-");
     });
+
+    it("allows hazard raster tile hosts in img-src", () => {
+      const csp = buildCsp(testNonce, "production");
+      const imgSrc = csp.match(/img-src[^;]*/)?.[0] ?? "";
+      expect(imgSrc).toContain("https://disaportaldata.gsi.go.jp");
+      expect(imgSrc).toContain("https://www.jma.go.jp");
+    });
+
+    it("allows the JMA host in connect-src for キキクル targetTimes fetch", () => {
+      const csp = buildCsp(testNonce, "production");
+      const connectSrc = csp.match(/connect-src[^;]*/)?.[0] ?? "";
+      expect(connectSrc).toContain("https://www.jma.go.jp");
+    });
   });
 
   describe("development mode", () => {

@@ -104,7 +104,7 @@ describe("isTruthy (via normalizeToilet)", () => {
     ["", false],
     [undefined, false],
   ])("value=%j => barrier_free=%j", (val, expected) => {
-    const point = normalizeToilet({ バリアフリー: val });
+    const point = normalizeToilet(toiletRecord({ バリアフリー: val }), 0);
     expect(point.accessibility?.barrier_free).toBe(expected);
   });
 });
@@ -133,7 +133,10 @@ describe("normalizeAed", () => {
 
 describe("normalizeToilet", () => {
   it("sets accessibility flags from Japanese values", () => {
-    const point = normalizeToilet({ バリアフリー: "有", 二十四時間: "○" });
+    const point = normalizeToilet(
+      toiletRecord({ バリアフリー: "有", 二十四時間: "○" }),
+      0,
+    );
     expect(point.accessibility).toEqual({
       barrier_free: true,
       twenty_four_hour: true,
@@ -141,7 +144,10 @@ describe("normalizeToilet", () => {
   });
 
   it("sets false for negative values", () => {
-    const point = normalizeToilet({ バリアフリー: "無", 二十四時間: "×" });
+    const point = normalizeToilet(
+      toiletRecord({ バリアフリー: "無", 二十四時間: "×" }),
+      0,
+    );
     expect(point.accessibility).toEqual({
       barrier_free: false,
       twenty_four_hour: false,

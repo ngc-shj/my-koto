@@ -7,11 +7,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MaplibreMap } from "maplibre-gl";
 import { KanjiText } from "@/components/Furigana";
 import GeolocationConsent from "@/components/GeolocationConsent";
+import HazardOverlayPanel from "@/components/HazardOverlayPanel";
 import { MAP_INITIAL, TILE_STYLES } from "@/config/map";
+import type { HazardOverlayId } from "@/config/hazard-tiles";
 import { haversineDistance } from "@/lib/distance";
 import { loadGeolocationConsent } from "@/lib/geolocation-consent";
 import { clusterByPixelBucket } from "@/lib/map/cluster";
 import { getLayer, isLayerId } from "@/lib/map/registry";
+import { useRasterOverlays } from "@/lib/map/use-raster-overlays";
 import {
   HAZARD_LABELS,
   type HazardKind,
@@ -63,6 +66,21 @@ export default function DisasterMapClient({ points }: Props) {
   // Bumped on pan/zoom so the cluster pass re-runs with the current
   // pixel projection. Same pattern as /map's MapClient.
   const [renderTick, setRenderTick] = useState(0);
+  // Active hazard raster overlays (キキクル / 国交省 浸水想定). Off by default
+  // so the basemap reads clean until the visitor opts into a hazard view.
+  const [activeOverlays, setActiveOverlays] = useState<ReadonlySet<HazardOverlayId>>(
+    () => new Set(),
+  );
+  const [overlayPanelOpen, setOverlayPanelOpen] = useState(false);
+
+  function toggleOverlay(id: HazardOverlayId) {
+    setActiveOverlays((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const choice = loadGeolocationConsent();
@@ -100,8 +118,10 @@ export default function DisasterMapClient({ points }: Props) {
         // (header real estate matters on a map-first page).
         attributionControl: {
           compact: true,
-          customAttribution:
+          customAttribution: [
             '施設データ: 江東区・東京都 <a href="https://creativecommons.org/licenses/by/4.0/deed.ja" target="_blank" rel="noopener noreferrer">(CC-BY 4.0)</a>',
+            'ハザード: <a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener noreferrer">国土交通省</a> / キキクル: <a href="https://www.jma.go.jp/bosai/risk/" target="_blank" rel="noopener noreferrer">気象庁</a>',
+          ],
         },
       });
       mapRef.current = map;
@@ -116,6 +136,8 @@ export default function DisasterMapClient({ points }: Props) {
       mapRef.current = null;
     };
   }, []);
+
+  useRasterOverlays(mapRef, mapReady, activeOverlays);
 
   // Render pins with pixel-bucket clustering. The selected point is
   // pulled out before clustering and re-inserted as a forced single
@@ -361,6 +383,36 @@ export default function DisasterMapClient({ points }: Props) {
       )}
 
       <div ref={mapContainerRef} className="w-full h-full" aria-label="防災地図" />
+
+      {/* Hazard overlay toggles — collapsible, top-right */}
+      <div className="absolute top-3 right-3 z-10 w-[min(80vw,16rem)]">
+        <div className="bg-white/95 rounded-xl shadow border border-slate-200 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setOverlayPanelOpen((v) => !v)}
+            aria-expanded={overlayPanelOpen ? "true" : "false"}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-slate-700"
+          >
+            <span className="flex items-center gap-1.5">
+              <KanjiText text="災害リスク表示" />
+              {activeOverlays.size > 0 && (
+                <span className="inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-purple-600 text-white text-[10px]">
+                  {activeOverlays.size}
+                </span>
+              )}
+            </span>
+            <span aria-hidden="true">{overlayPanelOpen ? "▲" : "▼"}</span>
+          </button>
+          {overlayPanelOpen && (
+            <div className="px-3 pb-3 pt-1 border-t border-slate-100">
+              <HazardOverlayPanel
+                active={activeOverlays}
+                onToggle={toggleOverlay}
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Nearest-3 panel — only when location is available */}
       {userLocation !== null && nearest.length > 0 && !selectedPoint && (

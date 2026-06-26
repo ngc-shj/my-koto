@@ -18,7 +18,7 @@
 import { describe, it, expect } from "vitest";
 import { axe } from "vitest-axe";
 import { renderToString } from "react-dom/server";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import React from "react";
 
 // --- Static Server Component pages ---
@@ -33,6 +33,7 @@ import OfflinePage from "@/app/offline/page";
 
 import Attribution from "@/components/Attribution";
 import ShareButton from "@/components/ShareButton";
+import EmergencyContactCard from "@/components/EmergencyContactCard";
 
 // Helper: render a Server Component to a DOM element via renderToString + JSDOM.
 function renderServerComponent(element: React.ReactElement): HTMLElement {
@@ -89,6 +90,20 @@ describe("Accessibility (axe) — Client Components", () => {
     const { container } = render(
       React.createElement(ShareButton, { title: "テストページ" }),
     );
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("EmergencyContactCard has no violations (collapsed)", async () => {
+    const { container } = render(React.createElement(EmergencyContactCard));
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("EmergencyContactCard has no violations (expanded)", async () => {
+    const { container, getByRole } = render(
+      React.createElement(EmergencyContactCard),
+    );
+    fireEvent.click(getByRole("button", { name: /災害用伝言ダイヤル/ }));
+    expect(getByRole("button").getAttribute("aria-expanded")).toBe("true");
     expect(await axe(container)).toHaveNoViolations();
   });
 });
