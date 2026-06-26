@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import EmergencyContactCard from "@/components/EmergencyContactCard";
 import JmaWarningPanel from "@/components/JmaWarningPanel";
 import PageHeader from "@/components/PageHeader";
 import {
@@ -35,8 +36,9 @@ export default function DisasterPage() {
         maxWidth="4xl"
       />
 
-      <div className="px-4 py-2 border-b border-gray-200 bg-amber-50">
+      <div className="px-4 py-2 border-b border-gray-200 bg-amber-50 space-y-2">
         <JmaWarningPanel />
+        <EmergencyContactCard />
       </div>
 
       <div className="flex-1 overflow-hidden">
