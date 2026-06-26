@@ -108,7 +108,7 @@ describe("GET /api/map/bus", () => {
       fresh.incr(key),
     );
     vi.mocked(kvMod.kv.expire).mockImplementation(
-      (key: string, ttl: number) => fresh.expire(key, ttl),
+      (key: string, ttl: number) => fresh.expire(key, ttl).then(() => 1 as const),
     );
 
     const { readBus } = await import("@/lib/opendata/db/readers");
@@ -206,7 +206,7 @@ describe("GET /api/map/bus", () => {
       freshKv.incr(key),
     );
     vi.mocked(kvMod.kv.expire).mockImplementation(
-      (key: string, ttl: number) => freshKv.expire(key, ttl),
+      (key: string, ttl: number) => freshKv.expire(key, ttl).then(() => 1 as const),
     );
 
     for (let i = 0; i < 30; i++) {

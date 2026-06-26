@@ -43,7 +43,7 @@ describe("GET /api/wbgt", () => {
     );
     vi.mocked(kvMod.incr).mockImplementation((key: string) => fresh.incr(key));
     vi.mocked(kvMod.expire).mockImplementation((key: string, ttl: number) =>
-      fresh.expire(key, ttl),
+      fresh.expire(key, ttl).then(() => 1 as const),
     );
   });
 

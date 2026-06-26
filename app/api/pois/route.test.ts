@@ -90,11 +90,12 @@ describe("GET /api/pois", () => {
   });
 
   it("calls upstream Overpass with redirect:manual and proper headers", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ elements: [] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ elements: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
