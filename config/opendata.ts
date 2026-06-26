@@ -47,3 +47,10 @@ export function buildJmaWarningUrl(prefectureCode: string): URL {
 // JMA quake list — latest ~200 felt events nationwide. The list is one
 // JSON file with no path parameter, so the URL is hard-coded.
 export const JMA_QUAKE_LIST_URL = `${JMA_WARNING_BASE_URL}/bosai/quake/data/list.json`;
+
+// JMA キキクル (危険度分布) raster tiles. The tile path embeds a basetime /
+// validtime / member triple that we resolve from this targetTimes index at
+// runtime (the `none` member rows carry the confirmed, non-preliminary
+// frame). CORS is `*`, so the client fetches it directly — no Edge proxy.
+export const JMA_KIKUKURU_TARGET_TIMES_URL = `${JMA_WARNING_BASE_URL}/bosai/jmatile/data/risk/targetTimes.json`;
+export const JMA_KIKUKURU_TILE_BASE_URL = `${JMA_WARNING_BASE_URL}/bosai/jmatile/data/risk`;
