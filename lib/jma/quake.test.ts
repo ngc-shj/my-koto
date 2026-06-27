@@ -106,4 +106,31 @@ describe("buildQuakeFeed", () => {
     expect(feed.events).toHaveLength(1);
     expect(feed.events[0]?.magnitude).toBe("5.4");
   });
+
+  // Regression: a 6弱 quake (江東区 震度3) vanished because its latest revision
+  // by ctt was 「顕著な地震の震源要素更新のお知らせ」 — a follow-up with NO int
+  // block. Picking it erased the ward shindo and the event dropped from the
+  // feed. A revision carrying intensity must win over a later one without it.
+  it("prefers a revision with intensity data over a later one without it", () => {
+    const events: JmaQuakeList = [
+      // Latest by ctt, but no int (source-element update notice).
+      makeEvent({
+        ctt: "20260627004006",
+        ttl: "顕著な地震の震源要素更新のお知らせ",
+        maxi: undefined,
+        int: undefined,
+      }),
+      // Earlier, but carries the 江東区 shindo we need.
+      makeEvent({
+        ctt: "20260626224113",
+        ttl: "震源・震度情報",
+        maxi: "6-",
+        int: [{ code: "13", maxi: "3", city: [{ code: KOTO, maxi: "3" }] }],
+      }),
+    ];
+    const feed = buildQuakeFeed(events, KOTO);
+    expect(feed.events).toHaveLength(1);
+    expect(feed.events[0]?.kotoShindo).toBe("3");
+    expect(feed.events[0]?.maxShindo).toBe("6-");
+  });
 });
