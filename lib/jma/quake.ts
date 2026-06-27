@@ -55,21 +55,31 @@ function normalizeEvent(
 }
 
 // Collapse the multiple reports JMA emits per quake (震度速報 → 震源に関する
-// 情報 → 震源・震度情報, all sharing one eid) down to the latest revision.
-// Without this the same quake appears several times — and the duplicate eids
-// collide as React keys. Newer `ctt` wins; when ctt is absent we keep the
-// first occurrence, which is the latest since upstream is ordered latest-first.
+// 情報 → 震源・震度情報, all sharing one eid) down to one revision. Without
+// this the same quake appears several times — and the duplicate eids collide
+// as React keys.
+//
+// Crucially we must NOT simply take the highest `ctt`: late follow-ups such as
+// 「顕著な地震の震源要素更新のお知らせ」 carry no `int` (per-area shindo) block,
+// so picking them would erase the ward's observed intensity and the quake then
+// vanishes from a ward-scoped feed. So a revision that HAS intensity data
+// always beats one that doesn't; among equals, newer `ctt` wins.
+function hasIntensity(ev: JmaQuakeEvent): boolean {
+  return (ev.int ?? []).some((p) => (p.city ?? []).length > 0 || p.maxi != null);
+}
+
+function preferRevision(a: JmaQuakeEvent, b: JmaQuakeEvent): JmaQuakeEvent {
+  const aInt = hasIntensity(a);
+  const bInt = hasIntensity(b);
+  if (aInt !== bInt) return aInt ? a : b;
+  return (b.ctt ?? "") > (a.ctt ?? "") ? b : a;
+}
+
 function latestPerEvent(events: JmaQuakeList): JmaQuakeEvent[] {
   const byEid = new Map<string, JmaQuakeEvent>();
   for (const ev of events) {
     const prev = byEid.get(ev.eid);
-    if (prev == null) {
-      byEid.set(ev.eid, ev);
-      continue;
-    }
-    const prevCtt = prev.ctt ?? "";
-    const curCtt = ev.ctt ?? "";
-    if (curCtt > prevCtt) byEid.set(ev.eid, ev);
+    byEid.set(ev.eid, prev == null ? ev : preferRevision(prev, ev));
   }
   return [...byEid.values()];
 }
