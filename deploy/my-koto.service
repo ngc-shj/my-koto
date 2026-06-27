@@ -1,12 +1,8 @@
-# systemd unit for my-koto (Next.js, `next start`).
+# systemd unit for my-koto (Next.js standalone server).
 #
-# Install:
-#   sudo cp deploy/my-koto.service /etc/systemd/system/my-koto.service
-#   # edit WorkingDirectory / User / paths below to match the VPS
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now my-koto
-#
-# Or use deploy/install-systemd.sh which templatizes these paths.
+# WorkingDirectory is the standalone RUN directory (where build-and-ship.sh
+# rsyncs server.js), which is separate from the git checkout. Install via
+# deploy/install-systemd.sh, which substitutes the run dir + user.
 [Unit]
 Description=my-koto (Next.js / Tailscale Funnel)
 After=network-online.target tailscaled.service
@@ -14,13 +10,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# --- EDIT THESE for the VPS layout ---
-WorkingDirectory=/opt/koto-city
+# --- EDIT THESE for the VPS layout (the standalone run dir, NOT the clone) ---
+WorkingDirectory=/srv/my-koto
 User=mykoto
 Group=mykoto
-EnvironmentFile=/opt/koto-city/.env.production.local
+EnvironmentFile=/srv/my-koto/.env.production.local
 # Standalone build: run the bundled server directly (no npm / next start).
-# deploy/build-and-ship.sh ships server.js to WorkingDirectory.
+# build-and-ship.sh ships server.js into WorkingDirectory.
 ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=5

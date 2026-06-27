@@ -19,39 +19,53 @@ are two paths:
   `npm ci` / `next build` on the VPS at all. → `deploy/build-and-ship.sh`
 - **Build-on-VPS.** Only viable on a box with ≥2 GB RAM. → `deploy/deploy.sh`
 
+### Two directories on the VPS
+
+The git checkout and the running app live in **separate** directories. The ship
+step uses `rsync --delete`, which would otherwise wipe `.git` and the deploy
+scripts:
+
+- **Clone dir** `/opt/koto-city` — `git clone`, holds `deploy/` scripts.
+- **Run dir** `/srv/my-koto` — standalone `server.js` + runtime
+  `.env.production.local`. This is the rsync target and the systemd
+  WorkingDirectory.
+
 ## One-time setup (Mac-build mode)
 
 ```bash
 # --- On the VPS, as the run user ---
-git clone <repo> /opt/koto-city && cd /opt/koto-city
-cp deploy/env.production.example.txt .env.production.local
-$EDITOR .env.production.local                 # KV / Turso / VAPID from Vercel
-sudo ./deploy/install-systemd.sh              # app daemon + hourly push timer
+git clone <repo> /opt/koto-city
+sudo mkdir -p /srv/my-koto && sudo chown "$USER" /srv/my-koto
+cp /opt/koto-city/deploy/env.production.example.txt /srv/my-koto/.env.production.local
+$EDITOR /srv/my-koto/.env.production.local     # KV / Turso / VAPID from Vercel
+sudo /opt/koto-city/deploy/install-systemd.sh  # units point at /srv/my-koto
 
 # --- On your Mac (the build machine) ---
 cd <repo>
 cp /path/from/vps/.env.production.local .env.production.local   # SAME values
-./deploy/build-and-ship.sh user@your-vps /opt/koto-city
+./deploy/build-and-ship.sh user@your-vps        # → defaults to /srv/my-koto
 
 # --- Back on the VPS ---
 sudo systemctl restart my-koto
 tailscale funnel --bg --set-path /my-koto 3000
-tailscale funnel status                       # note the public URL
+tailscale funnel status                         # note the public URL
 ```
 
 After the first ship, put the Funnel URL (with the `/my-koto` suffix) into
-`NEXT_PUBLIC_SITE_URL` in **both** `.env.production.local` files (Mac + VPS),
-then re-run `build-and-ship.sh` so OG images and CORS use the right origin.
+`NEXT_PUBLIC_SITE_URL` in **both** `.env.production.local` files (Mac build +
+VPS run dir), then re-run `build-and-ship.sh` so OG images and CORS use the
+right origin.
 
 > The Mac's `.env.production.local` only matters for build-time `NEXT_PUBLIC_*`
-> (BASE_PATH, SITE_URL, VAPID_PUBLIC_KEY). The VPS's copy supplies the runtime
-> secrets (KV, VAPID_PRIVATE_KEY, PUSH_DISPATCH_SECRET) read by server.js.
+> (BASE_PATH, SITE_URL, VAPID_PUBLIC_KEY). The run dir's copy supplies the
+> runtime secrets (KV, VAPID_PRIVATE_KEY, PUSH_DISPATCH_SECRET) read by
+> server.js.
 
 ## Redeploy (Mac-build mode)
 
 ```bash
 # On the Mac:
-./deploy/build-and-ship.sh user@your-vps /opt/koto-city
+./deploy/build-and-ship.sh user@your-vps
 # On the VPS:
 sudo systemctl restart my-koto
 ```

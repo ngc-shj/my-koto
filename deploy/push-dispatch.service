@@ -7,6 +7,7 @@ Wants=my-koto.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/opt/koto-city
-EnvironmentFile=/opt/koto-city/.env.production.local
+# Run dir holds the runtime env; the dispatch script lives in the git clone.
+WorkingDirectory=/srv/my-koto
+EnvironmentFile=/srv/my-koto/.env.production.local
 ExecStart=/opt/koto-city/deploy/push-dispatch.sh

@@ -3,7 +3,13 @@
 # low-RAM VPS that cannot run `next build` itself. Run from the repo root on
 # the BUILD machine, not the VPS:
 #
-#   ./deploy/build-and-ship.sh user@your-vps /opt/koto-city
+#   ./deploy/build-and-ship.sh user@your-vps            # defaults to /srv/my-koto
+#   ./deploy/build-and-ship.sh user@your-vps /srv/my-koto
+#
+# IMPORTANT: the remote dir is the standalone RUN directory, which must be
+# SEPARATE from the git checkout. rsync --delete wipes everything there except
+# the excludes below — pointing it at the git clone would delete .git and the
+# deploy scripts. Keep the clone at e.g. /opt/koto-city and run from /srv/my-koto.
 #
 # The build bakes NEXT_PUBLIC_* into the client bundle, so this reads them
 # from .env.production.local on THIS machine. Keep that file's NEXT_PUBLIC_*
@@ -16,8 +22,8 @@
 # `node server.js` with no npm install.
 set -euo pipefail
 
-REMOTE="${1:?usage: build-and-ship.sh user@host /remote/app/dir}"
-REMOTE_DIR="${2:?usage: build-and-ship.sh user@host /remote/app/dir}"
+REMOTE="${1:?usage: build-and-ship.sh user@host [/srv/my-koto]}"
+REMOTE_DIR="${2:-/srv/my-koto}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -53,12 +59,16 @@ cp -a .next/static "$STAGE/.next/static"
 if [[ -d public ]]; then cp -a public "$STAGE/public"; fi
 
 echo "==> Shipping to ${REMOTE}:${REMOTE_DIR}"
-# --delete keeps the remote app tree in sync with this build. Preserve the
-# runtime env file and data/ on the remote — they are not part of the bundle.
+# --delete keeps the remote run dir in sync with this build. Preserve the
+# runtime env file and data/ there — they are not part of the bundle. The
+# .git/deploy excludes are a guard in case the dir is ever mis-pointed at the
+# git checkout; the run dir should not contain them anyway.
 rsync -az --delete \
   --exclude='.env.production.local' \
   --exclude='data/' \
+  --exclude='.git/' \
+  --exclude='deploy/' \
   "$STAGE/" "${REMOTE}:${REMOTE_DIR}/"
 
-echo "==> Done. On the VPS, (re)start with: node server.js (PORT from env)"
-echo "    The systemd unit deploy/my-koto.service should use ExecStart=/usr/bin/node server.js"
+echo "==> Done. On the VPS, (re)start with: sudo systemctl restart my-koto"
+echo "    (the unit runs 'node server.js' from ${REMOTE_DIR})"
