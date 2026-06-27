@@ -28,12 +28,14 @@ import PrivacyPage from "@/app/privacy/page";
 import DisclaimerPage from "@/app/disclaimer/page";
 import NotFoundPage from "@/app/not-found";
 import OfflinePage from "@/app/offline/page";
+import DisasterQuickAccess from "@/components/DisasterQuickAccess";
 
 // --- Client Components ---
 
 import Attribution from "@/components/Attribution";
 import ShareButton from "@/components/ShareButton";
 import EmergencyContactCard from "@/components/EmergencyContactCard";
+import EmergencyChecklist from "@/components/EmergencyChecklist";
 
 // Helper: render a Server Component to a DOM element via renderToString + JSDOM.
 function renderServerComponent(element: React.ReactElement): HTMLElement {
@@ -76,6 +78,14 @@ describe("Accessibility (axe) — static Server Component pages", () => {
     expect(await axe(container)).toHaveNoViolations();
     container.remove();
   });
+
+  it("DisasterQuickAccess has no violations", async () => {
+    const container = renderServerComponent(
+      React.createElement(DisasterQuickAccess),
+    );
+    expect(await axe(container)).toHaveNoViolations();
+    container.remove();
+  });
 });
 
 describe("Accessibility (axe) — Client Components", () => {
@@ -104,6 +114,11 @@ describe("Accessibility (axe) — Client Components", () => {
     );
     fireEvent.click(getByRole("button", { name: /災害用伝言ダイヤル/ }));
     expect(getByRole("button").getAttribute("aria-expanded")).toBe("true");
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  it("EmergencyChecklist has no violations", async () => {
+    const { container } = render(React.createElement(EmergencyChecklist));
     expect(await axe(container)).toHaveNoViolations();
   });
 });

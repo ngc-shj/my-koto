@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { messages } from "@/lib/i18n/messages";
 import HomeBanners from "@/components/HomeBanners";
+import DisasterQuickAccess from "@/components/DisasterQuickAccess";
 import ShareButton from "@/components/ShareButton";
 import TodaySummary from "@/components/TodaySummary";
 import { KanjiText } from "@/components/Furigana";
@@ -55,6 +56,7 @@ export default async function HomePage() {
 
       <div className="mb-4 space-y-2">
         <HomeBanners />
+        <DisasterQuickAccess />
       </div>
 
       <div className="mb-8">
@@ -81,7 +83,7 @@ export default async function HomePage() {
         <NavCard
           href="/disaster"
           title="防災マップ"
-          description="避難所・避難場所・給水拠点・気象警報"
+          description="避難所・給水・ハザード・気象警報・備え"
           icon={<ShieldIcon />}
         />
         <NavCard
