@@ -58,14 +58,33 @@ cp -a .next/static "$STAGE/.next/static"
 # public/<basePath>/. Ship it even if currently sparse.
 if [[ -d public ]]; then cp -a public "$STAGE/public"; fi
 
+# data/ holds the build-time datasets the server reads at runtime. The
+# standalone bundle only carries the JSON files that were `import`-ed; the
+# SQLite DB (read via openDatasetsDb at cwd-relative ./data/datasets.sqlite)
+# is NOT traced, so copy the whole data/ over to be safe.
+if [[ -d data ]]; then cp -a data "$STAGE/data"; fi
+
+# libsql ships its native addon as a per-platform optional dependency. Building
+# on macOS only resolves @libsql/darwin-*, so the Linux VPS would crash with
+# "Cannot find module '@libsql/linux-x64-gnu'". Fetch the Linux x64 (glibc)
+# addon at the exact libsql version and drop it into the staged node_modules.
+LIBSQL_VERSION="$(node -p "require('./node_modules/libsql/package.json').version" 2>/dev/null || true)"
+LIBSQL_TARGET="${LIBSQL_TARGET:-@libsql/linux-x64-gnu}"
+if [[ -n "$LIBSQL_VERSION" ]]; then
+  echo "==> Fetching ${LIBSQL_TARGET}@${LIBSQL_VERSION} for the Linux target"
+  DL="$(mktemp -d)"
+  ( cd "$DL" && npm pack "${LIBSQL_TARGET}@${LIBSQL_VERSION}" >/dev/null )
+  mkdir -p "$STAGE/node_modules/${LIBSQL_TARGET}"
+  tar -xzf "$DL"/*.tgz -C "$STAGE/node_modules/${LIBSQL_TARGET}" --strip-components=1
+  rm -rf "$DL"
+fi
+
 echo "==> Shipping to ${REMOTE}:${REMOTE_DIR}"
-# --delete keeps the remote run dir in sync with this build. Preserve the
-# runtime env file and data/ there — they are not part of the bundle. The
-# .git/deploy excludes are a guard in case the dir is ever mis-pointed at the
-# git checkout; the run dir should not contain them anyway.
+# --delete keeps the remote run dir in sync with this build. Preserve only the
+# runtime env file there. The .git/deploy excludes guard against the dir being
+# mis-pointed at the git checkout; the run dir should not contain them anyway.
 rsync -az --delete \
   --exclude='.env.production.local' \
-  --exclude='data/' \
   --exclude='.git/' \
   --exclude='deploy/' \
   "$STAGE/" "${REMOTE}:${REMOTE_DIR}/"
