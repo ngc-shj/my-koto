@@ -1,0 +1,12 @@
+# Runs push-dispatch.service hourly. Push subscriptions are bucketed by hour
+# (push:bucket:{district}:{hour}), so firing once per hour matches the fan-out
+# granularity. Adjust OnCalendar if you want a different cadence.
+[Unit]
+Description=Hourly my-koto Web Push dispatch
+
+[Timer]
+OnCalendar=*-*-* *:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

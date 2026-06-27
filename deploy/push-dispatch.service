@@ -1,0 +1,12 @@
+# Oneshot service that fires the Web Push fan-out. Paired with
+# push-dispatch.timer. Install alongside my-koto.service.
+[Unit]
+Description=my-koto Web Push dispatch
+After=my-koto.service
+Wants=my-koto.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/koto-city
+EnvironmentFile=/opt/koto-city/.env.production.local
+ExecStart=/opt/koto-city/deploy/push-dispatch.sh

@@ -66,6 +66,11 @@ const withPWA = withPWAInit({
 });
 
 const baseConfig: NextConfig = {
+  // Self-host build: emit a standalone server bundle (.next/standalone) so a
+  // low-RAM VPS can run `node server.js` without `npm ci`. static assets and
+  // public/ are copied separately by the deploy tooling. Harmless on Vercel,
+  // which ignores it.
+  output: "standalone",
   // Configured via NEXT_PUBLIC_BASE_PATH so dev keeps serving at /. The
   // Tailscale Funnel deployment sets it to "/my-koto"; lib/site/base-path.ts
   // mirrors the same env var for non-Next surfaces (raw <a> / fetch).

@@ -1,0 +1,39 @@
+# systemd unit for my-koto (Next.js, `next start`).
+#
+# Install:
+#   sudo cp deploy/my-koto.service /etc/systemd/system/my-koto.service
+#   # edit WorkingDirectory / User / paths below to match the VPS
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now my-koto
+#
+# Or use deploy/install-systemd.sh which templatizes these paths.
+[Unit]
+Description=my-koto (Next.js / Tailscale Funnel)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# --- EDIT THESE for the VPS layout ---
+WorkingDirectory=/opt/koto-city
+User=mykoto
+Group=mykoto
+EnvironmentFile=/opt/koto-city/.env.production.local
+# Standalone build: run the bundled server directly (no npm / next start).
+# deploy/build-and-ship.sh ships server.js to WorkingDirectory.
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+# server.js honours PORT and HOSTNAME from the EnvironmentFile (default 3000).
+Environment=HOSTNAME=0.0.0.0
+
+# Hardening. The standalone server writes nothing under the app dir at
+# runtime, so no ReadWritePaths is needed. If WorkingDirectory lives under
+# /home, drop ProtectHome or it will be inaccessible.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
