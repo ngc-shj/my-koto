@@ -74,8 +74,10 @@ Pick one — don't run both.
 
   ```apache
   ProxyPreserveHost On
-  ProxyPass        /my-koto/ http://localhost:3000/my-koto/
-  ProxyPassReverse /my-koto/ http://localhost:3000/my-koto/
+  # No trailing slashes: Next uses trailingSlash=false, so /my-koto is canonical
+  # and /my-koto/ 308-redirects to it. A /my-koto/ ProxyPass would loop.
+  ProxyPass        /my-koto http://localhost:3000/my-koto
+  ProxyPassReverse /my-koto http://localhost:3000/my-koto
   ```
 
 ## Redeploy (Mac-build mode)

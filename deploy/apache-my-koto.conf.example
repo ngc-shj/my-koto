@@ -2,8 +2,7 @@
 #
 # Drop this inside an existing TLS <VirtualHost *:443> (the same one that
 # already proxies other services). my-koto runs the standalone Next.js server
-# on plain HTTP at localhost:3000 with basePath /my-koto, so the proxy path and
-# the upstream path match: /my-koto/ -> http://localhost:3000/my-koto/.
+# on plain HTTP at localhost:3000 with basePath /my-koto.
 #
 # Enable the modules once:  a2enmod proxy proxy_http headers
 #
@@ -15,12 +14,13 @@
 # Preserve the external Host so the app builds correct absolute URLs.
 ProxyPreserveHost On
 
-# my-koto
-ProxyPass        /my-koto/ http://localhost:3000/my-koto/
-ProxyPassReverse /my-koto/ http://localhost:3000/my-koto/
-
-# Optional: redirect the bare /my-koto to /my-koto/ so the basePath resolves.
-RedirectMatch ^/my-koto$ /my-koto/
+# my-koto. NOTE: no trailing slashes. Next.js uses trailingSlash=false, so the
+# canonical path is /my-koto (without a slash) and /my-koto/ gets a 308 back to
+# it. A slash-terminated ProxyPass (/my-koto/) would only match /my-koto/ and
+# bounce in a redirect loop. The slash-less prefix matches /my-koto AND its
+# /my-koto/_next/... assets.
+ProxyPass        /my-koto http://localhost:3000/my-koto
+ProxyPassReverse /my-koto http://localhost:3000/my-koto
 
 # Notes:
 # - The Next.js standalone server already serves /my-koto/_next/* static assets
