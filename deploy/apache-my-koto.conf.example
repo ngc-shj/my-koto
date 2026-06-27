@@ -1,0 +1,31 @@
+# Apache reverse-proxy snippet for my-koto.
+#
+# Drop this inside an existing TLS <VirtualHost *:443> (the same one that
+# already proxies other services). my-koto runs the standalone Next.js server
+# on plain HTTP at localhost:3000 with basePath /my-koto, so the proxy path and
+# the upstream path match: /my-koto/ -> http://localhost:3000/my-koto/.
+#
+# Enable the modules once:  a2enmod proxy proxy_http headers
+#
+# IMPORTANT — do NOT add security headers here. my-koto emits its own CSP
+# (with a per-request nonce from middleware.ts), HSTS, Referrer-Policy,
+# Permissions-Policy, COOP/CORP, and X-Content-Type-Options. Duplicating or
+# overriding them in Apache breaks the nonce-based CSP. Let the app own them.
+
+# Preserve the external Host so the app builds correct absolute URLs.
+ProxyPreserveHost On
+
+# my-koto
+ProxyPass        /my-koto/ http://localhost:3000/my-koto/
+ProxyPassReverse /my-koto/ http://localhost:3000/my-koto/
+
+# Optional: redirect the bare /my-koto to /my-koto/ so the basePath resolves.
+RedirectMatch ^/my-koto$ /my-koto/
+
+# Notes:
+# - The Next.js standalone server already serves /my-koto/_next/* static assets
+#   and the PWA service worker at /my-koto/sw.js, so no Alias/DocumentRoot is
+#   needed — everything goes through the proxy.
+# - If you terminate HTTP/2, Next streaming still works over proxy_http/1.1;
+#   no extra config required for this app.
+# - Tailscale Funnel is NOT needed when Apache fronts the app; pick one.

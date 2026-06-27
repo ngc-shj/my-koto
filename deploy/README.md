@@ -61,6 +61,23 @@ right origin.
 > runtime secrets (KV, VAPID_PRIVATE_KEY, PUSH_DISPATCH_SECRET) read by
 > server.js.
 
+## Exposing it: Tailscale Funnel OR a reverse proxy
+
+Pick one — don't run both.
+
+- **Tailscale Funnel** (shown above): `tailscale funnel --bg --set-path /my-koto 3000`.
+- **Apache / existing reverse proxy**: if the host already fronts other
+  services with Apache, just proxy `/my-koto/` to `localhost:3000/my-koto/`.
+  See `deploy/apache-my-koto.conf.example`. Do NOT add security headers in
+  Apache — the app emits its own nonce-based CSP and HSTS; duplicating them
+  breaks CSP.
+
+  ```apache
+  ProxyPreserveHost On
+  ProxyPass        /my-koto/ http://localhost:3000/my-koto/
+  ProxyPassReverse /my-koto/ http://localhost:3000/my-koto/
+  ```
+
 ## Redeploy (Mac-build mode)
 
 ```bash
@@ -85,8 +102,9 @@ Pulls, `npm ci`, `npm run build` (heap-capped), refreshes Funnel, restarts.
 | `env.production.example.txt` | Template for `.env.production.local` (repo root). |
 | `build-and-ship.sh` | **(Mac)** Build standalone, rsync to the VPS. Recommended for low-RAM hosts. |
 | `deploy.sh` | **(VPS, ≥2 GB)** Pull → build → Funnel → restart. |
-| `install-systemd.sh` | Installs the units with paths/user substituted. |
-| `my-koto.service` | `next start` daemon. |
+| `install-systemd.sh` | Installs the units (RUN_DIR / CLONE_DIR / user substituted). |
+| `my-koto.service` | Standalone server daemon (`node server.js`). |
+| `apache-my-koto.conf.example` | Reverse-proxy snippet for an existing Apache vhost. |
 | `push-dispatch.{service,timer}` | Hourly Web Push fan-out (replaces the GH Actions cron). |
 | `push-dispatch.sh` | POSTs to `/api/push/dispatch` with the bearer secret. |
 
