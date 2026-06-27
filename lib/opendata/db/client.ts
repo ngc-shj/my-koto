@@ -17,7 +17,11 @@ let cachedClient: Client | null = null;
 let cachedUrl: string | null = null;
 
 export function openDatasetsDb(opts: OpenDbOptions = {}): Client {
-  const explicit = opts.url ?? process.env["DATASETS_DB_URL"];
+  // Treat an empty DATASETS_DB_URL (a key present but blank in .env) the same
+  // as unset, so it falls back to the local file instead of handing libsql an
+  // invalid "" URL.
+  const envUrl = process.env["DATASETS_DB_URL"];
+  const explicit = opts.url ?? (envUrl ? envUrl : undefined);
   // The production runtime must point at Turso — the Cron writes there,
   // not into the bundled-but-stale data/datasets.sqlite that survived
   // the build. Vercel sets VERCEL_ENV=production only for the prod
@@ -33,8 +37,8 @@ export function openDatasetsDb(opts: OpenDbOptions = {}): Client {
     );
   }
   const url = explicit ?? DEFAULT_DB_URL;
-  const authToken =
-    opts.authToken ?? process.env["DATASETS_DB_AUTH_TOKEN"];
+  const envToken = process.env["DATASETS_DB_AUTH_TOKEN"];
+  const authToken = opts.authToken ?? (envToken ? envToken : undefined);
   // Reuse the connection within a single process — libsql Client is
   // thread-safe and pooling is internal, so building one per call would
   // wastefully reopen the underlying connection on every server-side
