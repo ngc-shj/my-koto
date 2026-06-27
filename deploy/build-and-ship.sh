@@ -59,10 +59,15 @@ cp -a .next/static "$STAGE/.next/static"
 if [[ -d public ]]; then cp -a public "$STAGE/public"; fi
 
 # data/ holds the build-time datasets the server reads at runtime. The
-# standalone bundle only carries the JSON files that were `import`-ed; the
-# SQLite DB (read via openDatasetsDb at cwd-relative ./data/datasets.sqlite)
-# is NOT traced, so copy the whole data/ over to be safe.
-if [[ -d data ]]; then cp -a data "$STAGE/data"; fi
+# standalone bundle already created $STAGE/data with the import-ed JSON files,
+# but NOT the SQLite DB (read via openDatasetsDb at cwd-relative
+# ./data/datasets.sqlite), which the trace misses. Merge our data/ INTO the
+# existing dir — `cp -a data "$STAGE/data"` would nest it as data/data when the
+# target already exists, so copy the contents with a trailing "/.".
+if [[ -d data ]]; then
+  mkdir -p "$STAGE/data"
+  cp -a data/. "$STAGE/data/"
+fi
 
 # libsql ships its native addon as a per-platform optional dependency. Building
 # on macOS only resolves @libsql/darwin-*, so the Linux VPS would crash with
