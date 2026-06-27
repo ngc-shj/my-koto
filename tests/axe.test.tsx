@@ -28,6 +28,7 @@ import PrivacyPage from "@/app/privacy/page";
 import DisclaimerPage from "@/app/disclaimer/page";
 import NotFoundPage from "@/app/not-found";
 import OfflinePage from "@/app/offline/page";
+import DisasterQuickAccess from "@/components/DisasterQuickAccess";
 
 // --- Client Components ---
 
@@ -74,6 +75,14 @@ describe("Accessibility (axe) — static Server Component pages", () => {
 
   it("OfflinePage has no violations", async () => {
     const container = renderServerComponent(React.createElement(OfflinePage));
+    expect(await axe(container)).toHaveNoViolations();
+    container.remove();
+  });
+
+  it("DisasterQuickAccess has no violations", async () => {
+    const container = renderServerComponent(
+      React.createElement(DisasterQuickAccess),
+    );
     expect(await axe(container)).toHaveNoViolations();
     container.remove();
   });
