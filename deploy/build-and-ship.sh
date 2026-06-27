@@ -29,6 +29,9 @@ if [[ ! -f .env.production.local ]]; then
 fi
 
 echo "==> Building (next build, output: standalone)"
+# Clean stale artifacts first: a .next left from a non-standalone build makes
+# the standalone trace step fail to copy prerender-manifest.json.
+rm -rf .next
 # next reads .env.production.local automatically in production builds.
 NODE_ENV=production npm run build
 
